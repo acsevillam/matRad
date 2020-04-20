@@ -1,10 +1,11 @@
+Readme for installation of the standalone on linux
 1. Install matRad
 
 Two executables are available to install matRad on your machine 
 
 • With Runtime
 
-    >> matRad_installerMac64_wRT.app
+    >> matRad_installerLinux64_wRT.install
 
 The installer for MATLAB Runtime version 9.7 (R2019b) is already
 packaged in this installer.
@@ -12,7 +13,7 @@ packaged in this installer.
 
 • Without Runtime
 
-    >> matRad_installerMac64.app
+    >> matRad_installerLinux64.install
 
 This installer will connect to the internet to download the installer for 
 the MATLAB Runtime. For this, make sure that the terminal can connect to the 
@@ -20,13 +21,14 @@ internet (proxy settings are correctly set), and that the SSL CA certificate
 is installed on your machine (the installer might need root privileges to 
 access the certificates). 
 
-
 To run the installer from the terminal, go to the directory where the
 installer is located, and type in the command prompt
 
-       open matRad_installerMac64_wRT.app
+       ./matRad_installerLinux64_wRT.install
 or
-       open matRad_installerMac64.app
+       ./matRad_installerLinux64.install
+or
+       sudo ./matRad_installerLinux64.install
 
 
 The matRad Installer will then be launched. There you can 
@@ -36,7 +38,9 @@ The matRad Installer will then be launched. There you can
     (2) Choose Destination folder for MATLAB Runtime
 
 
-The default installation folder for application in Mac is /Applications. 
+If the environment is properly configured and the installer without Runtime 
+still doesn't run, it will not be possible to install matRad using this 
+executable. If you face this issue, use the installer with Runtime instead.
 
 
 Files and Folders created in the matRad directory after installation
