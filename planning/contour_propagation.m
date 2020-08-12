@@ -51,15 +51,33 @@ for struct = 1:num_Struct
             cube_Estimated(xe(j),ye(j),ze(j)) = 1;%ct_mama.cubeHU{scen}(xe(j),ye(j),ze(j));
         end
         fprintf('Calculo del coeficiente DICE de la estructura %d en el escenario %d.\n',struct,scen);
-        cube_Estimated; 
-        common = (cube_Estimated & cube_Original);
-         a = sum(common(:));
-         b = sum(cube_Estimated (:));
-         c = sum(cube_Original(:));
-         dice_value{struct}(scen) = 2*a/(b+c);
-         fprintf('%d %d %d %d.\n',a,b,c,dice_value{struct}(scen));
-        %dice_value{struct}(scen)=Dice3D(cube_Estimated,cube_Original);
+%         cube_Estimated; 
+%         common = (cube_Estimated & cube_Original);
+%          a = sum(common(:));
+%          b = sum(cube_Estimated (:));
+%          c = sum(cube_Original(:));
+%          dice_value{struct}(scen) = 2*a/(b+c);
+        dice_value{struct}(scen)=Dice3D(cube_Estimated,cube_Original);
+%         fprintf('%d %d %d %d.\n',a,b,c,dice_value{struct}(scen));
+        fprintf('%d. \n',dice_value{struct}(scen));
     end    
+end
+%% show the deformation vector field
+slice = 25; %ctPhase = 9;   % select a specific slice and and ct phase to plot the vector field
+[xDim,yDim,~,a] = size(ct_mama.dvf{2});
+
+[mX,mY]      = meshgrid(1:xDim,1:yDim);
+
+figure,
+for ctPhase = 2:ct_mama.numOfCtScen 
+   clf;
+   xVectorField = squeeze(ct_mama.dvf{ctPhase}(:,:,slice,1));  % retrieve the deformation vector field in x-direction of slice 25
+   yVectorField = squeeze(ct_mama.dvf{ctPhase}(:,:,slice,2));  % retrieve the deformation vector field in y-direction of slice 25
+   quiver(mX,mY,yVectorField,xVectorField); title(['deformation vector field of phase ' num2str(ctPhase)]),
+   set(gca,'XLim',[60 130]);set(gca,'YLim',[60 130]);
+   % flip y axis to be consistent with the previous plot
+   ax = gca; ax.YDir = 'reverse';
+   pause(0.9);  
 end
 
 %%
@@ -101,8 +119,6 @@ xlabel('Escenario');ylabel('Coeficiente DICE');
 title('CORAZON');
 
 %%
-% guardar valores
-
 ct = ct_mama;
 cst = cst_mama;
 
