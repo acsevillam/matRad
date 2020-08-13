@@ -208,22 +208,28 @@ end
 % matrices for unit beamlet intensities. Having dose influences available 
 % allows subsequent inverse optimization.
 dij = matRad_calcPhotonDose(ct,stf,pln,cst,param);
-
+dij2 = dij;
+dij2.doseGrid.y = dij.doseGrid.y -10;
 %% Inverse Optimization for IMRT
 % The goal of the fluence optimization is to find a set of beamlet/pencil 
 % beam weights which yield the best possible dose distribution according to
 % the clinical objectives and constraints underlying the radiation 
 % treatment. Once the optimization has finished, trigger once the GUI to 
 % visualize the optimized dose cubes.
-resultGUI = matRad_fluenceOptimization(dij,cst,pln,param);
+resultGUI = cell(1,2);
+resultGUI{1,1} = matRad_fluenceOptimization(dij,cst,pln,param);
+resultGUI{1,2} = matRad_fluenceOptimization(dij2,cst,pln,param);
 %matRadGUI;
 
 %% Plot the results
 % Let's plot the transversal iso-center dose slice
 slice = round(pln.propStf.isoCenter(1,3)./ct.resolution.z);
-figure
-imagesc(resultGUI.physicalDose(:,:,slice)),colorbar, colormap(jet);
-[dvh,qi] = matRad_indicatorWrapper(cst,pln,resultGUI);
+figure(1)
+imagesc(resultGUI{1,1}.physicalDose(:,:,slice)),colorbar, colormap(jet);
+figure(2)
+imagesc(resultGUI{1,2}.physicalDose(:,:,slice)),colorbar, colormap(jet);
+% [~,~] = matRad_indicatorWrapper(cst,pln,resultGUI);
+[~,~] = matRad_indicatorWrapper_multiScen(cst,pln,resultGUI);
 
 %%
 % retrieve 9 worst case scenarios for dose calculation and optimziation
