@@ -50,26 +50,29 @@ lineStyles = {'-',':','--','-.'};
 maxDVHvol  = 0;
 maxDVHdose = 0;
 
-currDvh = cell(1,2);
-ix = cell(1,2);
-for scen = 1:2   
+[~,numScen] = size(dvh);
+currDvh = cell(1,numScen);
+ix = cell(1,numScen);
+
+for scen = 1:numScen   
     for i = 1:numOfVois
         if cst{i,5}.Visible
             % cut off at the first zero value where there is no more signal
             % behind
             ix{1,scen}      = max([1 find(dvh{1,scen}(i).volumePoints>0,1,'last')]);
             currDvh{1,scen} = [dvh{1,scen}(i).doseGrid(1:ix{1,scen});dvh{1,scen}(i).volumePoints(1:ix{1,scen})];
-
+            
             plot(currDvh{1,scen}(1,:),currDvh{1,scen}(2,:),'LineWidth',4,'Color',colorMx(i,:), ...
-                'LineStyle',lineStyles{lineStyleIndicator},'DisplayName',cst{i,2})
+                'LineStyle',lineStyles{lineStyleIndicator})
 
             maxDVHvol  = max(maxDVHvol,max(currDvh{1,scen}(2,:)));
             maxDVHdose = max(maxDVHdose,max(currDvh{1,scen}(1,:)));
-        end
+        end      
     end
 end
+
 fontSizeValue = 14;
-myLegend = legend('show','location','NorthEast');
+myLegend = legend(cst{:,2},'location','NorthEast');
 set(myLegend,'FontSize',10,'Interpreter','none');
 legend boxoff
 
