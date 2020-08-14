@@ -5,9 +5,6 @@ clc
 
 %%
 
-load('images/patient_2/patient_2_scen_5.mat');
-
-
 for scen = [1 2 3 4 5]
     
     
