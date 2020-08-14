@@ -23,7 +23,7 @@
 matRad_rc
 
 %% Patient Data Import
-load('images/patient_2/patient_2_scen_1.mat');
+load('images/patient_1/patient_1_5mm.mat');
 
 %%
 % The file TG119.mat contains two Matlab variables. Let's check what we 
@@ -59,64 +59,162 @@ end
 % underdose the target structure (both are equally important). 
 
 % Body
-cst{1,6}(1).Priority       = 3;
+cst{1,5}(1).Priority    = 3;
 cst{1,6}(1).type        = 'square overdosing';
-cst{1,6}(1).dose        = 50;
-cst{1,6}(1).penalty     = 140;
+cst{1,6}(1).dose        = 10;
+cst{1,6}(1).penalty     = 1600;
 cst{1,6}(1).EUD         = NaN;
 cst{1,6}(1).volume      = NaN;
 cst{1,6}(1).robustness  = 'none';
  
-% Contralateral Lung
+% Bladder
 cst{2,5}.priority       = 2;
-cst{2,6}(1).type        = 'max DVH objective';
+
+cst{2,6}(1).type        = 'square overdosing';
 cst{2,6}(1).dose        = 50;
-cst{2,6}(1).penalty     = 80;
+cst{2,6}(1).penalty     = 300;
 cst{2,6}(1).EUD         = NaN;
-cst{2,6}(1).volume      = 5;
+cst{2,6}(1).volume      = NaN;
 cst{2,6}(1).robustness  = 'none';
+
+% cst{2,6}(2).type        = 'max DVH objective';
+% cst{2,6}(2).dose        = 65;
+% cst{2,6}(2).penalty     = 1200;
+% cst{2,6}(2).EUD         = NaN;
+% cst{2,6}(2).volume      = 25;
+% cst{2,6}(2).robustness  = 'none';
+% 
+% cst{2,6}(3).type        = 'max DVH objective';
+% cst{2,6}(3).dose        = 60;
+% cst{2,6}(3).penalty     = 1200;
+% cst{2,6}(3).EUD         = NaN;
+% cst{2,6}(3).volume      = 35;
+% cst{2,6}(3).robustness  = 'none';
+% 
+% cst{2,6}(4).type        = 'max DVH objective';
+% cst{2,6}(4).dose        = 50;
+% cst{2,6}(4).penalty     = 1200;
+% cst{2,6}(4).EUD         = NaN;
+% cst{2,6}(4).volume      = 50;
+% cst{2,6}(4).robustness  = 'none';
  
-% Ipsilateral Lung 
+% Rectum 
 cst{3,5}.priority       = 2;
-cst{3,6}(1).type        = 'max DVH objective';
-cst{3,6}(1).dose        = 20;
-cst{3,6}(1).penalty     = 400;
+
+cst{3,6}(1).type        = 'square overdosing';
+cst{3,6}(1).dose        = 40;
+cst{3,6}(1).penalty     = 300;
 cst{3,6}(1).EUD         = NaN;
-cst{3,6}(1).volume      = 10;
+cst{3,6}(1).volume      = NaN;
 cst{3,6}(1).robustness  = 'none';
 
-% % Heart
+% cst{3,6}(2).type        = 'max DVH objective';
+% cst{3,6}(2).dose        = 60;
+% cst{3,6}(2).penalty     = 1200;
+% cst{3,6}(2).EUD         = NaN;
+% cst{3,6}(2).volume      = 20;
+% cst{3,6}(2).robustness  = 'none';
+% 
+% cst{3,6}(3).type        = 'max DVH objective';
+% cst{3,6}(3).dose        = 55;
+% cst{3,6}(3).penalty     = 1200;
+% cst{3,6}(3).EUD         = NaN;
+% cst{3,6}(3).volume      = 25;
+% cst{3,6}(3).robustness  = 'none';
+% 
+% cst{3,6}(4).type        = 'max DVH objective';
+% cst{3,6}(4).dose        = 40;
+% cst{3,6}(4).penalty     = 1200;
+% cst{3,6}(4).EUD         = NaN;
+% cst{3,6}(4).volume      = 50;
+% cst{3,6}(4).robustness  = 'none';
+% 
+% cst{3,6}(5).type        = 'max DVH objective';
+% cst{3,6}(5).dose        = 30;
+% cst{3,6}(5).penalty     = 1200;
+% cst{3,6}(5).EUD         = NaN;
+% cst{3,6}(5).volume      = 60;
+% cst{3,6}(5).robustness  = 'none';
+
+% Left femoral head
 cst{4,5}.priority       = 2;
-cst{4,6}(1).type        = 'mean';
-cst{4,6}(1).dose        = 4;
-cst{4,6}(1).penalty     = 80;
+
+cst{4,6}(1).type        = 'max DVH objective';
+cst{4,6}(1).dose        = 25;
+cst{4,6}(1).penalty     = 400;
 cst{4,6}(1).EUD         = NaN;
-cst{4,6}(1).volume      = NaN;
+cst{4,6}(1).volume      = 2;
 cst{4,6}(1).robustness  = 'none';
 
-% Contralateral Breast
-cst{5,5}.priority       = 2;
-cst{5,6}(1).type        = 'mean';
-cst{5,6}(1).dose        = 8;
-cst{5,6}(1).penalty     = 80;
-cst{5,6}(1).EUD         = NaN;
-cst{5,6}(1).volume      = 1;
-cst{5,6}(1).robustness  = 'none';
+% cst{4,6}(2).type        = 'max DVH objective';
+% cst{4,6}(2).dose        = 40;
+% cst{4,6}(2).penalty     = 400;
+% cst{4,6}(2).EUD         = NaN;
+% cst{4,6}(2).volume      = 25;
+% cst{4,6}(2).robustness  = 'none';
 % 
- ixTarget = 6;
+% cst{4,6}(3).type        = 'max DVH objective';
+% cst{4,6}(3).dose        = 35;
+% cst{4,6}(3).penalty     = 400;
+% cst{4,6}(3).EUD         = NaN;
+% cst{4,6}(3).volume      = 50;
+% cst{4,6}(3).robustness  = 'none';
+
+% Right femoral head
+cst{5,5}.priority       = 2;
+
+cst{5,6}(1).type        = 'max DVH objective';
+cst{5,6}(1).dose        = 25;
+cst{5,6}(1).penalty     = 400;
+cst{5,6}(1).EUD         = NaN;
+cst{5,6}(1).volume      = 2;
+cst{5,6}(1).robustness  = 'none';
+
+% cst{5,6}(2).type        = 'max DVH objective';
+% cst{5,6}(2).dose        = 40;
+% cst{5,6}(2).penalty     = 400;
+% cst{5,6}(2).EUD         = NaN;
+% cst{5,6}(2).volume      = 25;
+% cst{5,6}(2).robustness  = 'none';
+% 
+% cst{5,6}(3).type        = 'max DVH objective';
+% cst{5,6}(3).dose        = 35;
+% cst{5,6}(3).penalty     = 400;
+% cst{5,6}(3).EUD         = NaN;
+% cst{5,6}(3).volume      = 50;
+% cst{5,6}(3).robustness  = 'none';
+
+% Bulb
+cst{6,5}.priority       = 2;
+cst{6,6}(1).type        = 'mean';
+cst{6,6}(1).dose        = 52.5;
+cst{6,6}(1).penalty     = 400;
+cst{6,6}(1).EUD         = NaN;
+cst{6,6}(1).volume      = NaN;
+cst{6,6}(1).robustness  = 'none';
+
+% CTV
+cst{7,5}.Priority    = 1;
+cst{7,6}.type        = 'square deviation';
+cst{7,6}.dose        = 78;
+cst{7,6}.penalty     = 400;
+cst{7,6}.robustness  = 'none';
+
+% 
+ixTarget = 8;
 
 % PTV
 cst{ixTarget,5}.Priority    = 1;
 cst{ixTarget,6}.type        = 'square deviation';
-cst{ixTarget,6}.dose        = 42.56;
-cst{ixTarget,6}.penalty     = 800;
+cst{ixTarget,6}.dose        = 78;
+cst{ixTarget,6}.penalty     = 400;
 cst{ixTarget,6}.robustness  = 'none';
 
 display(cst{ixTarget,6});
 
 %% plot CT slice
 CtScen = 1;
-slice = 25;
+slice = 10;
 imagesc(ct.cubeHU{CtScen}(:,:,slice));
 
 %%
@@ -157,15 +255,15 @@ modelName      = 'none';
 % size of 5 x 5 mm in the isocenter plane. The number of fractions is set 
 % to 30. Internally, matRad considers the fraction dose for optimization, 
 % however, objetives and constraints are defined for the entire treatment.
-pln.numOfFractions         = 16;
-pln.propStf.gantryAngles   = [15 45 75 105 135 315 345];
+pln.numOfFractions         = 39;
+pln.propStf.gantryAngles   = [0:40:359];
 pln.propStf.couchAngles    = zeros(1,numel(pln.propStf.gantryAngles));
 pln.propStf.bixelWidth     = 5;
 
 % dose calculation settings
-pln.propDoseCalc.doseGrid.resolution.x = 10; % [mm]
-pln.propDoseCalc.doseGrid.resolution.y = 10; % [mm]
-pln.propDoseCalc.doseGrid.resolution.z = 10; % [mm]
+pln.propDoseCalc.doseGrid.resolution.x = 5; % [mm]
+pln.propDoseCalc.doseGrid.resolution.y = 5; % [mm]
+pln.propDoseCalc.doseGrid.resolution.z = 5; % [mm]
 
 % retrieve bio model parameters
 pln.bioParam = matRad_bioModel(pln.radiationMode,quantityOpt,modelName);
@@ -202,14 +300,25 @@ stf = matRad_generateStf(ct,cst,pln,param);
 if param.logLevel == 1
     display(stf(1));
 end
+
 %% Dose Calculation
 % Let's generate dosimetric information by pre-computing dose influence 
 % matrices for unit beamlet intensities. Having dose influences available 
 % allows subsequent inverse optimization.
 dij = matRad_calcPhotonDose(ct,stf,pln,cst,param);
 
+%% Ceate exported folder and add to path
+exported_folder = 'exported';
+mkdir(exported_folder);
+addpath(exported_folder);
+
 %% Export dij matrix
-matRad_exportDij('dij.bin',dij,stf);
+dij_filename=append(exported_folder,'/dij.txt');
+matRad_exportDij(dij_filename,dij,stf);
+
+%% Export structures voxels ID
+i_filename=append(exported_folder,'/i.txt');
+matRad_exportStructures(i_filename,cst);
 
 %% Inverse Optimization for IMRT
 % The goal of the fluence optimization is to find a set of beamlet/pencil 

@@ -35,13 +35,13 @@ function  [ct,cst] = matRad_contourPropagation(ct,cst,pyramLevels,initialItera,s
     
 
     [num_Struct, ~] = size(cst);
-    for struct = 1:num_Struct
+    for struct_iterator = 1:num_Struct
         
-        if isempty(cst{struct,4}{1,1}) == false
+        if isempty(cst{struct_iterator,4}{1,1}) == false
             
 %           Obtaining the fixed cubic structure from the linear indices
             cube_fixed_Scena = zeros(ct.cubeDim);
-            struct_Fixed_cst = cst{struct,4}{1,1}; 
+            struct_Fixed_cst = cst{struct_iterator,4}{1,1}; 
             [x,y,z] = ind2sub(ct.cubeDim,struct_Fixed_cst);
             
 %           The HU value of the corresponding tomography is assigned to each position
@@ -51,14 +51,14 @@ function  [ct,cst] = matRad_contourPropagation(ct,cst,pyramLevels,initialItera,s
             
 %           The DVF transformation is applied and the linear values are found
             for scen_moving = 2:ct.numOfCtScen
-                fprintf('Propagando contornos de la estructura %d escenario %d. \n',struct,scen_moving);
+                fprintf('Propagando contornos de la estructura %d escenario %d. \n',struct_iterator,scen_moving);
                 scen_estimated = imwarp(cube_fixed_Scena,ct.dvf{scen_moving}); 
-                cst{struct,4}{1,scen_moving} = find(scen_estimated);
+                cst{struct_iterator,4}{1,scen_moving} = find(scen_estimated);
             end
         else
-            fprintf('Estructura %d vacia. \n',struct);
-            fprintf('Eliminando estructura %d. \n',struct);
-            cst(struct,:) = [];
+            fprintf('Estructura %d vacia. \n',struct_iterator);
+            fprintf('Eliminando estructura %d. \n',struct_iterator);
+            cst(struct_iterator,:) = [];
         end
     end     
 end 
