@@ -13,7 +13,7 @@
 %
 % %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-%% In this example we will show 
+%% In this plan we will show 
 % (i) how to load patient data into matRad
 % (ii) how to setup a photon dose calculation and 
 % (iii) how to inversely optimize beamlet intensities
@@ -213,9 +213,21 @@ cst{ixTarget,6}.robustness  = 'none';
 display(cst{ixTarget,6});
 
 %% plot CT slice
-CtScen = 1;
-slice = 10;
-imagesc(ct.cubeHU{CtScen}(:,:,slice));
+isoCenter=matRad_getIsoCenter(cst,ct,0);
+
+figure('Renderer', 'painters', 'Position', [10 10 300 500])
+
+slice = round(isoCenter(1)./ct.resolution.x);
+subplot(2,1,1);
+imagesc(transpose(reshape(ct.cubeHU{1}(slice,:,:),[ct.cubeDim(2),ct.cubeDim(3)])));
+set(gca,'YDir','normal')
+
+slice = round(isoCenter(3)./ct.resolution.z);
+subplot(2,1,2);
+imagesc(reshape(ct.cubeHU{1}(:,:,slice),[ct.cubeDim(1),ct.cubeDim(2)]));
+set(gca,'YDir','reverse')
+
+clear slice isoCenter;
 
 %%
 % First of all, we need to define what kind of radiation modality we would
@@ -269,7 +281,7 @@ pln.propDoseCalc.doseGrid.resolution.z = 5; % [mm]
 pln.bioParam = matRad_bioModel(pln.radiationMode,quantityOpt,modelName);
 
 % retrieve 9 worst case scenarios for dose calculation and optimziation
-pln.multScen = matRad_multScen(ct,'wcScen'); 
+pln.multScen = matRad_multScen(ct,'nomScen'); 
 
 %%
 % Obtain the number of beams and voxels from the existing variables and 
@@ -306,6 +318,25 @@ end
 % allows subsequent inverse optimization.
 dij = matRad_calcPhotonDose(ct,stf,pln,cst,param);
 
+%% Inverse nominal optimization for IMRT
+% The goal of the fluence optimization is to find a set of beamlet/pencil 
+% beam weights which yield the best possible dose distribution according to
+% the clinical objectives and constraints underlying the radiation 
+% treatment. Once the optimization has finished, trigger once the GUI to 
+% visualize the optimized dose cubes.
+resultGUI = matRad_fluenceOptimization(dij,cst,pln,param);
+%matRadGUI;
+
+%%
+% retrieve 9 worst case scenarios for dose calculation and optimziation
+pln.multScen = matRad_multScen(ct,'wcScen');
+
+%% Dose Calculation
+% Let's generate dosimetric information by pre-computing dose influence 
+% matrices for unit beamlet intensities. Having dose influences available 
+% allows subsequent inverse optimization.
+dij = matRad_calcPhotonDose(ct,stf,pln,cst,param);
+
 %% Ceate exported folder and add to path
 exported_folder = 'exported';
 mkdir(exported_folder);
@@ -324,7 +355,6 @@ i_filename=append(exported_folder,'/i.txt');
 matRad_exportStructures(i_filename,cst);
 
 %% Export beam positions
-
 fileHandle1 = fopen(append(exported_folder,"/beam_pos.txt"),'w');
 fileHandle2 = fopen(append(exported_folder,"/beam_rays.txt"),'w');
 
@@ -338,31 +368,6 @@ end
 fclose(fileHandle1);
 fclose(fileHandle2);
 
-%% Inverse Optimization for IMRT
-% The goal of the fluence optimization is to find a set of beamlet/pencil 
-% beam weights which yield the best possible dose distribution according to
-% the clinical objectives and constraints underlying the radiation 
-% treatment. Once the optimization has finished, trigger once the GUI to 
-% visualize the optimized dose cubes.
-resultGUI = matRad_fluenceOptimization(dij,cst,pln,param);
-%matRadGUI;
-
-%% Plot the results
-% Let's plot the transversal iso-center dose slice
-slice = round(pln.propStf.isoCenter(1,3)./ct.resolution.z);
-figure
-imagesc(resultGUI.physicalDose(:,:,slice)),colorbar, colormap(jet);
-[dvh,qi] = matRad_indicatorWrapper(cst,pln,resultGUI);
-
-%%
-% retrieve 9 worst case scenarios for dose calculation and optimziation
-pln.multScen = matRad_multScen(ct,'wcScen');
-
-%% Dose Calculation
-% Let's generate dosimetric information by pre-computing dose influence 
-% matrices for unit beamlet intensities. Having dose influences available 
-% allows subsequent inverse optimization.
-dij = matRad_calcPhotonDose(ct,stf,pln,cst,param);
 %% Trigger robust optimization
 % Make the objective to a composite worst case objective
 cst{1,6}(1).robustness  = 'COWC';
@@ -373,33 +378,15 @@ cst{5,6}(1).robustness  = 'COWC';
 cst{6,6}(1).robustness  = 'COWC';
 cst{7,6}(1).robustness  = 'COWC';
 cst{ixTarget,6}.robustness  = 'COWC';
-%%
+
+%% Inverse robust optimization for IMRT
 resultGUIrobust = matRad_fluenceOptimization(dij,cst,pln,param);
-%matRadGUI;
-%%
 
 % add resultGUIrobust dose cubes to the existing resultGUI structure to allow the visualization in the GUI
 resultGUI = matRad_appendResultGUI(resultGUI,resultGUIrobust,0,'robust');
-
-%% calc 4D dose
-totalPhaseMatrix = ones(dij.totalNumOfBixels,ct.numOfCtScen)/ct.numOfCtScen;  % the total phase matrix determines a mapping what fluence will be delivered in the which phase
-totalPhaseMatrix = bsxfun(@times,totalPhaseMatrix,resultGUIrobust.w);         % equally distribute the fluence over all fluences
-
-[resultGUIrobust4D, timeSequence] = matRad_calc4dDose(ct, pln, dij, stf, cst, resultGUIrobust,totalPhaseMatrix); 
-
-%% create an interactive plot to slide through individual scnearios
-plane         = 3;
-f = figure; title('individual scenarios');
-numScen = 1;
-maxDose       = max(max(resultGUIrobust.([quantityOpt '_' num2str(round(numScen))])(:,:,slice)))+0.2;
-doseIsoLevels = linspace(0.1 * maxDose,maxDose,10);
-matRad_plotSliceWrapper(gca,ct,cst,1,resultGUIrobust.([quantityOpt '_' num2str(round(numScen))]),plane,slice,[],[],colorcube,[],[0 maxDose],doseIsoLevels);
-b = uicontrol('Parent',f,'Style','slider','Position',[50,5,419,23],...
-      'value',numScen, 'min',1, 'max',pln.multScen.totNumScen,'SliderStep', [1/(pln.multScen.totNumScen-1) , 1/(pln.multScen.totNumScen-1)]);
-b.Callback = @(es,ed)  matRad_plotSliceWrapper(gca,ct,cst,round(es.Value),resultGUIrobust.([quantityOpt '_' num2str(round(es.Value))]),plane,slice,[],[],colorcube,[],[0 maxDose],doseIsoLevels);
+%matRadGUI;
 
 %% Plot results
-  
 plane         = 3;
 slice         = round(pln.propStf.isoCenter(1,3)./ct.resolution.z);
 maxDose       = max([max(resultGUI.([quantityOpt])(:,:,slice)) max(resultGUIrobust.([quantityOpt])(:,:,slice))])+1e-4;
@@ -408,7 +395,32 @@ figure,
 subplot(121),matRad_plotSliceWrapper(gca,ct,cst,1,resultGUI.([quantityOpt])      ,plane,slice,[],[],colorcube,[],[0 maxDose],doseIsoLevels);title('conventional plan')
 subplot(122),matRad_plotSliceWrapper(gca,ct,cst,1,resultGUIrobust.([quantityOpt]),plane,slice,[],[],colorcube,[],[0 maxDose],doseIsoLevels);title('robust plan')
 
-[dvh,qi] = matRad_indicatorWrapper(cst,pln,resultGUIrobust);
+matRad_indicatorWrapper(cst,pln,resultGUI);
+matRad_indicatorWrapper(cst,pln,resultGUIrobust);
+
+%% Multiple scenario treatment evaluation
+numScen=size(dij.([quantityOpt]));
+
+resultGUI2 = cell(numScen(1),numScen(2),numScen(3));
+resultGUIrobust2 = cell(numScen(1),numScen(2),numScen(3));
+
+for ctScen=1:numScen(1)
+    for shiftScen=1:numScen(2)
+        for shiftRangeScen=1:numScen(3)
+            if(isempty(dij.physicalDose{ctScen,shiftScen,shiftRangeScen})==false)
+                metadata.ctScen=ctScen;
+                metadata.shiftScen=shiftScen;
+                metadata.shiftRangeScen=1;
+                resultGUI2{ctScen,shiftScen,shiftRangeScen} = matRad_calcCubes(resultGUI.wUnsequenced,dij,metadata);
+                resultGUIrobust2{ctScen,shiftScen,shiftRangeScen} = matRad_calcCubes(resultGUIrobust.wUnsequenced,dij,metadata);
+            end
+        end
+    end
+end
+
+%% Plot results
+matRad_multScenDVHWrapper(cst,pln,resultGUI2);
+matRad_multScenDVHWrapper(cst,pln,resultGUIrobust2);
 
 %% Perform sampling
 % select structures to include in sampling; leave empty to sample dose for all structures
@@ -421,10 +433,8 @@ param.logLevel = 2;
    
 [caSampRob, mSampDoseRob, plnSampRob, resultGUInomScen] = matRad_sampling(ct,stf,cst,pln,resultGUIrobust.w,structSel,[],[]);
 [cstStatRob, resultGUISampRob, paramRob]                = matRad_samplingAnalysis(ct,cst,plnSampRob,caSampRob, mSampDoseRob, resultGUInomScen,[]);
- 
-   
+  
 %% Plot conventional and robust planning stdDev
-   
 figure,title('std dose cube based on sampling - conventional')
 matRad_plotSliceWrapper(gca,ct,cst,1,resultGUISamp.stdCube,plane,slice,[],[],colorcube,[],[0 max(resultGUISamp.stdCube(:))],[]);
    

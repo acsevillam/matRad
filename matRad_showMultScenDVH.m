@@ -1,8 +1,8 @@
-function matRad_showDVH_multiScen(dvh,cst,pln,lineStyleIndicator)
+function matRad_showMultScenDVH(dvh,cst,pln,lineStyleIndicator)
 % matRad dvh visualizaion
 % 
 % call
-%   matRad_showDVH(dvh,cst,pln,lineStyleIndicator)
+%   matRad_showMultScenDVH(dvh,cst,pln,lineStyleIndicator)
 %
 % input
 %   result:             result struct from fluence optimization/sequencing
@@ -50,24 +50,30 @@ lineStyles = {'-',':','--','-.'};
 maxDVHvol  = 0;
 maxDVHdose = 0;
 
-[~,numScen] = size(dvh);
-currDvh = cell(1,numScen);
-ix = cell(1,numScen);
+numScen = size(dvh);
+currDvh = cell(numScen(1),numScen(2),numScen(3));
+ix = cell(numScen(1),numScen(2),numScen(3));
 
-for scen = 1:numScen   
-    for i = 1:numOfVois
-        if cst{i,5}.Visible
-            % cut off at the first zero value where there is no more signal
-            % behind
-            ix{1,scen}      = max([1 find(dvh{1,scen}(i).volumePoints>0,1,'last')]);
-            currDvh{1,scen} = [dvh{1,scen}(i).doseGrid(1:ix{1,scen});dvh{1,scen}(i).volumePoints(1:ix{1,scen})];
-            
-            plot(currDvh{1,scen}(1,:),currDvh{1,scen}(2,:),'LineWidth',4,'Color',colorMx(i,:), ...
-                'LineStyle',lineStyles{lineStyleIndicator})
+for ctScen = 1:numScen(1)
+    for shiftScen = 1:numScen(2)
+        for shiftRangeScen = 1:numScen(3)
+            for i = 1:numOfVois
+                if (isempty(dvh{ctScen,shiftScen,shiftRangeScen})==false)
+                    if cst{i,5}.Visible
+                        % cut off at the first zero value where there is no more signal
+                        % behind
+                        ix{ctScen,shiftScen,shiftRangeScen}      = max([1 find(dvh{ctScen,shiftScen,shiftRangeScen}(i).volumePoints>0,1,'last')]);
+                        currDvh{ctScen,shiftScen,shiftRangeScen} = [dvh{ctScen,shiftScen,shiftRangeScen}(i).doseGrid(1:ix{ctScen,shiftScen,shiftRangeScen});dvh{ctScen,shiftScen,shiftRangeScen}(i).volumePoints(1:ix{ctScen,shiftScen,shiftRangeScen})];
 
-            maxDVHvol  = max(maxDVHvol,max(currDvh{1,scen}(2,:)));
-            maxDVHdose = max(maxDVHdose,max(currDvh{1,scen}(1,:)));
-        end      
+                        plot(currDvh{ctScen,shiftScen,shiftRangeScen}(1,:),currDvh{ctScen,shiftScen,shiftRangeScen}(2,:),'LineWidth',2,'Color',colorMx(i,:), ...
+                            'LineStyle',lineStyles{lineStyleIndicator})
+
+                        maxDVHvol  = max(maxDVHvol,max(currDvh{ctScen,shiftScen,shiftRangeScen}(2,:)));
+                        maxDVHdose = max(maxDVHdose,max(currDvh{ctScen,shiftScen,shiftRangeScen}(1,:)));
+                    end
+                end
+            end
+        end
     end
 end
 

@@ -302,7 +302,8 @@ resultGUI.wUnsequenced = wOpt;
 if options.numOfScen > 1 || FLAG_ROB_OPT
    Cnt = 1;
    for i = find(~cellfun(@isempty,dij.physicalDose))'
-      tmpResultGUI = matRad_calcCubes(wOpt,dij,i);
+      metadata.numScen = i;
+      tmpResultGUI = matRad_calcCubes(wOpt,dij,metadata);
       resultGUI.([pln.bioParam.quantityVis '_' num2str(Cnt,'%d')]) = tmpResultGUI.(pln.bioParam.quantityVis);
       Cnt = Cnt + 1;
    end      

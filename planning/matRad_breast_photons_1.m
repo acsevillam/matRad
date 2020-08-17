@@ -13,7 +13,7 @@
 %
 % %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-%% In this example we will show 
+%% In this plan we will show 
 % (i) how to load patient data into matRad
 % (ii) how to setup a photon dose calculation and 
 % (iii) how to inversely optimize beamlet intensities
@@ -23,7 +23,7 @@
 matRad_rc
 
 %% Patient Data Import
-load('images/patient_2/patient_2_scen_1.mat');
+load('images/patient_2/patient_2_scen_1_resized.mat');
 
 %%
 % The file TG119.mat contains two Matlab variables. Let's check what we 
@@ -34,6 +34,7 @@ load('images/patient_2/patient_2_scen_1.mat');
 if param.logLevel == 1
     display(ct);
 end
+
 %%
 % The 'cst' cell array defines volumes of interests along with information 
 % required for optimization. Each row belongs to one certain volume of 
@@ -45,6 +46,7 @@ end
 if param.logLevel == 1
     display(cst);
 end
+
 %% Treatment Plan
 % The next step is to define your treatment plan labeled as 'pln'. This 
 % matlab structure requires input from the treatment planner and defines 
@@ -59,15 +61,15 @@ end
 % underdose the target structure (both are equally important). 
 
 % Body
-cst{1,6}(1).Priority       = 3;
+cst{1,6}(1).Priority    = 3;
 cst{1,6}(1).type        = 'square overdosing';
-cst{1,6}(1).dose        = 50;
-cst{1,6}(1).penalty     = 140;
+cst{1,6}(1).dose        = 30;
+cst{1,6}(1).penalty     = 400;
 cst{1,6}(1).EUD         = NaN;
 cst{1,6}(1).volume      = NaN;
 cst{1,6}(1).robustness  = 'none';
  
-% Contralateral Lung
+% % Contralateral Lung
 cst{2,5}.priority       = 2;
 cst{2,6}(1).type        = 'max DVH objective';
 cst{2,6}(1).dose        = 50;
@@ -82,14 +84,14 @@ cst{3,6}(1).type        = 'max DVH objective';
 cst{3,6}(1).dose        = 20;
 cst{3,6}(1).penalty     = 400;
 cst{3,6}(1).EUD         = NaN;
-cst{3,6}(1).volume      = 10;
+cst{3,6}(1).volume      = 0;
 cst{3,6}(1).robustness  = 'none';
 
 % % Heart
 cst{4,5}.priority       = 2;
 cst{4,6}(1).type        = 'mean';
 cst{4,6}(1).dose        = 4;
-cst{4,6}(1).penalty     = 80;
+cst{4,6}(1).penalty     = 250;
 cst{4,6}(1).EUD         = NaN;
 cst{4,6}(1).volume      = NaN;
 cst{4,6}(1).robustness  = 'none';
@@ -102,8 +104,8 @@ cst{5,6}(1).penalty     = 80;
 cst{5,6}(1).EUD         = NaN;
 cst{5,6}(1).volume      = 1;
 cst{5,6}(1).robustness  = 'none';
-% 
- ixTarget = 6;
+
+ixTarget = 6;
 
 % PTV
 cst{ixTarget,5}.Priority    = 1;
@@ -115,9 +117,24 @@ cst{ixTarget,6}.robustness  = 'none';
 display(cst{ixTarget,6});
 
 %% plot CT slice
-CtScen = 1;
-slice = 25;
-imagesc(ct.cubeHU{CtScen}(:,:,slice));
+if param.logLevel == 1
+   
+figure('Renderer', 'painters', 'Position', [10 10 300*ct.numOfCtScen 400]);
+
+    for scen_iterator = 1:ct.numOfCtScen
+        plane      = 1;
+        slice      = 128;
+        subplot(2,ct.numOfCtScen,scen_iterator); camroll(90);
+        matRad_geoSliceWrapper(gca,ct,cst,scen_iterator,plane,slice,[],[],colorcube,[],[]);
+        
+        plane      = 3;
+        slice      = 30;
+        subplot(2,ct.numOfCtScen,scen_iterator+ct.numOfCtScen);
+        matRad_geoSliceWrapper(gca,ct,cst,scen_iterator,plane,slice,[],[],colorcube,[],[]);
+        
+    end
+
+end
 
 %%
 % First of all, we need to define what kind of radiation modality we would
@@ -202,6 +219,7 @@ stf = matRad_generateStf(ct,cst,pln,param);
 if param.logLevel == 1
     display(stf(1));
 end
+
 %% Dose Calculation
 % Let's generate dosimetric information by pre-computing dose influence 
 % matrices for unit beamlet intensities. Having dose influences available 

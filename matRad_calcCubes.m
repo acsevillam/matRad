@@ -1,4 +1,4 @@
-function resultGUI = matRad_calcCubes(w,dij,scenNum)
+function resultGUI = matRad_calcCubes(w,dij,metadata)
 % matRad computation of all cubes for the resultGUI struct which is used
 % as result container and for visualization in matRad's GUI
 %
@@ -8,7 +8,7 @@ function resultGUI = matRad_calcCubes(w,dij,scenNum)
 % input
 %   w:       bixel weight vector
 %   dij:     dose influence matrix
-%   scenNum: optional: number of scenario to calculated (default 1)
+%   ctScen: optional: number of scenario to calculated (default 1)
 %
 % output
 %   resultGUI: matRad result struct
@@ -27,10 +27,16 @@ function resultGUI = matRad_calcCubes(w,dij,scenNum)
 %
 % %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-if nargin < 3
-    scenNum = 1;
+if nargin<3
+    metadata = struct();
 end
 
+%% Prepare Metadata
+if ~isfield(metadata,'numScen')&&(~isfield(metadata,'ctScen')||~isfield(metadata,'shiftScen')||~isfield(metadata,'shiftRangeScen'))
+    metadata.numScen = 1;
+end
+
+%%
 resultGUI.w = w;
 
 % get bixel - beam correspondence  
@@ -44,7 +50,11 @@ beamInfo(dij.numOfBeams+1).logIx  = true(size(w));
 
 % compute physical dose for all beams individually and together
 for i = 1:length(beamInfo)
-    resultGUI.(['physicalDose', beamInfo(i).suffix]) = reshape(full(dij.physicalDose{scenNum} * (resultGUI.w .* beamInfo(i).logIx)),dij.doseGrid.dimensions);
+    if(isfield(metadata,'numScen'))
+        resultGUI.(['physicalDose', beamInfo(i).suffix]) = reshape(full(dij.physicalDose{metadata.numScen} * (resultGUI.w .* beamInfo(i).logIx)),dij.doseGrid.dimensions);
+    else
+        resultGUI.(['physicalDose', beamInfo(i).suffix]) = reshape(full(dij.physicalDose{metadata.ctScen,metadata.shiftScen,metadata.shiftRangeScen} * (resultGUI.w .* beamInfo(i).logIx)),dij.doseGrid.dimensions);
+    end
 end
 
 % consider RBE for protons
@@ -57,7 +67,7 @@ end
 % consider LET
 if isfield(dij,'mLETDose')
     for i = 1:length(beamInfo)
-        LETDoseCube                                 = dij.mLETDose{scenNum} * (resultGUI.w .* beamInfo(i).logIx);
+        LETDoseCube                                 = dij.mLETDose{ctScen,shiftScen,shiftRangeScen} * (resultGUI.w .* beamInfo(i).logIx);
         resultGUI.(['LET', beamInfo(i).suffix])     = zeros(dij.doseGrid.dimensions);
         ix                                          = resultGUI.(['physicalDose', beamInfo(i).suffix]) > 0;
         resultGUI.(['LET', beamInfo(i).suffix])(ix) = LETDoseCube(ix)./resultGUI.(['physicalDose', beamInfo(i).suffix])(ix);
@@ -74,7 +84,7 @@ if isfield(dij,'mAlphaDose') && isfield(dij,'mSqrtBetaDose')
        
        ix = dij.bx~=0 & resultGUI.(['physicalDose', beamInfo(i).suffix])(:) > 0;
 
-       resultGUI.(['effect', beamInfo(i).suffix])       = full(dij.mAlphaDose{scenNum} * wBeam + (dij.mSqrtBetaDose{scenNum} * wBeam).^2);
+       resultGUI.(['effect', beamInfo(i).suffix])       = full(dij.mAlphaDose{ctScen,shiftScen,shiftRangeScen} * wBeam + (dij.mSqrtBetaDose{ctScen,shiftScen,shiftRangeScen} * wBeam).^2);
        resultGUI.(['effect', beamInfo(i).suffix])       = reshape(resultGUI.(['effect', beamInfo(i).suffix]),dij.doseGrid.dimensions);
     
        resultGUI.(['RBExD', beamInfo(i).suffix])        = zeros(size(resultGUI.(['effect', beamInfo(i).suffix])));
@@ -85,10 +95,10 @@ if isfield(dij,'mAlphaDose') && isfield(dij,'mSqrtBetaDose')
        resultGUI.(['alpha', beamInfo(i).suffix])        = zeros(dij.doseGrid.dimensions);
        resultGUI.(['beta',  beamInfo(i).suffix])        = zeros(dij.doseGrid.dimensions);
 
-       AlphaDoseCube                                    = full(dij.mAlphaDose{scenNum} * wBeam);
+       AlphaDoseCube                                    = full(dij.mAlphaDose{ctScen,shiftScen,shiftRangeScen} * wBeam);
        resultGUI.(['alpha', beamInfo(i).suffix])(ix)    = AlphaDoseCube(ix)./resultGUI.(['physicalDose', beamInfo(i).suffix])(ix);
 
-       SqrtBetaDoseCube                                 = full(dij.mSqrtBetaDose{scenNum} * wBeam);
+       SqrtBetaDoseCube                                 = full(dij.mSqrtBetaDose{ctScen,shiftScen,shiftRangeScen} * wBeam);
        resultGUI.(['beta', beamInfo(i).suffix])(ix)     = (SqrtBetaDoseCube(ix)./resultGUI.(['physicalDose', beamInfo(i).suffix])(ix)).^2;
     end
 end
