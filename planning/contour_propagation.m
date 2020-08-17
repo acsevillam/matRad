@@ -51,22 +51,22 @@ for struct_iterator = 1:num_Struct
             cube_Estimated(xe(j),ye(j),ze(j)) = 1;
         end
         fprintf('Calculo del coeficiente DICE de la estructura %d en el escenario %d.\n',struct_iterator,scen);
-        dice_value{struct_iterator}(scen)=Dice3D(cube_Estimated,cube_Original);
+        dice_value{struct_iterator}(scen)=matRad_dice3D(cube_Estimated,cube_Original);
         fprintf('%d. \n',dice_value{struct_iterator}(scen));
     end    
 end
 %% show the deformation vector field
 slice = 30; %ctPhase = 9;   % select a specific slice and and ct phase to plot the vector field
-[xDim,~,zDim,a] = size(ct_mama.dvf{2});
+[yDim,~,zDim,a] = size(ct_mama.dvf{2});
 
-[mX,mZ]      = meshgrid(1:zDim,1:xDim);
+[mY,mZ]      = meshgrid(1:zDim,1:yDim);
 
 figure,
 for ctPhase = 2:ct_mama.numOfCtScen 
    clf;
-   xVectorField = squeeze(ct_mama.dvf{ctPhase}(:,slice,:,1));  % retrieve the deformation vector field in x-direction of slice 25
-   zVectorField = squeeze(ct_mama.dvf{ctPhase}(:,slice,:,3));  % retrieve the deformation vector field in y-direction of slice 25
-   quiver(mZ,mX,zVectorField,xVectorField); title(['deformation vector field of phase ' num2str(ctPhase)]),
+   yVectorField = squeeze(ct_mama.dvf{ctPhase}(slice,:,:,1));  % retrieve the deformation vector field in x-direction of slice 25
+   zVectorField = squeeze(ct_mama.dvf{ctPhase}(slice,:,:,3));  % retrieve the deformation vector field in y-direction of slice 25
+   quiver(mZ,mY,zVectorField,yVectorField); title(['deformation vector field of phase ' num2str(ctPhase)]),
    
    set(gca,'XLim',[1 256]);set(gca,'YLim',[1 65]);
    pause(0.9);   
@@ -74,38 +74,34 @@ end
 
 %%
 % graficas de los valores Dice para cada escenario
-figure(1)
-% subplot(2,2,1);
+figure('Renderer', 'painters', 'Position', [10 10 1200 600]);
+
+subplot(2,3,1);
 bar(1:5,dice_value{1,1});
 xlabel('Escenario');ylabel('Coeficiente DICE');
 title('Skin');
 
-figure(2)
-% subplot(2,2,2);
+subplot(2,3,2);
 bar(1:5,dice_value{1,2});
 xlabel('Escenario');ylabel('Coeficiente DICE');
 title('PULMON DERECHO');
 
-figure(3)
-% subplot(2,2,3);
+subplot(2,3,3);
 bar(1:5,dice_value{1,3});
 xlabel('Escenario');ylabel('Coeficiente DICE');
 title('PULMON IZQUIERDO');
 
-figure(4)
-% subplot(2,2,1);
+subplot(2,3,4);
 bar(1:5,dice_value{1,5});
 xlabel('Escenario');ylabel('Coeficiente DICE');
 title('SENO CONTRALATERAL');
 
-figure(5)
-% subplot(2,2,2);
+subplot(2,3,5);
 bar(1:5,dice_value{1,6});
 xlabel('Escenario');ylabel('Coeficiente DICE');
 title('CTV-TARGET');
 
-figure(6)
-% subplot(2,2,3);
+subplot(2,3,6);
 bar(1:5,dice_value{1,4});
 xlabel('Escenario');ylabel('Coeficiente DICE');
 title('CORAZON');

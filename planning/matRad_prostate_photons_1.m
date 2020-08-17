@@ -13,7 +13,7 @@
 %
 % %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-%% In this example we will show 
+%% In this plan we will show 
 % (i) how to load patient data into matRad
 % (ii) how to setup a photon dose calculation and 
 % (iii) how to inversely optimize beamlet intensities
@@ -26,11 +26,11 @@ matRad_rc
 load('images/patient_1/patient_1_5mm.mat');
 
 %%
-% The file TG119.mat contains two Matlab variables. Let's check what we 
+% The file patient_1_5mm.mat contains two Matlab variables. Let's check what we 
 % have just imported. First, the 'ct' variable comprises the ct cube along
-%with some meta information describing properties of the ct cube (cube 
+% with some meta information describing properties of the ct cube (cube 
 % dimensions, resolution, number of CT scenarios). Please note that 
-%multiple ct cubes (e.g. 4D CT) can be stored in the cell array ct.cube{}
+% multiple ct cubes (e.g. 4D CT) can be stored in the cell array ct.cube{}
 if param.logLevel == 1
     display(ct);
 end
@@ -45,6 +45,12 @@ end
 if param.logLevel == 1
     display(cst);
 end
+
+%% plot CT slice
+CtScen = 1;
+slice = 10;
+imagesc(ct.cubeHU{CtScen}(:,:,slice));
+
 %% Treatment Plan
 % The next step is to define your treatment plan labeled as 'pln'. This 
 % matlab structure requires input from the treatment planner and defines 
@@ -212,11 +218,6 @@ cst{ixTarget,6}.robustness  = 'none';
 
 display(cst{ixTarget,6});
 
-%% plot CT slice
-CtScen = 1;
-slice = 10;
-imagesc(ct.cubeHU{CtScen}(:,:,slice));
-
 %%
 % First of all, we need to define what kind of radiation modality we would
 % like to use. Possible values are photons, protons or carbon. In this case
@@ -253,7 +254,7 @@ modelName      = 'none';
 % results in 9 beams. All corresponding couch angles are set to 0 at this 
 % point. Moreover, we set the bixelWidth to 5, which results in a beamlet 
 % size of 5 x 5 mm in the isocenter plane. The number of fractions is set 
-% to 30. Internally, matRad considers the fraction dose for optimization, 
+% to 39. Internally, matRad considers the fraction dose for optimization, 
 % however, objetives and constraints are defined for the entire treatment.
 pln.numOfFractions         = 39;
 pln.propStf.gantryAngles   = [0:40:359];
@@ -296,7 +297,7 @@ end
 stf = matRad_generateStf(ct,cst,pln,param);
 
 %%
-% Let's display the beam geometry information of the 6th beam
+% Let's display the beam geometry information of the 1st beam
 if param.logLevel == 1
     display(stf(1));
 end
@@ -313,12 +314,26 @@ mkdir(exported_folder);
 addpath(exported_folder);
 
 %% Export dij matrix
-dij_filename=append(exported_folder,'/dij.txt');
+dij_filename=append(exported_folder,'/','dij','.txt');
 matRad_exportDij(dij_filename,dij,stf);
 
 %% Export structures voxels ID
 i_filename=append(exported_folder,'/i.txt');
 matRad_exportStructures(i_filename,cst);
+
+%% Export beam positions
+fileHandle1 = fopen(append(exported_folder,"/beam_pos.txt"),'w');
+fileHandle2 = fopen(append(exported_folder,"/beam_rays.txt"),'w');
+
+for i = 1:pln.propStf.numOfBeams
+    fprintf(fileHandle2,'%i\n',stf(i).numOfRays);
+    for j = 1:stf(i).numOfRays
+        fprintf(fileHandle1,'%i\t%i\t%i\n',stf(i).ray(j).rayPos_bev(1),stf(i).ray(j).rayPos_bev(2),stf(i).ray(j).rayPos_bev(3));
+    end
+end
+
+fclose(fileHandle1);
+fclose(fileHandle2);
 
 %% Inverse Optimization for IMRT
 % The goal of the fluence optimization is to find a set of beamlet/pencil 

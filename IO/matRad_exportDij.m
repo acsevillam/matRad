@@ -27,7 +27,6 @@ if nargin<4
     metadata = struct();
 end
 
-
 %% Prepare Metadata
 
 if ~isfield(metadata,'delimiter')
