@@ -23,7 +23,7 @@
 matRad_rc
 
 %% Patient Data Import
-load('images/patient_1/patient_1_5mm.mat');
+load('images/patient_1/patient_1_10mm.mat');
 
 %%
 % The file TG119.mat contains two Matlab variables. Let's check what we 
@@ -270,12 +270,12 @@ modelName      = 'none';
 pln.numOfFractions         = 39;
 pln.propStf.gantryAngles   = [0:40:359];
 pln.propStf.couchAngles    = zeros(1,numel(pln.propStf.gantryAngles));
-pln.propStf.bixelWidth     = 5;
+pln.propStf.bixelWidth     = 10;
 
 % dose calculation settings
-pln.propDoseCalc.doseGrid.resolution.x = 5; % [mm]
-pln.propDoseCalc.doseGrid.resolution.y = 5; % [mm]
-pln.propDoseCalc.doseGrid.resolution.z = 5; % [mm]
+pln.propDoseCalc.doseGrid.resolution.x = 10; % [mm]
+pln.propDoseCalc.doseGrid.resolution.y = 10; % [mm]
+pln.propDoseCalc.doseGrid.resolution.z = 10; % [mm]
 
 % retrieve bio model parameters
 pln.bioParam = matRad_bioModel(pln.radiationMode,quantityOpt,modelName);
@@ -343,10 +343,10 @@ mkdir(exported_folder);
 addpath(exported_folder);
 
 %% Export dij matrix
-metadata.ctScen=1;
 filename_index = ["000","400","-400","040","0-40","004","00-4"];
 for shiftScen = 1:pln.multScen.totNumShiftScen
-    dij_filename=append(exported_folder,'/','dij',filename_index{shiftScen},'.txt');
+    metadata.shiftScen=shiftScen;
+    dij_filename=append(exported_folder,'/','dij',filename_index{shiftScen},'.bin');
     matRad_exportDij(dij_filename,dij,stf,metadata);
 end
 

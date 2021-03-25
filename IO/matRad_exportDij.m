@@ -34,15 +34,15 @@ if ~isfield(metadata,'delimiter')
 end
 
 if ~isfield(metadata,'ctScen')
-    metadata.numScen = 1; %Default scenario
+    metadata.ctScen = 1; %Default scenario
 end
 
 if ~isfield(metadata,'shiftScen')
-    metadata.numScen = 1; %Default scenario
+    metadata.shiftScen = 1; %Default scenario
 end
 
 if ~isfield(metadata,'rangeShiftScen')
-    metadata.numScen = 1; %Default scenario
+    metadata.rangeShiftScen = 1; %Default scenario
 end
 
 if ~isfield(metadata,'individualFiles')
@@ -163,7 +163,7 @@ try
         header = header_addComment(header,'voxelID bixelID physicalDose[Gy]');
         
         %Read physical dose from non zeros dij
-        [ix,iy,vals] = find(dij.physicalDose{metadata.numScen});
+        [ix,iy,vals] = find(dij.physicalDose{metadata.ctScen,metadata.shiftScen,metadata.rangeShiftScen});
         data(:,1) = ix;
         data(:,2) = iy;
         data(:,3) = vals;
@@ -183,9 +183,17 @@ try
         elseif strcmp(metadata.extension,'bin')
             
             %Append data to file
-            fileHandle = fopen(filename+"."+metadata.extension,'w');
+            fileHandle = fopen(filename+"_i"+"."+metadata.extension,'w');
             fwrite(fileHandle,uint32(ix),'uint32');
+            fclose(fileHandle);
+            
+            %Append data to file
+            fileHandle = fopen(filename+"_j"+"."+metadata.extension,'w');
             fwrite(fileHandle,uint32(iy),'uint32');
+            fclose(fileHandle);
+            
+            %Append data to file
+            fileHandle = fopen(filename+"_D"+"."+metadata.extension,'w');
             fwrite(fileHandle,vals,'double');
             fclose(fileHandle);
             
