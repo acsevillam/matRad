@@ -23,7 +23,7 @@
 matRad_rc
 
 %% Patient Data Import
-load('images/patient_1/patient_1_5mm.mat');
+load('images/patient_1/patient_1_10mm.mat');
 
 %%
 % The file patient_1_5mm.mat contains two Matlab variables. Let's check what we 
@@ -143,7 +143,7 @@ cst{3,6}(1).robustness  = 'none';
 % cst{3,6}(5).robustness  = 'none';
 
 % Left femoral head
-cst{4,5}.priority       = 2;
+%cst{4,5}.priority       = 2;
 
 cst{4,6}(1).type        = 'max DVH objective';
 cst{4,6}(1).dose        = 25;
@@ -259,12 +259,12 @@ modelName      = 'none';
 pln.numOfFractions         = 39;
 pln.propStf.gantryAngles   = [0:40:359];
 pln.propStf.couchAngles    = zeros(1,numel(pln.propStf.gantryAngles));
-pln.propStf.bixelWidth     = 5;
+pln.propStf.bixelWidth     = 10;
 
 % dose calculation settings
-pln.propDoseCalc.doseGrid.resolution.x = 5; % [mm]
-pln.propDoseCalc.doseGrid.resolution.y = 5; % [mm]
-pln.propDoseCalc.doseGrid.resolution.z = 5; % [mm]
+pln.propDoseCalc.doseGrid.resolution.x = 10; % [mm]
+pln.propDoseCalc.doseGrid.resolution.y = 10; % [mm]
+pln.propDoseCalc.doseGrid.resolution.z = 10; % [mm]
 
 % retrieve bio model parameters
 pln.bioParam = matRad_bioModel(pln.radiationMode,quantityOpt,modelName);
@@ -314,7 +314,7 @@ mkdir(exported_folder);
 addpath(exported_folder);
 
 %% Export dij matrix
-dij_filename=append(exported_folder,'/','dij','.txt');
+dij_filename=append(exported_folder,'/','dij','.bin');
 matRad_exportDij(dij_filename,dij,stf);
 
 %% Export structures voxels ID
@@ -334,6 +334,7 @@ end
 
 fclose(fileHandle1);
 fclose(fileHandle2);
+
 
 %% Inverse Optimization for IMRT
 % The goal of the fluence optimization is to find a set of beamlet/pencil 

@@ -86,8 +86,8 @@ try
                 fprintf(fileHandle,'%s\n',header_ith);
 
                 %Append data to file to i-th beam
-                %writematrix(data,filename_tmp,'Delimiter',metadata.delimiter,'-append'); % If you use r2019b matlab version
-                dlmwrite(filename_ith+"."+metadata.extension,data,'delimiter',metadata.delimiter,'-append');
+                writecell(data,filename_ith+"."+metadata.extension);
+                %dlmwrite(filename_ith+"."+metadata.extension,data{1,1},'delimiter',metadata.delimiter,'-append');
 
                 fclose(fileHandle);
 
@@ -95,7 +95,7 @@ try
 
                 %Append data to file to i-th beam
                 fileHandle = fopen(filename_ith+"."+metadata.extension,'w');
-                fwrite(fileHandle,uint32(data),'uint32')
+                fwrite(fileHandle,uint32(data{1,1}),'uint32')
                 fclose(fileHandle);
 
                 %Write an additional header file
