@@ -1,10 +1,11 @@
 function resultGUI = matRad_xiaLeafSequencing(resultGUI,stf,dij,numOfLevels,visBool)
-% multileaf collimator leaf sequencing algorithm for intensity modulated 
-% beams with multiple static segments according to Xia et al. (1998)
-% Medical Physics
+% multileaf collimator leaf sequencing algorithm 
+% for intensity modulated beams with multiple static segments according to 
+% Xia et al. (1998) Medical Physics
 % 
 % call
-%   resultSequencing = matRad_xiaLeafSequencing(w,stf,pln,numOfLevels,visBool)
+%   resultGUI = matRad_xiaLeafSequencing(resultGUI,stf,dij,numOfLevels)
+%   resultGUI = matRad_xiaLeafSequencing(resultGUI,stf,dij,numOfLevels,visBool)
 %
 % input
 %   resultGUI:          resultGUI struct to which the output data will be added, if
@@ -259,9 +260,9 @@ resultGUI.apertureInfo = matRad_sequencing2ApertureInfo(sequencing,stf);
 
 doseSequencedDoseGrid = reshape(dij.physicalDose{1} * sequencing.w,dij.doseGrid.dimensions);
 % interpolate to ct grid for visualiation & analysis
-resultGUI.physicalDose = interp3(dij.doseGrid.y,dij.doseGrid.x',dij.doseGrid.z, ...
-                                 doseSequencedDoseGrid, ...
-                                 dij.ctGrid.y,dij.ctGrid.x',dij.ctGrid.z);
+resultGUI.physicalDose = matRad_interp3(dij.doseGrid.x,dij.doseGrid.y',dij.doseGrid.z, ...
+                                        doseSequencedDoseGrid, ...
+                                        dij.ctGrid.x,dij.ctGrid.y',dij.ctGrid.z);
 
 % if weights exists from an former DAO remove it
 if isfield(resultGUI,'wDao')

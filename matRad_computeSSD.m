@@ -1,20 +1,21 @@
-function stf = matRad_computeSSD(stf,ct,param,mode)
+function stf = matRad_computeSSD(stf,ct,mode)
 % matRad SSD calculation
 % 
 % call
+%   stf = matRad_computeSSD(stf,ct)
 %   stf = matRad_computeSSD(stf,ct,mode)
 %
 % input
-%   ct:             ct cube
-%   stf:            matRad steering information struct
-%   mode:           optional parameter specifying how to handle multiple
-%                   cubes to compute one SSD
+%   ct:     ct cube
+%   stf:    matRad steering information struct
+%   mode:   optional parameter specifying how to handle multiple
+%           cubes to compute one SSD
 % output
-%   stf:            matRad steering information struct
+%   stf:    matRad steering information struct
 %
 % References
-%
 %   -
+%
 % %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
 % Copyright 2017 the matRad development team. 
@@ -28,23 +29,17 @@ function stf = matRad_computeSSD(stf,ct,param,mode)
 %
 % %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-if nargin < 5
-    mode = 'first';
-end
+matRad_cfg = MatRad_Config.instance();
 
-if exist('param','var')
-    if ~isfield(param,'logLevel')
-       param.logLevel = 1;
-    end
-else
-   param.logLevel       = 1;
+if nargin < 3
+    mode = 'first';
 end
 
 % booleon to show warnings only once in the console
 boolShowWarning = true;
 
 % set density threshold for SSD computation
-densityThreshold = 0.05;
+densityThreshold = matRad_cfg.propDoseCalc.defaultSsdDensityThreshold;
 
 if strcmp(mode,'first')
     for i = 1:size(stf,2)
@@ -54,15 +49,15 @@ if strcmp(mode,'first')
                                  ct.resolution, ...
                                  stf(i).sourcePoint, ...
                                  stf(i).ray(j).targetPoint, ...
-                                 {ct.cube{1}});
+                                 {ct.cube{1}}); %Is this correct for multiple scenarios?
             ixSSD = find(rho{1} > densityThreshold,1,'first');
 
             if boolShowWarning
                 if isempty(ixSSD)
-                    matRad_dispToConsole('ray does not hit patient. Trying to fix afterwards...',param,'warning');
+                    matRad_cfg.dispWarning('ray does not hit patient. Trying to fix afterwards...');
                     boolShowWarning = false;
                 elseif ixSSD(1) == 1
-                    matRad_dispToConsole('Surface for SSD calculation starts directly in first voxel of CT\n',param,'warning');
+                    matRad_cfg.dispWarning('Surface for SSD calculation starts directly in first voxel of CT!');
                     boolShowWarning = false;
                 end
             end
@@ -84,7 +79,9 @@ if strcmp(mode,'first')
     end
 
 else
-    error('mode not defined for SSD calculation');
+    matRad_cfg.dispError('Invalid mode %s for SSD calculation',mode);
+end
+
 end
 
 % default setting only use first cube
@@ -99,9 +96,8 @@ function bestSSD = matRad_closestNeighbourSSD(rayPos, SSD, currPos)
         end
     end
     if any(isempty(bestSSD))
-        matRad_dispToConsole('Could not fix SSD calculation.\n',param,'error');
+        matRad_cfg = MatRad_Config.instance();
+        matRad_cfg.dispError('Error in SSD calculation: Could not fix SSD calculation by using closest neighbouring ray.');
     end
   
-end
-
 end

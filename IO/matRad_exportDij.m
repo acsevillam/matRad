@@ -23,9 +23,13 @@ function matRad_exportDij(filename,dij,stf,metadata)
 % LICENSE file.
 %
 % %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+matRad_cfg = MatRad_Config.instance();
+
 if nargin<4
     metadata = struct();
 end
+
 
 %% Prepare Metadata
 
@@ -33,16 +37,8 @@ if ~isfield(metadata,'delimiter')
     metadata.delimiter = '\t'; %Default delimiter
 end
 
-if ~isfield(metadata,'ctScen')
-    metadata.ctScen = 1; %Default scenario
-end
-
-if ~isfield(metadata,'shiftScen')
-    metadata.shiftScen = 1; %Default scenario
-end
-
-if ~isfield(metadata,'rangeShiftScen')
-    metadata.rangeShiftScen = 1; %Default scenario
+if ~isfield(metadata,'numScen')
+    metadata.numScen = 1; %Default scenario
 end
 
 if ~isfield(metadata,'individualFiles')
@@ -71,6 +67,14 @@ header = header_addComment(header,'Created With matRad - An open source multi-mo
 
 %% Write File
 try
+
+        
+    %Set up parent export folder and full file path
+    if ~(isfolder('dijExport'))
+        mkdir(matRad_cfg.matRadRoot, 'dijExport');
+    end
+    
+    folderPath = [matRad_cfg.matRadRoot filesep 'dijExport' filesep];
     
     if metadata.individualFiles
         
@@ -83,7 +87,7 @@ try
             lastdot_pos = find(filename == '.', 1, 'last');
             
             filename_ith = filename(1:lastdot_pos-1);
-            filename_ith = filename_ith+"_"+i;
+            filename_ith = [filename_ith '_' num2str(i)];
             
             %Add gantryAngle field to i-th beam header
             header_ith = header_addIntField(header,'gantry angle',stf(i).gantryAngle);
@@ -92,7 +96,7 @@ try
             %Add totalNumOfBixels field to i-th beam header
             header_ith = header_addIntField(header_ith,'total number of bixels', stf(i).totalNumOfBixels);
             %Add dimensions of dose grid field to i-th beam header
-            dimensions = dij.doseGrid.dimensions(1)+" "+dij.doseGrid.dimensions(2)+" "+dij.doseGrid.dimensions(3);
+            dimensions = strcat(num2str(dij.doseGrid.dimensions(1)),'|',num2str(dij.doseGrid.dimensions(2)),'|',num2str(dij.doseGrid.dimensions(3)));
             header_ith = header_addStringField(header_ith,'dose grid dimensions', dimensions);
             %Add column headers
             header_ith = header_addComment(header_ith,'voxelID bixelID physicalDose[Gy]');
@@ -101,7 +105,7 @@ try
             numOfBixels = stf(i).totalNumOfBixels;
             
             %Read physical dose from non zeros dij
-            [ix,iy,vals] = find(dij.physicalDose{metadata.ctScen,metadata.shiftScen,metadata.shiftRangeScen}(:,totalNumOfBixels:totalNumOfBixels+numOfBixels-1));
+            [ix,iy,vals] = find(dij.physicalDose{metadata.numScen}(:,totalNumOfBixels:totalNumOfBixels+numOfBixels-1));
             data=zeros(nnz(vals),3);
             data(:,1) = ix;
             data(:,2) = iy+totalNumOfBixels-1;
@@ -110,26 +114,26 @@ try
             if strcmp(metadata.extension,'txt')
                 
                 %Write Header to file with the separating blank line to i-th beam
-                fileHandle = fopen(filename_ith+"."+metadata.extension,'w');
+                fileHandle = fopen([folderPath filename_ith '.' metadata.extension],'w');
                 fprintf(fileHandle,'%s\n',header_ith);
                 
                 %Append data to file to i-th beam
                 %writematrix(data,filename_tmp,'Delimiter',metadata.delimiter,'-append'); % If you use r2019b matlab version
-                dlmwrite(filename_ith+"."+metadata.extension,data,'delimiter',metadata.delimiter,'-append');
+                dlmwrite([filename_ith '.' metadata.extension],data,'delimiter',metadata.delimiter,'-append');
                 
                 fclose(fileHandle);
                 
             elseif strcmp(metadata.extension,'bin')
                 
                 %Append data to file to i-th beam
-                fileHandle = fopen(filename_ith+"."+metadata.extension,'w');
+                fileHandle = fopen([folderPath filename_ith '.' metadata.extension],'w');
                 fwrite(fileHandle,uint32(ix),'uint32');
                 fwrite(fileHandle,uint32(iy),'uint32');
                 fwrite(fileHandle,vals,'double');
                 fclose(fileHandle);
                 
                 %Write an additional header file
-                headerHandle = fopen(filename_ith+"_header.txt",'w');
+                headerHandle = fopen([folderPath filename_ith '_header.txt'],'w');
                 fprintf(headerHandle,'%s\n',header_ith);
                 fclose(headerHandle);
                 
@@ -152,7 +156,7 @@ try
             %Add totalNumOfBixels field to i-th beam header
             header = header_addIntField(header,'total number of bixels', stf(i).totalNumOfBixels);
             %Add dimensions of dose grid field to header
-            dimensions = dij.doseGrid.dimensions(1)+" "+dij.doseGrid.dimensions(2)+" "+dij.doseGrid.dimensions(3);
+            dimensions = strcat(num2str(dij.doseGrid.dimensions(1)),'|',num2str(dij.doseGrid.dimensions(2)),'|',num2str(dij.doseGrid.dimensions(3)));
             header = header_addStringField(header,'dose grid dimensions', dimensions);
         end
         
@@ -163,7 +167,7 @@ try
         header = header_addComment(header,'voxelID bixelID physicalDose[Gy]');
         
         %Read physical dose from non zeros dij
-        [ix,iy,vals] = find(dij.physicalDose{metadata.ctScen,metadata.shiftScen,metadata.rangeShiftScen});
+        [ix,iy,vals] = find(dij.physicalDose{metadata.numScen});
         data(:,1) = ix;
         data(:,2) = iy;
         data(:,3) = vals;
@@ -171,48 +175,60 @@ try
         if strcmp(metadata.extension,'txt')
             
             %Write Header to file with the separating blank line to i-th beam
-            fileHandle = fopen(filename+"."+metadata.extension,'w');
+            fileHandle = fopen([folderPath filename '.' metadata.extension],'w');
             fprintf(fileHandle,'%s\n',header);
             
             %Append data to file
             %writematrix(data,filename,'Delimiter',metadata.delimiter,'-append'); % If you use r2019b matlab version
-            dlmwrite(filename+"."+metadata.extension,data,'delimiter',metadata.delimiter,'-append');
+            dlmwrite([folderPath filename '.' metadata.extension],data,'delimiter',metadata.delimiter,'-append');
             
             fclose(fileHandle);
             
         elseif strcmp(metadata.extension,'bin')
             
             %Append data to file
-            fileHandle = fopen(filename+"_i"+"."+metadata.extension,'w');
+            fileHandle = fopen([folderPath filename '.' metadata.extension],'w');
+            fwrite(fileHandle,uint32(ix),'uint32');
+            fwrite(fileHandle,uint32(iy),'uint32');
+            fwrite(fileHandle,vals,'double');
+            fclose(fileHandle);
+            
+            %Append data to file
+            fileHandle = fopen([folderPath filename '_i' '.' metadata.extension],'w');
             fwrite(fileHandle,uint32(ix),'uint32');
             fclose(fileHandle);
             
             %Append data to file
-            fileHandle = fopen(filename+"_j"+"."+metadata.extension,'w');
+            fileHandle = fopen([folderPath filename '_j' '.' metadata.extension],'w');
             fwrite(fileHandle,uint32(iy),'uint32');
             fclose(fileHandle);
             
             %Append data to file
-            fileHandle = fopen(filename+"_D"+"."+metadata.extension,'w');
+            fileHandle = fopen([folderPath filename '_D' '.' metadata.extension],'w');
             fwrite(fileHandle,vals,'double');
             fclose(fileHandle);
             
             %Write an additional header file
-            headerHandle = fopen(filename+"_header.txt",'w');
+            headerHandle = fopen([folderPath filename '_header.txt'],'w');
             fprintf(headerHandle,'%s\n',header);
             fclose(headerHandle);
-            
+       
         end
-        
-        
         
     end
     
 catch MExc
+    %if something failed while writing, close all files and display error
     fclose('all');
-    error(sprintf('File %s could not be written!\n%s',filename,getReport(MExc)));
-    
+    fprintf(2,'File %s could not be written!\n',filename);
+    if(matRad_cfg.isOctave)
+        error(MExc);
+    else
+        throw(MExc);  
+    end
 end
+
+fprintf(1,'Dij exported successfully into %s.\n',strcat(folderPath,filename,'.',metadata.extension));
 
 %Used to add comments to the header
     function newHeader = header_addComment(header,comment)

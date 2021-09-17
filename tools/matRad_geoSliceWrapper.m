@@ -1,15 +1,24 @@
 function [hCt,hContour] = matRad_geoSliceWrapper(axesHandle,ct,cst,cubeIdx,plane,slice,thresh,alpha,contourColorMap,...
                                                                           voiSelection,colorBarLabel,boolPlotLegend,varargin)
-
 % matRad tool function to directly plot a complete slice of a ct with dose
 % including contours and isolines.
 %
 % call
-%   [cMapHandle,hDose,hCt,hContour] = matRad_plotSliceWrapper(axesHandle,ct,cst,dose,plane,slice,thresh,alpha,contourColorMap,doseColorMap,doseWindow,doseIsoLevels)
+% [hCMap,hDose,hCt,hContour,hIsoDose] = matRad_plotSliceWrapper(axesHandle,ct,cst,cubeIdx,dose,plane,slice)
+% [hCMap,hDose,hCt,hContour,hIsoDose] = matRad_plotSliceWrapper(axesHandle,ct,cst,cubeIdx,dose,plane,slice,thresh)
+% [hCMap,hDose,hCt,hContour,hIsoDose] = matRad_plotSliceWrapper(axesHandle,ct,cst,cubeIdx,dose,plane,slice,alpha)
+% [hCMap,hDose,hCt,hContour,hIsoDose] = matRad_plotSliceWrapper(axesHandle,ct,cst,cubeIdx,dose,plane,slice,contourColorMap)
+% [hCMap,hDose,hCt,hContour,hIsoDose] = matRad_plotSliceWrapper(axesHandle,ct,cst,cubeIdx,dose,plane,slice,doseColorMap)
+% [hCMap,hDose,hCt,hContour,hIsoDose] = matRad_plotSliceWrapper(axesHandle,ct,cst,cubeIdx,dose,plane,slice,doseWindow)
+% [hCMap,hDose,hCt,hContour,hIsoDose] = matRad_plotSliceWrapper(axesHandle,ct,cst,cubeIdx,dose,plane,slice,doseIsoLevels)
+%               ...
+% [hCMap,hDose,hCt,hContour,hIsoDose] = matRad_plotSliceWrapper(axesHandle,ct,cst,cubeIdx,dose,plane,slice,thresh,alpha,contourColorMap,...
+%                                                                          doseColorMap,doseWindow,doseIsoLevels,voiSelection,colorBarLabel,boolPlotLegend,...)
 %
 % input (required)
 %   axesHandle      handle to axes the slice should be displayed in
 %   ct              matRad ct struct
+%   cst             matRad cst struct
 %   cubeIdx         Index of the desired cube in the ct struct
 %   dose            dose cube
 %   plane           plane view (coronal=1,sagittal=2,axial=3)
@@ -38,6 +47,9 @@ function [hCt,hContour] = matRad_geoSliceWrapper(axesHandle,ct,cst,cubeIdx,plane
 %   hContour    handle to the contour plot
 %   hIsoDose    handle to iso dose contours
 %
+% References
+%   -
+%
 % %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
 % Copyright 2015 the matRad development team. 
@@ -52,6 +64,7 @@ function [hCt,hContour] = matRad_geoSliceWrapper(axesHandle,ct,cst,cubeIdx,plane
 % %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 % Handle the argument list
+
 if ~exist('thresh','var') || isempty(thresh)
     thresh = [];
 end
@@ -74,13 +87,21 @@ if ~exist('boolPlotLegend','var') || isempty(boolPlotLegend)
    boolPlotLegend = false;
 end
 
+if ~exist('cst','var') || isempty(cst)
+   cst = [];
+end
+
 set(axesHandle,'YDir','Reverse');
 % plot ct slice
 hCt = matRad_plotCtSlice(axesHandle,ct.cubeHU,cubeIdx,plane,slice); 
 hold on;
 
 %plot VOI contours
-hContour = matRad_plotVoiContourSlice(axesHandle,cst,ct.cubeHU,cubeIdx,voiSelection,plane,slice,contourColorMap,varargin{:});
+if  ~isempty(cst)
+    hContour = matRad_plotVoiContourSlice(axesHandle,cst,ct.cubeHU,cubeIdx,voiSelection,plane,slice,contourColorMap,varargin{:});
+else
+    hContour = [];
+end
 
 if boolPlotLegend
    visibleOnSlice = (~cellfun(@isempty,hContour));

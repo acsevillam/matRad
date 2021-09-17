@@ -3,7 +3,8 @@ function radDepthVcoarse = matRad_interpRadDepth(ct,V,Vcoarse,vXgrid,vYgrid,vZgr
 % down/up sampling the radiological depth dose cubes
 % 
 % call
-%   [radDepthVcoarse,radDepthIxcoarse] = matRad_interpRadDepth(ct,V,radDepthIx,radDepthV,vXgrid,vYgrid,vZgrid,Vcoarse)
+%   radDepthVcoarse = matRad_interpRadDepth(ct,V,Vcoarse,vXgrid,vYgrid,vZgrid,radDepthV)
+%
 % input
 %   ct:             matRad ct structure
 %   V:              linear voxel indices of the cst 
@@ -19,8 +20,6 @@ function radDepthVcoarse = matRad_interpRadDepth(ct,V,Vcoarse,vXgrid,vYgrid,vZgr
 % References
 %   -
 %
-% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
 % %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
 % Copyright 2018 the matRad development team. 
@@ -39,7 +38,7 @@ for ctScen = 1:ct.numOfCtScen
    radDepthCube(V(~isnan(radDepthV{1}))) = radDepthV{ctScen}(~isnan(radDepthV{1}));
 
    % interpolate cube - cube is now stored in Y X Z 
-   coarseRadDepthCube       = (interp3(ct.y,ct.x',ct.z,radDepthCube,vYgrid,vXgrid',vZgrid));
+   coarseRadDepthCube          = matRad_interp3(ct.x,ct.y',ct.z,radDepthCube,vXgrid,vYgrid',vZgrid);
    radDepthVcoarse{ctScen}  = coarseRadDepthCube(Vcoarse);
 end
 

@@ -1,19 +1,22 @@
-function resultGUI = matRad_calcCubes(w,dij,metadata)
-% matRad computation of all cubes for the resultGUI struct which is used
-% as result container and for visualization in matRad's GUI
+function resultGUI = matRad_calcCubes(w,dij,scenNum)
+% matRad computation of all cubes for the resultGUI struct 
+% which is used as result container and for visualization in matRad's GUI
 %
 % call
-%   resultGUI = matRad_calcCubes(w,dij,cst)
+%   resultGUI = matRad_calcCubes(w,dij)
+%   resultGUI = matRad_calcCubes(w,dij,scenNum)
 %
 % input
 %   w:       bixel weight vector
 %   dij:     dose influence matrix
-%   ctScen: optional: number of scenario to calculated (default 1)
+%   scenNum: optional: number of scenario to calculated (default 1)
 %
 % output
 %   resultGUI: matRad result struct
 %
-
+% References
+%   -
+%
 % %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
 % Copyright 2015 the matRad development team. 
@@ -27,16 +30,10 @@ function resultGUI = matRad_calcCubes(w,dij,metadata)
 %
 % %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-if nargin<3
-    metadata = struct();
+if nargin < 3
+    scenNum = 1;
 end
 
-%% Prepare Metadata
-if ~isfield(metadata,'numScen')&&(~isfield(metadata,'ctScen')||~isfield(metadata,'shiftScen')||~isfield(metadata,'shiftRangeScen'))
-    metadata.numScen = 1;
-end
-
-%%
 resultGUI.w = w;
 
 % get bixel - beam correspondence  
@@ -50,11 +47,7 @@ beamInfo(dij.numOfBeams+1).logIx  = true(size(w));
 
 % compute physical dose for all beams individually and together
 for i = 1:length(beamInfo)
-    if(isfield(metadata,'numScen'))
-        resultGUI.(['physicalDose', beamInfo(i).suffix]) = reshape(full(dij.physicalDose{metadata.numScen} * (resultGUI.w .* beamInfo(i).logIx)),dij.doseGrid.dimensions);
-    else
-        resultGUI.(['physicalDose', beamInfo(i).suffix]) = reshape(full(dij.physicalDose{metadata.ctScen,metadata.shiftScen,metadata.shiftRangeScen} * (resultGUI.w .* beamInfo(i).logIx)),dij.doseGrid.dimensions);
-    end
+    resultGUI.(['physicalDose', beamInfo(i).suffix]) = reshape(full(dij.physicalDose{scenNum} * (resultGUI.w .* beamInfo(i).logIx)),dij.doseGrid.dimensions);
 end
 
 % consider RBE for protons
@@ -67,13 +60,18 @@ end
 % consider LET
 if isfield(dij,'mLETDose')
     for i = 1:length(beamInfo)
-        LETDoseCube                                 = dij.mLETDose{ctScen,shiftScen,shiftRangeScen} * (resultGUI.w .* beamInfo(i).logIx);
+        LETDoseCube                                 = reshape(full(dij.mLETDose{scenNum} * (resultGUI.w .* beamInfo(i).logIx)),dij.doseGrid.dimensions);
         resultGUI.(['LET', beamInfo(i).suffix])     = zeros(dij.doseGrid.dimensions);
         ix                                          = resultGUI.(['physicalDose', beamInfo(i).suffix]) > 0;
         resultGUI.(['LET', beamInfo(i).suffix])(ix) = LETDoseCube(ix)./resultGUI.(['physicalDose', beamInfo(i).suffix])(ix);
     end
 end
 
+if isfield(dij,'physicalDose_MCvar')
+    resultGUI.physicalDose_MCvar = reshape(full(dij.physicalDose_MCvar{scenNum} * (resultGUI.w .* beamInfo(i).logIx)),dij.doseGrid.dimensions);
+    resultGUI.physicalDose_MCstd = sqrt(resultGUI.physicalDose_MCvar);
+    resultGUI.physicalDose_MCstdRel = resultGUI.physicalDose_MCstd ./ resultGUI.physicalDose;
+end
 
 % consider biological optimization for carbon ions
 if isfield(dij,'mAlphaDose') && isfield(dij,'mSqrtBetaDose')
@@ -84,7 +82,7 @@ if isfield(dij,'mAlphaDose') && isfield(dij,'mSqrtBetaDose')
        
        ix = dij.bx~=0 & resultGUI.(['physicalDose', beamInfo(i).suffix])(:) > 0;
 
-       resultGUI.(['effect', beamInfo(i).suffix])       = full(dij.mAlphaDose{ctScen,shiftScen,shiftRangeScen} * wBeam + (dij.mSqrtBetaDose{ctScen,shiftScen,shiftRangeScen} * wBeam).^2);
+       resultGUI.(['effect', beamInfo(i).suffix])       = full(dij.mAlphaDose{scenNum} * wBeam + (dij.mSqrtBetaDose{scenNum} * wBeam).^2);
        resultGUI.(['effect', beamInfo(i).suffix])       = reshape(resultGUI.(['effect', beamInfo(i).suffix]),dij.doseGrid.dimensions);
     
        resultGUI.(['RBExD', beamInfo(i).suffix])        = zeros(size(resultGUI.(['effect', beamInfo(i).suffix])));
@@ -95,11 +93,23 @@ if isfield(dij,'mAlphaDose') && isfield(dij,'mSqrtBetaDose')
        resultGUI.(['alpha', beamInfo(i).suffix])        = zeros(dij.doseGrid.dimensions);
        resultGUI.(['beta',  beamInfo(i).suffix])        = zeros(dij.doseGrid.dimensions);
 
-       AlphaDoseCube                                    = full(dij.mAlphaDose{ctScen,shiftScen,shiftRangeScen} * wBeam);
+       AlphaDoseCube                                    = full(dij.mAlphaDose{scenNum} * wBeam);
        resultGUI.(['alpha', beamInfo(i).suffix])(ix)    = AlphaDoseCube(ix)./resultGUI.(['physicalDose', beamInfo(i).suffix])(ix);
 
-       SqrtBetaDoseCube                                 = full(dij.mSqrtBetaDose{ctScen,shiftScen,shiftRangeScen} * wBeam);
+       SqrtBetaDoseCube                                 = full(dij.mSqrtBetaDose{scenNum} * wBeam);
        resultGUI.(['beta', beamInfo(i).suffix])(ix)     = (SqrtBetaDoseCube(ix)./resultGUI.(['physicalDose', beamInfo(i).suffix])(ix)).^2;
+    end
+end
+
+% Add non-processed MC tallies
+% Note that the tallies are already computed per beam and altogether
+if isfield(dij,'MC_tallies')
+    for f = 1:numel(dij.MC_tallies)
+        tally = dij.MC_tallies{f};
+        % skip tallies processed above
+        if ~isfield(resultGUI,tally)
+            resultGUI.(tally) = reshape(full(dij.(tally){scenNum}),dij.doseGrid.dimensions);
+        end
     end
 end
 
@@ -114,9 +124,9 @@ if any(dij.ctGrid.dimensions~=dij.doseGrid.dimensions)
        if numel(resultGUI.(myFields{i})) == dij.doseGrid.numOfVoxels
            
            % interpolate!
-           resultGUI.(myFields{i}) = interp3(dij.doseGrid.y,dij.doseGrid.x',dij.doseGrid.z, ...
+           resultGUI.(myFields{i}) = matRad_interp3(dij.doseGrid.x,dij.doseGrid.y',dij.doseGrid.z, ...
                                              resultGUI.(myFields{i}), ...
-                                             dij.ctGrid.y,dij.ctGrid.x',dij.ctGrid.z);
+                                             dij.ctGrid.x,dij.ctGrid.y',dij.ctGrid.z,'linear',0);
            
        end
        
