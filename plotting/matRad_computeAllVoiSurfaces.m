@@ -11,6 +11,9 @@ function cst = matRad_computeAllVoiSurfaces(ct,cst)
 % output
 %   cst the new cst with the column containing the precomputed surface
 %
+% References
+%   -
+%
 % %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
 % Copyright 2015 the matRad development team. 
@@ -31,11 +34,11 @@ disp('Computing 3D Surfaces...');
     % prevent closure of waitbar and show busy state
     set(figureWait,'pointer','watch');
     
-    xCoord = ct.resolution.x * double(1:ct.cubeDim(1));
-    yCoord = ct.resolution.y * double(1:ct.cubeDim(2));
+    xCoord = ct.resolution.x * double(1:ct.cubeDim(2));
+    yCoord = ct.resolution.y * double(1:ct.cubeDim(1));
     zCoord = ct.resolution.z * double(1:ct.cubeDim(3));
     
-    [xMesh,yMesh,zMesh] = meshgrid(yCoord,xCoord,zCoord);
+    [xMesh,yMesh,zMesh] = meshgrid(xCoord,yCoord,zCoord);
 
     numVois = size(cst,1);
     

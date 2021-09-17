@@ -1,12 +1,11 @@
-function matRad_exportStructures(filename,cst,metadata)
+function matRad_exportStructures(cst,metadata)
 % matRad structures writer
 %
 % call
-%   matRad_exportStructures(filename,cst,...
+%   matRad_exportStructures(cst,...
 %                    additionalFields,additionalKeyValuePairs)
 %
 % input
-%   filename:   full output path, including the file extension
 %   cst:        matRad cst struct
 %   metadata:   struct of metadata
 %
@@ -22,7 +21,9 @@ function matRad_exportStructures(filename,cst,metadata)
 % LICENSE file.
 %
 % %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-if nargin<4
+matRad_cfg = MatRad_Config.instance();
+
+if nargin<2
     metadata = struct();
 end
 
@@ -33,21 +34,8 @@ if ~isfield(metadata,'delimiter')
     metadata.delimiter = '\t'; %Default delimiter
 end
 
-if ~isfield(metadata,'numScen')
-    metadata.numScen = 1; %Default scenario
-end
-
 if ~isfield(metadata,'extension')
-    
-    lastdot_pos = find(filename == '.', 1, 'last');
-    extension = filename(lastdot_pos+1:end);
-    
-    if strcmp(extension,'txt') || strcmp(extension,'bin')
-        metadata.extension = extension; %Default fileType
-    else
-        metadata.extension = 'txt'; %Default fileType
-    end
-    
+    metadata.extension = 'txt'; %Default fileType
 end
 
 %% Setup Header
@@ -59,60 +47,71 @@ header = header_addComment(header,'Created With matRad - An open source multi-mo
 
 %% Write File
 try
-        
+    
+    %Set up parent export folder and full file path
+    if ~(isfolder('strExport'))
+        mkdir(matRad_cfg.matRadRoot, 'strExport');
+    end
+    
+    folderPath = [matRad_cfg.matRadRoot filesep 'strExport' filesep];
+    
     [num_Struct, ~] = size(cst);
-
+    
     %Create a file for each beam
     for i = 1:num_Struct
-
+        
         if isempty(cst{i,4}) == false
-
+            
             %Set a filename for i-th beam file
-            lastdot_pos = find(filename == '.', 1, 'last');
-
-            filename_ith = filename(1:lastdot_pos-1);
-            filename_ith = filename_ith+"_"+cst{i,2};
-
+            filename_ith = [cst{i,2}];
+            
             %Add column headers
             header_ith = header;
             header_ith = header_addComment(header_ith,'voxelID');
-
+            
             data = cst{i,4};
             
             if strcmp(metadata.extension,'txt')
-
+                
                 %Write Header to file with the separating blank line to i-th beam
-                fileHandle = fopen(filename_ith+"."+metadata.extension,'w');
+                fileHandle = fopen([folderPath filename_ith '.' metadata.extension],'w');
                 fprintf(fileHandle,'%s\n',header_ith);
-
+                
                 %Append data to file to i-th beam
-                writecell(data,filename_ith+"."+metadata.extension);
+                writecell(data,[folderPath filename_ith '.' metadata.extension]);
                 %dlmwrite(filename_ith+"."+metadata.extension,data{1,1},'delimiter',metadata.delimiter,'-append');
-
+                
                 fclose(fileHandle);
-
+                
             elseif strcmp(metadata.extension,'bin')
-
+                
                 %Append data to file to i-th beam
-                fileHandle = fopen(filename_ith+"."+metadata.extension,'w');
+                fileHandle = fopen([folderPath filename_ith '.' metadata.extension],'w');
                 fwrite(fileHandle,uint32(data{1,1}),'uint32')
                 fclose(fileHandle);
-
+                
                 %Write an additional header file
-                headerHandle = fopen(filename_ith+"_header.txt",'w');
+                headerHandle = fopen([folderPath filename_ith "_header.txt"],'w');
                 fprintf(headerHandle,'%s\n',header_ith);
                 fclose(headerHandle);
-
+                
             end
-
+            
         end
-
+        
+        fprintf(1,'structures exported successfully into %s.\n',strcat(folderPath,filename_ith,'.',metadata.extension));
+        
     end
     
 catch MExc
+    %if something failed while writing, close all files and display error
     fclose('all');
-    error(sprintf('File %s could not be written!\n%s',filename,getReport(MExc)));
-    
+    fprintf(2,'File %s could not be written!\n',filename);
+    if(matRad_cfg.isOctave)
+        error(MExc);
+    else
+        throw(MExc);
+    end
 end
 
 %Used to add comments to the header

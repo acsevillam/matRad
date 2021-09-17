@@ -1,4 +1,3 @@
-
 %%
 clear
 clc
@@ -23,6 +22,7 @@ for scen = [1 2 3 4 5]
     
     [num_Struct, ~] = size(cst);
 	for struct = 1:num_Struct
+        cst{struct,6} = [];
         if isempty(cst{struct,4}{1,1}) == true
             fprintf('Estructura %d vacia. \n',struct);
             fprintf('Eliminando estructura %d. \n',struct);

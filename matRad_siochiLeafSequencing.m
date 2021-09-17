@@ -1,14 +1,16 @@
 function resultGUI = matRad_siochiLeafSequencing(resultGUI,stf,dij,numOfLevels,visBool)
-% multileaf collimator leaf sequencing algorithm for intensity modulated
-% beams with multiple static segments according to Siochi (1999)
-% International Journal of Radiation Oncology * Biology * Physics,
+% multileaf collimator leaf sequencing algorithm 
+% for intensity modulated beams with multiple static segments according to 
+% Siochi (1999)International Journal of Radiation Oncology * Biology * Physics,
 % originally implemented in PLUNC (https://sites.google.com/site/planunc/)
 %
 % Implemented in matRad by Eric Christiansen, Emily Heath, and Tong Xu
 %
 % call
-%   resultSequencing =
-%   matRad_siochiLeafSequencing(w,stf,pln,numOfLevels,visBool)
+%   resultGUI =
+%   matRad_siochiLeafSequencing(resultGUI,stf,dij,numOfLevels)
+%   resultGUI =
+%   matRad_siochiLeafSequencing(resultGUI,stf,dij,numOfLevels,visBool)
 %
 % input
 %   resultGUI:          resultGUI struct to which the output data will be
@@ -162,9 +164,9 @@ resultGUI.apertureInfo = matRad_sequencing2ApertureInfo(sequencing,stf);
 
 doseSequencedDoseGrid = reshape(dij.physicalDose{1} * sequencing.w,dij.doseGrid.dimensions);
 % interpolate to ct grid for visualiation & analysis
-resultGUI.physicalDose = interp3(dij.doseGrid.y,dij.doseGrid.x',dij.doseGrid.z, ...
-                                 doseSequencedDoseGrid, ...
-                                 dij.ctGrid.y,dij.ctGrid.x',dij.ctGrid.z);
+resultGUI.physicalDose = matRad_interp3(dij.doseGrid.x,dij.doseGrid.y',dij.doseGrid.z, ...
+                                        doseSequencedDoseGrid, ...
+                                        dij.ctGrid.x,dij.ctGrid.y',dij.ctGrid.z);
 
 % if weights exists from an former DAO remove it
 if isfield(resultGUI,'wDao')

@@ -1,16 +1,19 @@
-function dvh = matRad_calcDVH(cst,doseCube,dvhType,doseGrid,metadata)
+function dvh = matRad_calcDVH(cst,doseCube,dvhType,doseGrid)
 % matRad dvh calculation
 % 
 % call
-%   dvh = matRad_calcDVH(cst,doseCube,dvhType,doseGrid,metadata)
+%   dvh = matRad_calcDVH(cst,doseCube)
+%   dvh = matRad_calcDVH(cst,doseCube,dvhType)
+%   dvh = matRad_calcDVH(cst,doseCube,doseGrid)
+%   dvh = matRad_calcDVH(cst,doseCube,dvhType,doseGrid)
 %
 % input
-%   cst:                  matRad cst struct
-%   doseCube:             arbitrary doseCube (e.g. physicalDose)
-%   dvhType: (optional)   string, 'cum' for cumulative, 'diff' for differential
-%                         dvh
-%   doseGrid: (optional): use predefined evaluation points. Useful when
-%                         comparing multiple realizations
+%   cst:        matRad cst struct
+%   doseCube:   arbitrary doseCube (e.g. physicalDose)
+%   dvhType:    (optional) string, 'cum' for cumulative, 'diff' for differential
+%               dvh
+%   doseGrid:   (optional) use predefined evaluation points. Useful when
+%               comparing multiple realizations
 %
 % output
 %   dose volume histogram
@@ -31,14 +34,6 @@ function dvh = matRad_calcDVH(cst,doseCube,dvhType,doseGrid,metadata)
 % LICENSE file.
 %
 % %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-if nargin<5
-    metadata = struct();
-end
-
-if ~isfield(metadata,'ctScen')
-    metadata.ctScen = 1;
-end
 
 if ~exist('dvhType','var') || isempty(dvhType)
     dvhType = 'cum';
@@ -61,25 +56,16 @@ numOfVois = size(cst,1);
 dvh = struct;
 for i = 1:numOfVois
     dvh(i).doseGrid     = doseGrid;
-    dvh(i).volumePoints = getDVHPoints(cst, i, doseCube, doseGrid, dvhType, metadata);
+    dvh(i).volumePoints = getDVHPoints(cst, i, doseCube, doseGrid, dvhType);
     dvh(i).name         = cst{i,2};
 end
 
 end %eof 
 
-function dvh = getDVHPoints(cst, sIx, doseCube, dvhPoints, dvhType, metadata)
-
-if nargin<6
-    metadata = struct();
-end
-
-if ~isfield(metadata,'ctScen')
-    metadata.ctScen = 1;
-end
-
+function dvh = getDVHPoints(cst, sIx, doseCube, dvhPoints, dvhType)
 n = numel(dvhPoints);
 dvh         = NaN * ones(1,n);
-indices     = cst{sIx,4}{metadata.ctScen};
+indices     = cst{sIx,4}{1};
 numOfVoxels = numel(indices);
 
 doseInVoi   = doseCube(indices);

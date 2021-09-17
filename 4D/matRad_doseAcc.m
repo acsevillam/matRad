@@ -71,11 +71,11 @@ if strcmp(accMethod,'DDM')
 
     for i = 1:ct.numOfCtScen
           
-        dvf_x_i = squeeze(ct.dvf{1,i}(:,:,:,1))/ct.resolution.x;
-        dvf_y_i = squeeze(ct.dvf{1,i}(:,:,:,2))/ct.resolution.y;
-        dvf_z_i = squeeze(ct.dvf{1,i}(:,:,:,3))/ct.resolution.z;
+        dvf_x_i = squeeze(ct.dvf{1,i}(1,:,:,:))/ct.resolution.x;
+        dvf_y_i = squeeze(ct.dvf{1,i}(2,:,:,:))/ct.resolution.y;
+        dvf_z_i = squeeze(ct.dvf{1,i}(3,:,:,:))/ct.resolution.z;
         
-        d_ref = interp3(yGridVec,xGridVec',zGridVec,phaseCubes{i}, ...
+        d_ref = matRad_interp3(yGridVec,xGridVec',zGridVec,phaseCubes{i}, ...
                          Y(ix) + dvf_y_i(ix), ...     
                          X(ix) + dvf_x_i(ix), ... 
                          Z(ix) + dvf_z_i(ix), ...
@@ -95,9 +95,9 @@ elseif strcmp(accMethod,'EMT')   % funktioniert nicht wenn Dosis in einer Phase 
         
     for i = 1:ct.numOfCtScen
         
-        dvf_x_i = squeeze(ct.dvf{1,i}(:,:,:,1))/ct.resolution.x;
-        dvf_y_i = squeeze(ct.dvf{1,i}(:,:,:,2))/ct.resolution.y;
-        dvf_z_i = squeeze(ct.dvf{1,i}(:,:,:,3))/ct.resolution.z;
+        dvf_x_i = squeeze(ct.dvf{1,i}(1,:,:,:))/ct.resolution.x;
+        dvf_y_i = squeeze(ct.dvf{1,i}(2,:,:,:))/ct.resolution.y;
+        dvf_z_i = squeeze(ct.dvf{1,i}(3,:,:,:))/ct.resolution.z;
 
         m_i     = ct.cube{i};
         e_i     = phaseCubes{i}.*m_i;
