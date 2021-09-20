@@ -1,4 +1,4 @@
-function [dij_interval, pln_interval] = matRad_calcDoseInterval(dij,pln,minPrctile,maxPrctile)
+function [dij_interval, pln_interval] = matRad_calcDoseInterval(dij,pln,structure,minPrctile,maxPrctile)
 %MATRAD_CALMAX Summary of this function goes here
 %   Detailed explanation goes here
 dij_interval=dij;
@@ -11,20 +11,21 @@ matRad_cfg =  MatRad_Config.instance();
 figureWait = waitbar(0,'calculate dose interval for each voxel and bixel...');
 % show busy state
 set(figureWait,'pointer','watch');
+structure_size=length(structure);
 
-for j = 1:dij.totalNumOfBixels
+for j = 1:structure_size
     
     % Display progress and update text only 200 times
     if matRad_cfg.logLevel > 1
         % Display progress and update text only 200 times
-        if mod(j,max(1,round(dij.totalNumOfBixels/200))) == 0
-            matRad_progress(j/max(1,round(dij.totalNumOfBixels/200)),...
-                floor(dij.totalNumOfBixels/max(1,round(dij.totalNumOfBixels/200))));
+        if mod(j,max(1,round(structure_size/200))) == 0
+            matRad_progress(j/max(1,round(structure_size/200)),...
+                floor(structure_size/max(1,round(structure_size/200))));
         end
         
         % update waitbar only 100 times if it is not closed
-        if mod(j,round(dij.totalNumOfBixels/100)) == 0 && ishandle(figureWait)
-            waitbar(j/dij.totalNumOfBixels,figureWait);
+        if mod(j,round(structure_size/100)) == 0 && ishandle(figureWait)
+            waitbar(j/structure_size,figureWait);
         end
     end
     
