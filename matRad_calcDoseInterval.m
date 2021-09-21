@@ -1,6 +1,7 @@
 function [dij_interval, pln_interval] = matRad_calcDoseInterval(dij,pln,structure,minPrctile,maxPrctile)
 %MATRAD_CALMAX Summary of this function goes here
 %   Detailed explanation goes here
+
 dij_interval=dij;
 dij_interval.physicalDose=[];
 pln_interval=pln;
