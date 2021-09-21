@@ -16,7 +16,7 @@ classdef matRad_MeanDose < DoseObjectives.matRad_DoseObjective
 % propagated, or distributed except according to the terms contained in the 
 % LICENSE file.
 %
-% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     
     properties (Constant)
         name = 'Mean Dose';
