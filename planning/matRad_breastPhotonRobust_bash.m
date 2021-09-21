@@ -138,7 +138,7 @@ modelName      = 'none';
 pln.numOfFractions         = 16;
 pln.propStf.gantryAngles   = [15 45 75 105 135 315 345];
 pln.propStf.couchAngles    = zeros(1,numel(pln.propStf.gantryAngles));
-pln.propStf.bixelWidth     = 5;
+pln.propStf.bixelWidth     = 10;
 
 %%
 % Obtain the number of beams and voxels from the existing variables and
@@ -190,7 +190,7 @@ matRad_exportDij('dij0.bin',dij,stf);
 
 %% retrieve scenarios for dose calculation and optimziation
 pln.multScen = matRad_multScen(ct,'rndScen');
-pln.multScen.numOfShiftScen = [25 25 25];
+pln.multScen.numOfShiftScen = [5 5 5];
 pln.multScen.shiftSD = [4 6 8];
 pln.multScen.shiftGenType = 'sampled';
 pln.multScen.shiftCombType = 'combined';

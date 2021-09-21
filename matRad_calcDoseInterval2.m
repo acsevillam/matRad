@@ -46,20 +46,10 @@ for it = 1:length(i)
             end
         end
     end
-    
-    if ~isempty(dij_interval.physicalDose)
-
-        %Percentile Dose
-        dij_interval.physicalDose{1}=cat(1,dij_interval.physicalDose{1},prctile(dij_tmp,minPrctile,1));
-        dij_interval.physicalDose{2}=cat(1,dij_interval.physicalDose{2},prctile(dij_tmp,maxPrctile,1));
-
-    else
         
-        %Percentile Dose
-        dij_interval.physicalDose{1}(i(it),:)=prctile(dij_tmp,minPrctile,1);
-        dij_interval.physicalDose{2}(i(it),:)=prctile(dij_tmp,maxPrctile,1);
-        
-    end
+    %Percentile Dose
+    dij_interval.physicalDose{1}(i(it),:)=prctile(dij_tmp,minPrctile,1);
+    dij_interval.physicalDose{2}(i(it),:)=prctile(dij_tmp,maxPrctile,1);
     
     clear 'dij_tmp';
 end
