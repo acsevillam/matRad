@@ -190,12 +190,12 @@ matRad_exportDij('dij0.bin',dij,stf);
 
 %% retrieve scenarios for dose calculation and optimziation
 pln.multScen = matRad_multScen(ct,'rndScen');
-pln.multScen.numOfShiftScen = [10 10 10];
+pln.multScen.numOfShiftScen = [5 5 5];
 pln.multScen.shiftSD = [4 6 8];
 pln.multScen.shiftGenType = 'sampled';
 pln.multScen.shiftCombType = 'combined';
 pln.multScen.numOfRangeShiftScen = 0;
-pln.multScen.includeNomScen = false;
+pln.multScen.includeNomScen = true;
 
 %% Export structures voxels indexes
 matRad_exportStructures(cst);
