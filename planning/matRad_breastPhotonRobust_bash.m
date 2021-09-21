@@ -190,7 +190,7 @@ matRad_exportDij('dij0.bin',dij,stf);
 
 %% retrieve scenarios for dose calculation and optimziation
 pln.multScen = matRad_multScen(ct,'rndScen');
-pln.multScen.numOfShiftScen = [5 5 5];
+pln.multScen.numOfShiftScen = [25 25 25];
 pln.multScen.shiftSD = [4 6 8];
 pln.multScen.shiftGenType = 'sampled';
 pln.multScen.shiftCombType = 'combined';
