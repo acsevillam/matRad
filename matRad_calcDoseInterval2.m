@@ -4,6 +4,9 @@ function [dij_interval, pln_interval] = matRad_calcDoseInterval2(dij,pln,cst,ixS
 
 dij_interval=dij;
 dij_interval.physicalDose=[];
+dij_interval.physicalDose{1}=sparse(dij_interval.doseGrid.numOfVoxels,dij_interval.totalNumOfBixels);
+dij_interval.physicalDose{2}=sparse(dij_interval.doseGrid.numOfVoxels,dij_interval.totalNumOfBixels);
+
 pln_interval=pln;
 
 matRad_cfg =  MatRad_Config.instance();
@@ -53,8 +56,8 @@ for it = 1:length(i)
     else
         
         %Percentile Dose
-        dij_interval.physicalDose{1}=prctile(dij_tmp,minPrctile,1);
-        dij_interval.physicalDose{2}=prctile(dij_tmp,maxPrctile,1);
+        dij_interval.physicalDose{1}(i(it),:)=prctile(dij_tmp,minPrctile,1);
+        dij_interval.physicalDose{2}(i(it),:)=prctile(dij_tmp,maxPrctile,1);
         
     end
     

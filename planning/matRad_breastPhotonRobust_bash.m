@@ -36,41 +36,6 @@ param.logLevel=1;
 
 load('patient3_5mm.mat');
 
-%% plot CT slice
-if param.logLevel == 1
-    
-    figure('Renderer', 'painters', 'Position', [10 10 300*ct.numOfCtScen 400]);
-    
-    isocenter = matRad_getIsoCenter(cst,ct,0);
-    
-    for scen_iterator = 1:ct.numOfCtScen
-        plane      = 1;
-        slice      = round(isocenter(2)./ct.resolution.y);
-        subplot(2,ct.numOfCtScen,scen_iterator); camroll(90);
-        matRad_geoSliceWrapper(gca,ct,cst,scen_iterator,plane,slice,[],[],colorcube,[],[]);
-        
-        plane      = 3;
-        slice      = round(isocenter(3)./ct.resolution.z);
-        subplot(2,ct.numOfCtScen,scen_iterator+ct.numOfCtScen);
-        matRad_geoSliceWrapper(gca,ct,cst,scen_iterator,plane,slice,[],[],colorcube,[],[]);
-        
-    end
-    
-end
-clear  scen_iterator plane slice ans;
-
-if (ct.numOfCtScen>1)
-    f          = figure; title('individual scenarios'); camroll(90);
-    plane      = 1;
-    slice      = round(isocenter(3)./ct.resolution.z);
-    numScen    = 1;
-    
-    matRad_geoSliceWrapper(gca,ct,cst,numScen,plane,slice,[],[],colorcube,[],[]);
-    b             = uicontrol('Parent',f,'Style','slider','Position',[50,5,419,23],...
-        'value',numScen, 'min',1, 'max',ct.numOfCtScen,'SliderStep', [1/(ct.numOfCtScen-1) , 1/(ct.numOfCtScen-1)]);
-    b.Callback    = @(es,ed)  matRad_geoSliceWrapper(gca,ct,cst,round(es.Value),plane,slice,[],[],colorcube,[],[]);
-end
-clear  numScen plane slice ans f b;
 
 %% Create the VOI data for the phantom
 % Now we define structures a contour for the phantom and a target
@@ -223,38 +188,14 @@ dij = matRad_calcPhotonDose(ct,stf,pln,cst);
 %% Export dij matrix
 matRad_exportDij('dij0.bin',dij,stf);
 
-%% Inverse Optimization for IMRT
-% The goal of the fluence optimization is to find a set of beamlet/pencil
-% beam weights which yield the best possible dose distribution according to
-% the clinical objectives and constraints underlying the radiation
-% treatment. Once the optimization has finished, trigger once the GUI to
-% visualize the optimized dose cubes.
-resultGUI = matRad_fluenceOptimization(dij,cst,pln);
-%matRadGUI;
-
-%% Plot the Resulting Dose Slice
-% Let's plot the transversal iso-center dose slice
-
-plane      = 3;
-slice      = round(pln.propStf.isoCenter(1,3)./ct.resolution.z);
-doseWindow = [0 max([resultGUI.physicalDose(:)])];
-figure
-matRad_plotSliceWrapper(gca,ct,cst,1,resultGUI.physicalDose,plane,slice,[],[],colorcube,[],doseWindow,[]);
-
-%% Obtain dose statistics
-[dvh,qi] = matRad_indicatorWrapper(cst,pln,resultGUI);
-
-% Print evaluation indexes
-D95 = sprintf('D95: %.4f Gy',qi(4).mean*16); disp(D95);
-
 %% retrieve scenarios for dose calculation and optimziation
 pln.multScen = matRad_multScen(ct,'rndScen');
-pln.multScen.numOfShiftScen = [5 5 5];
+pln.multScen.numOfShiftScen = [10 10 10];
 pln.multScen.shiftSD = [4 6 8];
 pln.multScen.shiftGenType = 'sampled';
 pln.multScen.shiftCombType = 'combined';
 pln.multScen.numOfRangeShiftScen = 0;
-pln.multScen.includeNomScen = true;
+pln.multScen.includeNomScen = false;
 
 %% Export structures voxels indexes
 matRad_exportStructures(cst);
@@ -278,81 +219,12 @@ end
 %% Export scen probabilities 
 matRad_exportScenProb('scenProb.txt',pln);
 
-%% Plot dose per voxel histos 
-wOnes = ones(dij.totalNumOfBixels,1);
-matRad_plotDoseHistos(dij,pln,cst,ixCTV,wOnes);
-
 %% Dose interval calculation 
-[dij_interval, pln_interval] = matRad_calcDoseInterval2(dij,pln,cst,ixCTV,20,80);
+[dij_interval, pln_interval] = matRad_calcDoseInterval2(dij,pln,cst,ixCTV,0,80);
 
 %% Export interval dij matrix
 metadata.numScen=1;
-matRad_exportDij('dij_min20.bin',dij_interval,stf,metadata);
+matRad_exportDij('dij_min0.bin',dij_interval,stf,metadata);
 
 metadata.numScen=2;
 matRad_exportDij('dij_max80.bin',dij_interval,stf,metadata);
-
-%% Calculate interval dose vector
-wOnes = ones(dij.totalNumOfBixels,1);
-% Min interval dose
-tmpResultGUI1 = matRad_calcCubes(wOnes,dij_interval,1);
-% Max interval dose
-tmpResultGUI2 = matRad_calcCubecst{ixCTV,4}(wOnes,dij_interval,2);
-% Center interval dose
-tmpResultGUIcenter=[];
-tmpResultGUIcenter.physicalDose=(tmpResultGUI2.physicalDose+tmpResultGUI1.physicalDose)/2;
-
-%% Plot the resulting dose slice
-% Let's plot the transversal iso-center dose slice
-plane      = 3;
-slice      = round(pln_interval.propStf.isoCenter(1,3)./ct.resolution.z);
-doseWindow = [0 max([tmpResultGUI2.physicalDose(:)])];
-
-% Min interval dose 
-figure
-matRad_plotSliceWrapper(gca,ct,cst,1,tmpResultGUI1.physicalDose,plane,slice,[],[],colorcube,[],doseWindow,[]);
-% Center interval dose
-figure
-matRad_plotSliceWrapper(gca,ct,cst,1,tmpResultGUIcenter.physicalDose,plane,slice,[],[],colorcube,[],doseWindow,[]);
-% Max interval dose
-figure
-matRad_plotSliceWrapper(gca,ct,cst,1,tmpResultGUI2.physicalDose,plane,slice,[],[],colorcube,[],doseWindow,[]);
-
-%% Trigger robust optimization
-% Make the objective to a composite worst case objective
-
-% Body
-cst{1,6}{1}.robustness  = 'INTERVAL';
-
-% CTV
-cst{ixCTV,6}{1}.robustness  = 'INTERVAL';
-
-%Activate 4D Optimization
-pln.propOpt.scen4D = 'all';
-
-%% Inverse Optimization for IMRT
-% The goal of the fluence optimization is to find a set of beamlet/pencil
-% beam weights which yield the best possible dose distribution according to
-% the clinical objectives and constraints underlying the radiation
-% treatment. Once the optimization has finished, trigger once the GUI to
-% visualize the optimized dose cubes.
-resultGUI_robust = matRad_fluenceOptimization(dij_interval,cst,pln_interval);
-
-%% add resultGUIrobust dose cubes to the existing resultGUI structure to allow the visualization in the GUI
-resultGUI = matRad_appendResultGUI(resultGUI,resultGUI_robust,0,'robust');
-%matRadGUI;
-
-%% Plot the Resulting Dose Slice
-% Let's plot the transversal iso-center dose slice
-
-plane      = 3;
-slice      = round(pln_interval.propStf.isoCenter(1,3)./ct.resolution.z);
-doseWindow = [0 max([resultGUI_robust.physicalDose(:)])];
-figure
-matRad_plotSliceWrapper(gca,ct,cst,1,resultGUI_robust.physicalDose,plane,slice,[],[],colorcube,[],doseWindow,[]);
-
-%% Obtain dose statistics
-[dvh,qi] = matRad_indicatorWrapper(cst,pln_interval,resultGUI_robust);
-
-% Print evaluation indexes
-D95 = sprintf('D95: %.4f Gy',qi(4).mean*16); disp(D95);
