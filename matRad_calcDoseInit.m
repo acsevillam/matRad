@@ -1,3 +1,6 @@
+
+matRad_cfg =  MatRad_Config.instance();
+
 % default: dose influence matrix computation
 if ~exist('calcDoseDirect','var')
     calcDoseDirect = false;
@@ -16,9 +19,7 @@ if ~isfield(pln,'propDoseCalc') || ...
    ~isfield(pln.propDoseCalc,'doseGrid') || ...
    ~isfield(pln.propDoseCalc.doseGrid,'resolution')
     % default values
-    dij.doseGrid.resolution.x = 2.5; % [mm]
-    dij.doseGrid.resolution.y = 2.5; % [mm]
-    dij.doseGrid.resolution.z = 3;   % [mm]
+    dij.doseGrid.resolution = matRad_cfg.propDoseCalc.defaultResolution;
 else
     % take values from pln strcut
     dij.doseGrid.resolution.x = pln.propDoseCalc.doseGrid.resolution.x;
@@ -53,12 +54,29 @@ for i = 1:numel(stf)
     stf(i).isoCenter = stf(i).isoCenter + offset;
 end
 
+%set up HU to rED or rSP conversion
+if ~isfield(pln,'propDoseCalc') || ~isfield(pln.propDoseCalc,'useGivenEqDensityCube')
+    disableHUconversion = matRad_cfg.propDoseCalc.defaultUseGivenEqDensityCube;
+else
+    disableHUconversion = pln.propDoseCalc.useGivenEqDensityCube;
+end
+
+%If we want to omit HU conversion check if we have a ct.cube ready
+if disableHUconversion && ~isfield(ct,'cube')
+    matRad_cfg.dispWarning('HU Conversion requested to be omitted but no ct.cube exists! Will override and do the conversion anyway!');
+    disableHUconversion = false;
+end
+    
 % calculate rED or rSP from HU
-ct = matRad_calcWaterEqD(ct, pln);
+if disableHUconversion
+    matRad_cfg.dispInfo('Omitting HU to rED/rSP conversion and using existing ct.cube!\n');
+else
+    ct = matRad_calcWaterEqD(ct, pln);
+end
 
 % meta information for dij
 dij.numOfBeams         = pln.propStf.numOfBeams;
-dij.numOfScenarios     = 1;
+dij.numOfScenarios     = pln.multScen.numOfCtScen;
 dij.numOfRaysPerBeam   = [stf(:).numOfRays];
 dij.totalNumOfBixels   = sum([stf(:).totalNumOfBixels]);
 dij.totalNumOfRays     = sum(dij.numOfRaysPerBeam);
@@ -79,23 +97,55 @@ dij.beamNum  = NaN*ones(numOfColumnsDij,1);
 
 
 % Allocate space for dij.physicalDose sparse matrix
-for i = 1:dij.numOfScenarios
-    dij.physicalDose{i} = spalloc(dij.doseGrid.numOfVoxels,numOfColumnsDij,1);
+for ctScen = 1:pln.multScen.numOfCtScen
+   for shiftScen = 1:pln.multScen.totNumShiftScen
+      for rangeShiftScen = 1:pln.multScen.totNumRangeScen   
+         if pln.multScen.scenMask(ctScen,shiftScen,rangeShiftScen)
+            dij.physicalDose{ctScen,shiftScen,rangeShiftScen} = spalloc(dij.doseGrid.numOfVoxels,numOfColumnsDij,1);
+         end
+      end
+   end
 end
 
 % Allocate memory for dose_temp cell array
-doseTmpContainer     = cell(numOfBixelsContainer,dij.numOfScenarios);
+doseTmpContainer = cell(numOfBixelsContainer,pln.multScen.numOfCtScen,pln.multScen.totNumShiftScen,pln.multScen.totNumRangeScen);
 
-% take only voxels inside patient
-VctGrid = [cst{:,4}];
-VctGrid = unique(vertcat(VctGrid{:}));
+% take only voxels inside patient or as specified in
+% pln.propDoseCalc.voxelSubIx
+if ~isfield(pln,'propDoseCalc') || ~isfield(pln.propDoseCalc,'voxelSubIx')
+    subIx = matRad_cfg.propDoseCalc.defaultVoxelSubIx;
+else
+    subIx = pln.propDoseCalc.voxelSubIx;
+end
+
+if isempty(subIx)
+    VctGrid = [cst{:,4}];
+    VctGrid = unique(vertcat(VctGrid{:}));
+else
+    VctGrid = subIx;
+end
 
 % ignore densities outside of contours
-eraseCtDensMask = ones(prod(ct.cubeDim),1);
-eraseCtDensMask(VctGrid) = 0;
-for i = 1:ct.numOfCtScen
-    ct.cube{i}(eraseCtDensMask == 1) = 0;
+if ~isfield(pln,'propDoseCalc') || ~isfield(pln.propDoseCalc,'ignoreOutsideDensities')
+    ignoreOutsideDensities = matRad_cfg.propDoseCalc.defaultIgnoreOutsideDensities;
+else
+    ignoreOutsideDensities = pln.propDoseCalc.ignoreOutsideDensities;
 end
+
+if ignoreOutsideDensities
+    eraseCtDensMask = ones(prod(ct.cubeDim),1);
+    eraseCtDensMask(VctGrid) = 0;
+    for i = 1:ct.numOfCtScen
+        ct.cube{i}(eraseCtDensMask == 1) = 0;
+    end
+end
+
+% ser overlap prioriites
+cst = matRad_setOverlapPriorities(cst);
+
+% resizing cst to dose cube resolution
+cst = matRad_resizeCstToGrid(cst,dij.ctGrid.x,dij.ctGrid.y,dij.ctGrid.z,...
+   dij.doseGrid.x,dij.doseGrid.y,dij.doseGrid.z);
 
 % Convert CT subscripts to linear indices.
 [yCoordsV_vox, xCoordsV_vox, zCoordsV_vox] = ind2sub(ct.cubeDim,VctGrid);
@@ -113,10 +163,10 @@ VdoseGrid = find(matRad_interp3(dij.ctGrid.x,  dij.ctGrid.y,   dij.ctGrid.z,tmpC
 % load base data% load machine file
 fileName = [pln.radiationMode '_' pln.machine];
 try
-   load([fileparts(mfilename('fullpath')) filesep fileName]);
+   load([fileparts(mfilename('fullpath')) filesep 'basedata' filesep fileName '.mat']);
 catch
-   error(['Could not find the following machine file: ' fileName ]); 
+   matRad_cfg.dispError('Could not find the following machine file: %s\n',fileName); 
 end
 
-% compute SSDs
-stf = matRad_computeSSD(stf,ct);
+% compute SSDs -> Removed for now because it is scenario-dependent
+% stf = matRad_computeSSD(stf,ct);

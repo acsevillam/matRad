@@ -1,4 +1,4 @@
-fprintf(['Beam ' num2str(i) ' of ' num2str(dij.numOfBeams) ': \n']);
+matRad_cfg.dispInfo('Beam %d of %d:\n',i,dij.numOfBeams);
 
 % remember beam and bixel number
 if calcDoseDirect
@@ -42,13 +42,13 @@ rot_coordsVdoseGrid(:,3) = rot_coordsVdoseGrid(:,3)-stf(i).sourcePoint_bev(3);
 geoDistVdoseGrid{1}= sqrt(sum(rot_coordsVdoseGrid.^2,2));
 
 % Calculate radiological depth cube
-fprintf('matRad: calculate radiological depth cube...');
+matRad_cfg.dispInfo('matRad: calculate radiological depth cube... ');
 radDepthVctGrid = matRad_rayTracing(stf(i),ct,VctGrid,rot_coordsV,effectiveLateralCutoff);
-fprintf('done.\n');
+matRad_cfg.dispInfo('done.\n');
 
 % interpolate radiological depth cube to dose grid resolution
 radDepthVdoseGrid = matRad_interpRadDepth...
-    (ct,1,VctGrid,VdoseGrid,dij.doseGrid.x,dij.doseGrid.y,dij.doseGrid.z,radDepthVctGrid);
+    (ct,VctGrid,VdoseGrid,dij.doseGrid.x,dij.doseGrid.y,dij.doseGrid.z,radDepthVctGrid);
  
 % limit rotated coordinates to positions where ray tracing is availabe
 rot_coordsVdoseGrid = rot_coordsVdoseGrid(~isnan(radDepthVdoseGrid{1}),:);

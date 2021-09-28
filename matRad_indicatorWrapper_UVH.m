@@ -1,0 +1,74 @@
+function [uvh,uqi] = matRad_indicatorWrapper_UVH(cst,pln,resultGUI,resultGUISamp,refGy,refVol)
+% matRad indictor wrapper
+% 
+% call
+%   [dvh,qi] = matRad_indicatorWrapper(cst,pln,resultGUI)
+%   [dvh,qi] = matRad_indicatorWrapper(cst,pln,resultGUI,refGy,refVol)
+%
+% input
+%   cst:                  matRad cst struct
+%   pln:                  matRad pln struct
+%   resultGUI:            matRad resultGUI struct
+%   refGy: (optional)     array of dose values used for V_XGy calculation
+%                         default is [40 50 60]
+%   refVol:(optional)     array of volumes (0-100) used for D_X calculation
+%                         default is [2 5 95 98]
+%                         NOTE: Call either both or none!
+%
+% output
+%   dvh: matRad dvh result struct
+%   qi:  matRad quality indicator result struct
+%   graphical display of all results
+%
+% References
+%   -
+%
+% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+% Copyright 2017 the matRad development team. 
+% 
+% This file is part of the matRad project. It is subject to the license 
+% terms in the LICENSE file found in the top-level directory of this 
+% distribution and at https://github.com/e0404/matRad/LICENSES.txt. No part 
+% of the matRad project, including this file, may be copied, modified, 
+% propagated, or distributed except according to the terms contained in the 
+% LICENSE file.
+%
+% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+if isfield(resultGUISamp,'RBExD')
+    doseCube = resultGUI.RBExD;
+    uncertaintyCube = resultGUISamp.RBExD;
+else
+    doseCube = resultGUI.physicalDose;
+    uncertaintyCube = resultGUISamp.physicalDose;
+end
+
+if ~exist('refVol', 'var') 
+    refVol = [];
+end
+
+if ~exist('refGy', 'var')
+    refGy = [];
+end
+
+dvh = matRad_calcDVH(cst,doseCube,'cum');
+dqi  = matRad_calcQualityIndicators(cst,pln,doseCube,refGy,refVol);
+
+uvh = matRad_calcDVH(cst,uncertaintyCube,'cum');
+uqi  = matRad_calcQualityIndicators(cst,pln,uncertaintyCube,refGy,refVol);
+
+x0=10;
+y0=10;
+width=600;
+height=400;
+figure,set(gcf,'Color',[1 1 1],'position',[x0,y0,width,height]);
+%subplot(2,1,1)
+matRad_showUVH(dvh,uvh,cst,pln);
+%subplot(2,1,2)
+%ixVoi = cellfun(@(c) c.Visible == 1,cst(:,5));
+%uqi = uqi(ixVoi);
+%matRad_showQualityIndicators(uqi);
+
+
+

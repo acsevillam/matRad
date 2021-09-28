@@ -1,4 +1,4 @@
-%% Example Photon Treatment Plan with Direct aperture optimization
+%% Example: Photon Treatment Plan with Direct aperture optimization
 %
 % %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
@@ -13,8 +13,7 @@
 %
 % %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-%%
-% In this example we will show 
+%% In this example we will show 
 % (i) how to load patient data into matRad
 % (ii) how to setup a photon dose calculation and 
 % (iii) how to inversely optimize directly from command window in MatLab.
@@ -22,10 +21,12 @@
 % (v) how to run a direct aperture optimization
 % (iv) how to visually and quantitatively evaluate the result
 
+%% set matRad runtime configuration
+matRad_rc; %If this throws an error, run it from the parent directory first to set the paths
+
 %% Patient Data Import
-% Let's begin with a clear Matlab environment and import the head &
-% neck patient into your workspace.
-clc,clear,close all;
+% import the head & neck patient into your workspace.
+
 load('HEAD_AND_NECK.mat');
 
 %% Treatment Plan
@@ -36,18 +37,38 @@ load('HEAD_AND_NECK.mat');
 pln.radiationMode   = 'photons';   % either photons / protons / carbon
 pln.machine         = 'Generic';
 pln.numOfFractions  = 30;
-
-pln.propOpt.bioOptimization = 'none';    
+ 
 pln.propStf.gantryAngles    = [0:72:359];
 pln.propStf.couchAngles     = [0 0 0 0 0];
 pln.propStf.bixelWidth      = 5;
 pln.propStf.numOfBeams      = numel(pln.propStf.gantryAngles);
 pln.propStf.isoCenter       = ones(pln.propStf.numOfBeams,1) * matRad_getIsoCenter(cst,ct,0);
 
+quantityOpt   = 'physicalDose';     % either  physicalDose / effect / RBExD
+modelName     = 'none';             % none: for photons, protons, carbon                                    constRBE: constant RBE model
+                                    % MCN: McNamara-variable RBE model for protons                          WED: Wedenberg-variable RBE model for protons 
+                                    % LEM: Local Effect Model for carbon ions
+% retrieve bio model parameters
+pln.bioParam = matRad_bioModel(pln.radiationMode,quantityOpt, modelName);
+
+% retrieve scenarios for dose calculation and optimziation
+pln.multScen = matRad_multScen(ct,'nomScen');
+
 % dose calculation settings
 pln.propDoseCalc.doseGrid.resolution.x = 3; % [mm]
 pln.propDoseCalc.doseGrid.resolution.y = 3; % [mm]
 pln.propDoseCalc.doseGrid.resolution.z = 3; % [mm]
+
+% We can also use other solver for optimization than IPOPT. matRad 
+% currently supports fmincon from the MATLAB Optimization Toolbox. First we
+% check if the fmincon-Solver is available, and if it es, we set in in the
+% pln.propOpt.optimizer vairable. Otherwise wie set to the default
+% optimizer 'IPOPT'
+if matRad_OptimizerFmincon.IsAvailable()
+    pln.propOpt.optimizer = 'fmincon';   
+else
+    pln.propOpt.optimizer = 'IPOPT';
+end
 
 %%
 % Enable sequencing and direct aperture optimization (DAO).
@@ -89,4 +110,4 @@ resultGUI = matRad_directApertureOptimization(dij,cst,resultGUI.apertureInfo,res
 matRad_visApertureInfo(resultGUI.apertureInfo);
 
 %% Indicator Calculation and display of DVH and QI
-[dvh,qi] = matRad_indicatorWrapper(cst,pln,resultGUI);
+[dvh,qi] = matRad_indicatorWrapper(cst,pln,resultGUI,[],[]);
