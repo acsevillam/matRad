@@ -25,6 +25,7 @@ clc;
 
 %% set matRad runtime configuration
 matRad_rc
+param.logLevel=1;
 
 %% Patient Data Import
 % Let's begin with a clear Matlab environment. Then, import the TG119
@@ -33,7 +34,6 @@ matRad_rc
 % matRad root directory with all its subdirectories is added to the Matlab
 % search path.
 load('patient3_5mm.mat');
-param.logLevel=1;
 
 %% plot CT slice
 if param.logLevel == 1
@@ -92,6 +92,7 @@ cst{3,6}{1} = struct(DoseObjectives.matRad_MaxDVH(400,20,20));
 cst{3,6}{1}.robustness  = 'none';
 %cst{3,6}{2} = struct(DoseConstraints.matRad_MinMaxDVH(20,0,20));
 
+
 % Heart
 cst{4,5}.Priority = 2; % overlap priority for optimization - a lower number corresponds to a higher priority
 cst{4,6}{1} = struct(DoseObjectives.matRad_MeanDose(250,4));
@@ -111,7 +112,6 @@ cst{ixCTV,6}{1}.robustness  = 'none';
 cst{ixCTV,6}{2} = struct(DoseConstraints.matRad_MinMaxDVH(p,95,100));
 
 display(cst{ixCTV,6});
-
 %%
 % The file TG119.mat contains two Matlab variables. Let's check what we
 % have just imported. First, the 'ct' variable comprises the ct cube along
@@ -237,16 +237,26 @@ resultGUI = matRad_fluenceOptimization(dij,cst,pln);
 savefig('dvh_nominal.fig')
 
 %%
-% retrieve worst case scenarios for dose calculation and optimziation
+% retrieve 2 dummy case scenarios for dose calculation and optimziation
+pln_interval=pln;
+pln_interval.multScen = matRad_multScen(ct,'wcScen');
+pln_interval.multScen.numOfShiftScen = [2 0 0];
+pln_interval.multScen.shiftSD = [1 0 0];
+pln_interval.multScen.wcFactor=1;
+pln_interval.multScen.numOfRangeShiftScen = 2;
+pln_interval.multScen.includeNomScen = true;
+
+%% calculate dummy case dij to save interval
+dij_interval_tmp = matRad_calcPhotonDose(ct,stf,pln_interval,cst);
+
+%%
+% retrieve 25 random case scenarios for dose calculation and optimziation
 pln_robust=pln;
-
-multScen = matRad_multScen(ct,'wcScen'); % 'impSamp' or 'wcSamp'
-multScen.shiftSD = [4 6 8];
-multScen.wcFactor=1.5;
-multScen.numOfShiftScen = [2 2 2];
-multScen.includeNomScen=true;
-
-pln_robust.multScen=multScen;
+pln_robust.multScen = matRad_multScen(ct,'rndScen'); % 'impSamp' or 'wcSamp'
+pln_robust.multScen.shiftSD = [4 6 8];
+pln_robust.multScen.numOfShiftScen = [2 2 2];
+pln_robust.multScen.numOfRangeShiftScen = 2;
+pln_robust.multScen.includeNomScen=false;
 
 %% Dose calculation
 % Let's generate dosimetric information by pre-computing dose influence
@@ -257,13 +267,19 @@ dij_robust = matRad_calcPhotonDose(ct,stf,pln_robust,cst);
 DCTime_robust = toc(now1);
 time1=sprintf('DCTime_robust: %.2f\n',DCTime_robust); disp(time1);
 
+%% Dose interval calculation
+now2 = tic();
+[dij_interval] = matRad_calcDoseInterval3(dij_robust,pln_robust,dij_interval_tmp,pln_interval,0,80);
+DCTime_interval = toc(now2);
+time2=sprintf('DCTime_interval: %.2f\n',DCTime_interval); disp(time2);
+
 %% Trigger robust optimization
 % Make the objective to a composite worst case objective
 
 % CTV
 theta=1/3;
 cst{ixCTV,6}{1} = struct(DoseObjectives.matRad_SquaredBertoluzzaDeviation(800,42.56,theta));
-cst{ixCTV,6}{1}.robustness  = 'INTERVAL3';
+cst{ixCTV,6}{1}.robustness  = 'INTERVAL1';
 
 %% Inverse Optimization for IMRT
 % The goal of the fluence optimization is to find a set of beamlet/pencil
@@ -272,22 +288,21 @@ cst{ixCTV,6}{1}.robustness  = 'INTERVAL3';
 % treatment. Once the optimization has finished, trigger once the GUI to
 % visualize the optimized dose cubes.
 now2 = tic();
-resultGUI_robust = matRad_fluenceOptimization(dij_robust,cst,pln_robust);
-OPTTime_robust = toc(now2);
-time2=sprintf('OPTTime_robust: %.2f\n',OPTTime_robust); disp(time2);
+resultGUI_interval = matRad_fluenceOptimization(dij_interval_tmp,cst,pln_interval);
+OPTTime_interval = toc(now2);
 
 %% Plot the Resulting Dose Slice
 % Let's plot the transversal iso-center dose slice
 
 plane      = 3;
-slice      = round(pln_robust.propStf.isoCenter(1,3)./ct.resolution.z);
-doseWindow = [0 max([resultGUI_robust.physicalDose(:)*pln_robust.numOfFractions])];
+slice      = round(pln_interval.propStf.isoCenter(1,3)./ct.resolution.z);
+doseWindow = [0 max([resultGUI_interval.physicalDose(:)*pln_interval.numOfFractions])];
 figure
-matRad_plotSliceWrapper(gca,ct,cst,1,resultGUI_robust.physicalDose*pln_robust.numOfFractions,plane,slice,[],[],colorcube,[],doseWindow,[],[],'Dose [Gy]');
+matRad_plotSliceWrapper(gca,ct,cst,1,resultGUI_interval.physicalDose*pln_interval.numOfFractions,plane,slice,[],[],colorcube,[],doseWindow,[],[],'Dose [Gy]');
 savefig('dose_interval.fig')
 
 %% Obtain dose statistics
-[dvh_robust,dqi_robust] = matRad_indicatorWrapper(cst,pln_robust,resultGUI_robust);
+[dvh_interval,dqi_interval] = matRad_indicatorWrapper(cst,pln_interval,resultGUI_interval);
 savefig('dvh_interval.fig')
 
 %% Define sampling parameters
@@ -300,19 +315,19 @@ multScen.shiftSD = [4 6 8];
 multScen.numOfRangeShiftScen = matRad_cfg.defaults.samplingScenarios;
 
 %% Perform sampling
-[caSamp, mSampDose, plnSamp, resultGUInomScen] = matRad_sampling(ct,stf,cst,pln_robust,resultGUI_robust.w,structSel,multScen);
+[caSamp, mSampDose, plnSamp, resultGUInomScen] = matRad_sampling(ct,stf,cst,pln_interval,resultGUI_interval.w,structSel,multScen);
 
 %% Perform sampling analysis
 [cstStat, resultGUISamp, meta] = matRad_samplingAnalysis(ct,cst,plnSamp,caSamp, mSampDose, resultGUInomScen);
 
 %% Multi-scenario dose volume histogram (DVH)
 figure,set(gcf,'Color',[1 1 1],'position',[10,10,600,400]);
-matRad_showDVH_sampledScen(caSamp,dvh_robust,cst,plnSamp,[1:25]);
+matRad_showDVH_sampledScen(caSamp,dvh_interval,cst,plnSamp,[1:25]);
 savefig('dvh_interval_multiscen.fig')
 
 %% Dose volume histogram (DVH)
 resultGUISamp_ul=[];
-resultGUISamp_ul.physicalDose=resultGUI_robust.physicalDose;
+resultGUISamp_ul.physicalDose=resultGUI_interval.physicalDose;
 resultGUISamp_ul.physicalDose_lower=resultGUISamp.meanCube-resultGUISamp.stdCube;
 resultGUISamp_ul.physicalDose_upper=resultGUISamp.meanCube+resultGUISamp.stdCube;
 [dvh_sampled,dqi_sampled] = matRad_indicatorWrapper_sampled(cst,pln,resultGUISamp_ul,[20,50]/pln.numOfFractions,[2,5,10,20,30,40,50,60,70,80,90,95,98]);

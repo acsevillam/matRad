@@ -71,6 +71,8 @@ if (ct.numOfCtScen>1)
 end
 clear  numScen plane slice ans f b;
 
+savefig('ct.fig')
+
 %% Create the VOI data for the phantom
 % Now we define structures a contour for the phantom and a target
 % define optimization parameter for both VOIs
@@ -111,6 +113,7 @@ cst{ixCTV,6}{1}.robustness  = 'none';
 cst{ixCTV,6}{2} = struct(DoseConstraints.matRad_MinMaxDVH(p,95,100));
 
 display(cst{ixCTV,6});
+
 %%
 % The file TG119.mat contains two Matlab variables. Let's check what we
 % have just imported. First, the 'ct' variable comprises the ct cube along
@@ -233,6 +236,7 @@ resultGUI = matRad_fluenceOptimization(dij,cst,pln);
 
 %% Obtain dose statistics
 [dvh,dqi] = matRad_indicatorWrapper(cst,pln,resultGUI);
+savefig('dvh_nominal.fig')
 
 %%
 % retrieve 9 worst case scenarios for dose calculation and optimziation
@@ -279,9 +283,11 @@ slice      = round(pln_robust.propStf.isoCenter(1,3)./ct.resolution.z);
 doseWindow = [0 max([resultGUI_robust.physicalDose(:)*pln_robust.numOfFractions])];
 figure
 matRad_plotSliceWrapper(gca,ct,cst,1,resultGUI_robust.physicalDose*pln_robust.numOfFractions,plane,slice,[],[],colorcube,[],doseWindow,[],[],'Dose [Gy]');
+savefig('dose_robust.fig')
 
 %% Obtain dose statistics
 [dvh_robust,dqi_robust] = matRad_indicatorWrapper(cst,pln_robust,resultGUI_robust);
+savefig('dvh_robust.fig')
 
 %% Define sampling parameters
 % select structures to include in sampling; leave empty to sample dose for all structures
@@ -301,6 +307,7 @@ multScen.numOfRangeShiftScen = matRad_cfg.defaults.samplingScenarios;
 %% Multi-scenario dose volume histogram (DVH)
 figure,set(gcf,'Color',[1 1 1],'position',[10,10,600,400]);
 matRad_showDVH_sampledScen(caSamp,dvh_robust,cst,plnSamp,[1:25]);
+savefig('dvh_robust_multiscen.fig')
 
 %% Dose volume histogram (DVH)
 resultGUISamp_ul=[];
@@ -308,18 +315,22 @@ resultGUISamp_ul.physicalDose=resultGUI_robust.physicalDose;
 resultGUISamp_ul.physicalDose_lower=resultGUISamp.meanCube-resultGUISamp.stdCube;
 resultGUISamp_ul.physicalDose_upper=resultGUISamp.meanCube+resultGUISamp.stdCube;
 [dvh_sampled,dqi_sampled] = matRad_indicatorWrapper_sampled(cst,pln,resultGUISamp_ul,[20,50]/pln.numOfFractions,[2,5,10,20,30,40,50,60,70,80,90,95,98]);
+savefig('dvh_robust_trustband.fig')
 
 %% STD dose based on sampling
 figure,title('std dose cube based on sampling - conventional');
 matRad_plotSliceWrapper(gca,ct,cst,1,resultGUISamp.stdCube*pln.numOfFractions,plane,slice,[],[],colorcube,[],[0 max(resultGUISamp.stdCube(:)*pln.numOfFractions)],[],[],'Dose uncertainty [Gy]');
+savefig('uncertainty.fig')
 
 %% Gamma index based on sampling
 figure,title('gamma index cube based on sampling - conventional');
 matRad_plotSliceWrapper(gca,ct,cst,1,resultGUISamp.gammaAnalysis.gammaCube,plane,slice,[],[],colorcube,[],[0 max(resultGUISamp.gammaAnalysis.gammaCube(:))],[],[],'Gamma index');
+savefig('gamma.fig')
 
 %% Uncertainty volume histogram (UVH)
 resultGUISamp.physicalDose=resultGUISamp.stdCube;
 [uvh,uqi] = matRad_indicatorWrapper_UVH(cst,pln,resultGUI,resultGUISamp);
+savefig('uvh.fig')
 
 %% Print evaluation indexes
 % CTV
