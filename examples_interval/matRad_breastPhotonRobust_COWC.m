@@ -27,6 +27,23 @@ clc;
 matRad_rc
 param.logLevel=1;
 
+%% Set output folder
+description_folder = 'breast';
+run_config.robustness = 'COWC';
+
+output_folder = ['output' filesep description_folder filesep run_config.robustness filesep datestr(datetime)];
+
+%Set up parent export folder and full file path
+if ~(isfolder(output_folder))
+    mkdir(matRad_cfg.matRadRoot, output_folder);
+end
+
+folderPath = [matRad_cfg.matRadRoot filesep output_folder];
+
+%%
+diary([output_folder filesep 'diary.log']) 
+diary on
+
 %% Patient Data Import
 % Let's begin with a clear Matlab environment. Then, import the TG119
 % phantom into your workspace. The phantom is comprised of a 'ct' and 'cst'
@@ -71,7 +88,7 @@ if (ct.numOfCtScen>1)
 end
 clear  numScen plane slice ans f b;
 
-savefig('ct.fig')
+savefig([folderPath filesep 'ct.fig']);
 
 %% Create the VOI data for the phantom
 % Now we define structures a contour for the phantom and a target
@@ -236,7 +253,7 @@ resultGUI = matRad_fluenceOptimization(dij,cst,pln);
 
 %% Obtain dose statistics
 [dvh,dqi] = matRad_indicatorWrapper(cst,pln,resultGUI);
-savefig('dvh_nominal.fig')
+savefig([folderPath filesep 'dvh_nominal.fig']);
 
 %%
 % retrieve 9 worst case scenarios for dose calculation and optimziation
@@ -261,8 +278,7 @@ time1=sprintf('DCTime_robust: %.2f\n',DCTime_robust); disp(time1);
 % Make the objective to a composite worst case objective
 
 % CTV
-cst{ixCTV,6}{1}.robustness  = 'COWC';
-%pln_robust.multScen.scenProb = (1/ct.numOfCtScen) * ones(ct.numOfCtScen,1);  % assign probabilities to 4D scenarios
+cst{ixCTV,6}{1}.robustness  = run_config.robustness;
 
 %% Inverse Optimization for IMRT
 % The goal of the fluence optimization is to find a set of beamlet/pencil
@@ -283,11 +299,11 @@ slice      = round(pln_robust.propStf.isoCenter(1,3)./ct.resolution.z);
 doseWindow = [0 max([resultGUI_robust.physicalDose(:)*pln_robust.numOfFractions])];
 figure
 matRad_plotSliceWrapper(gca,ct,cst,1,resultGUI_robust.physicalDose*pln_robust.numOfFractions,plane,slice,[],[],colorcube,[],doseWindow,[],[],'Dose [Gy]');
-savefig('dose_robust.fig')
+savefig([folderPath filesep 'dose_robust.fig']);
 
 %% Obtain dose statistics
 [dvh_robust,dqi_robust] = matRad_indicatorWrapper(cst,pln_robust,resultGUI_robust);
-savefig('dvh_robust.fig')
+savefig([folderPath filesep 'dvh_robust.fig']);
 
 %% Define sampling parameters
 % select structures to include in sampling; leave empty to sample dose for all structures
@@ -307,7 +323,7 @@ multScen.numOfRangeShiftScen = matRad_cfg.defaults.samplingScenarios;
 %% Multi-scenario dose volume histogram (DVH)
 figure,set(gcf,'Color',[1 1 1],'position',[10,10,600,400]);
 matRad_showDVH_sampledScen(caSamp,dvh_robust,cst,plnSamp,[1:25]);
-savefig('dvh_robust_multiscen.fig')
+savefig([folderPath filesep 'dvh_robust_multiscen.fig']);
 
 %% Dose volume histogram (DVH)
 resultGUISamp_ul=[];
@@ -315,22 +331,22 @@ resultGUISamp_ul.physicalDose=resultGUI_robust.physicalDose;
 resultGUISamp_ul.physicalDose_lower=resultGUISamp.meanCube-resultGUISamp.stdCube;
 resultGUISamp_ul.physicalDose_upper=resultGUISamp.meanCube+resultGUISamp.stdCube;
 [dvh_sampled,dqi_sampled] = matRad_indicatorWrapper_sampled(cst,pln,resultGUISamp_ul,[20,50]/pln.numOfFractions,[2,5,10,20,30,40,50,60,70,80,90,95,98]);
-savefig('dvh_robust_trustband.fig')
+savefig([folderPath filesep 'dvh_robust_trustband.fig']);
 
 %% STD dose based on sampling
 figure,title('std dose cube based on sampling - conventional');
 matRad_plotSliceWrapper(gca,ct,cst,1,resultGUISamp.stdCube*pln.numOfFractions,plane,slice,[],[],colorcube,[],[0 max(resultGUISamp.stdCube(:)*pln.numOfFractions)],[],[],'Dose uncertainty [Gy]');
-savefig('uncertainty.fig')
+savefig([folderPath filesep 'uncertainty.fig']);
 
 %% Gamma index based on sampling
 figure,title('gamma index cube based on sampling - conventional');
 matRad_plotSliceWrapper(gca,ct,cst,1,resultGUISamp.gammaAnalysis.gammaCube,plane,slice,[],[],colorcube,[],[0 max(resultGUISamp.gammaAnalysis.gammaCube(:))],[],[],'Gamma index');
-savefig('gamma.fig')
+savefig([folderPath filesep 'gamma.fig']);
 
 %% Uncertainty volume histogram (UVH)
 resultGUISamp.physicalDose=resultGUISamp.stdCube;
 [uvh,uqi] = matRad_indicatorWrapper_UVH(cst,pln,resultGUI,resultGUISamp);
-savefig('uvh.fig')
+savefig([folderPath filesep 'uvh.fig']);
 
 %% Print evaluation indexes
 % CTV
@@ -369,3 +385,6 @@ DMeanHeart=sprintf('DMean: %.2f [%.2f - %.2f] Gy\n',dqi_sampled{1,1}(4).mean*pln
 % Contralateral Breast
 disp('Contralateral Breast evaluation');
 DMaxConBreast=sprintf('DMax: %.2f [%.2f - %.2f] Gy\n',dqi_sampled{1,1}(5).max*pln.numOfFractions,dqi_sampled{1,2}(5).max*pln.numOfFractions,dqi_sampled{1,3}(5).max*pln.numOfFractions); disp(DMaxConBreast);
+
+%%
+diary off
