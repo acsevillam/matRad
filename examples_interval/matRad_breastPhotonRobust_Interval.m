@@ -247,7 +247,7 @@ pln_interval.multScen.numOfRangeShiftScen = 2;
 pln_interval.multScen.includeNomScen = true;
 
 %% calculate dummy case dij to save interval
-dij_interval_tmp = matRad_calcPhotonDose(ct,stf,pln_interval,cst);
+dij_interval = matRad_calcPhotonDose(ct,stf,pln_interval,cst);
 
 %%
 % retrieve 25 random case scenarios for dose calculation and optimziation
@@ -269,9 +269,13 @@ time1=sprintf('DCTime_robust: %.2f\n',DCTime_robust); disp(time1);
 
 %% Dose interval calculation
 now2 = tic();
-[dij_interval] = matRad_calcDoseInterval3(dij_robust,pln_robust,dij_interval_tmp,pln_interval,0,80);
+[dij_interval_tmp] = matRad_calcDoseInterval(dij_robust,pln_robust,cst,ixCTV,20,80);
 DCTime_interval = toc(now2);
 time2=sprintf('DCTime_interval: %.2f\n',DCTime_interval); disp(time2);
+
+%%
+dij_interval.physicalDose(1,2,1)=dij_interval_tmp.physicalDose(1,1);
+dij_interval.physicalDose(1,3,1)=dij_interval_tmp.physicalDose(1,2);
 
 %% Trigger robust optimization
 % Make the objective to a composite worst case objective
@@ -287,9 +291,10 @@ cst{ixCTV,6}{1}.robustness  = 'INTERVAL1';
 % the clinical objectives and constraints underlying the radiation
 % treatment. Once the optimization has finished, trigger once the GUI to
 % visualize the optimized dose cubes.
-now2 = tic();
-resultGUI_interval = matRad_fluenceOptimization(dij_interval_tmp,cst,pln_interval);
-OPTTime_interval = toc(now2);
+now3 = tic();
+resultGUI_interval = matRad_fluenceOptimization(dij_interval,cst,pln_interval);
+OPTTime_interval = toc(now3);
+time3=sprintf('DCTime_interval: %.2f\n',DCTime_interval); disp(time3);
 
 %% Plot the Resulting Dose Slice
 % Let's plot the transversal iso-center dose slice
