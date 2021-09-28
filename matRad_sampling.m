@@ -155,7 +155,7 @@ if FlagParallToolBoxLicensed
           caSampRes(i).absRangeShift = plnSamp.multScen.absRangeShift;
           caSampRes(i).isoShift      = plnSamp.multScen.isoShift;
           
-          caSampRes(i).dvh = matRad_calcDVH(cst,resultSamp.(pln.bioParam.quantityVis),'cum',dvhPoints);
+          caSampRes(i).dvh = matRad_calcDVH(cst,resultSamp.(pln.bioParam.quantityVis),'cum');
           caSampRes(i).qi  = matRad_calcQualityIndicators(cst,pln,resultSamp.(pln.bioParam.quantityVis),refGy,refVol);
           
           if FlagParforProgressDisp
@@ -192,7 +192,7 @@ end
           caSampRes(i).absRangeShift = plnSamp.multScen.absRangeShift;
           caSampRes(i).isoShift      = plnSamp.multScen.isoShift;
           
-          caSampRes(i).dvh = matRad_calcDVH(cst,resultSamp.(pln.bioParam.quantityVis),'cum',dvhPoints);
+          caSampRes(i).dvh = matRad_calcDVH(cst,resultSamp.(pln.bioParam.quantityVis),'cum');
           caSampRes(i).qi  = matRad_calcQualityIndicators(cst,pln,resultSamp.(pln.bioParam.quantityVis),refGy,refVol);
           matRad_progress(i, pln.multScen.totNumScen)
     end

@@ -25,6 +25,7 @@ clc;
 
 %% set matRad runtime configuration
 matRad_rc
+param.logLevel=1;
 
 %% Patient Data Import
 % Let's begin with a clear Matlab environment. Then, import the TG119
@@ -33,7 +34,6 @@ matRad_rc
 % matRad root directory with all its subdirectories is added to the Matlab
 % search path.
 load('patient3_5mm.mat');
-param.logLevel=1;
 
 %% plot CT slice
 if param.logLevel == 1
@@ -235,14 +235,12 @@ resultGUI = matRad_fluenceOptimization(dij,cst,pln);
 [dvh,dqi] = matRad_indicatorWrapper(cst,pln,resultGUI);
 
 %%
-% retrieve worst case scenarios for dose calculation and optimziation
+% retrieve 9 worst case scenarios for dose calculation and optimziation
 pln_robust=pln;
-
-multScen = matRad_multScen(ct,'wcScen'); % 'impSamp' or 'wcSamp'
-multScen.shiftSD = [4 6 8];
+multScen = matRad_multScen(ct,'wcScen'); 
 multScen.wcFactor=1.5;
-multScen.numOfShiftScen = [2 2 2];
-multScen.includeNomScen=true;
+multScen.shiftSD = [4 6 8];
+%multScen.includeNomScen=true;
 
 pln_robust.multScen=multScen;
 
@@ -259,9 +257,8 @@ time1=sprintf('DCTime_robust: %.2f\n',DCTime_robust); disp(time1);
 % Make the objective to a composite worst case objective
 
 % CTV
-theta=1/3;
-cst{ixCTV,6}{1} = struct(DoseObjectives.matRad_SquaredBertoluzzaDeviation(800,42.56,theta));
-cst{ixCTV,6}{1}.robustness  = 'INTERVAL3';
+cst{ixCTV,6}{1}.robustness  = 'COWC';
+%pln_robust.multScen.scenProb = (1/ct.numOfCtScen) * ones(ct.numOfCtScen,1);  % assign probabilities to 4D scenarios
 
 %% Inverse Optimization for IMRT
 % The goal of the fluence optimization is to find a set of beamlet/pencil
@@ -325,42 +322,39 @@ resultGUISamp.physicalDose=resultGUISamp.stdCube;
 [uvh,uqi] = matRad_indicatorWrapper_UVH(cst,pln,resultGUI,resultGUISamp);
 
 %% Print evaluation indexes
-
-evaluation=[];
-
 % CTV
 disp('CTV evaluation');
-evaluation.p=cst{6,6}{1,1}.parameters{1,1};
-evaluation.DMean=sprintf('DMean: %.2f [%.2f - %.2f] Gy',dqi_sampled{1,1}(6).mean*pln.numOfFractions,dqi_sampled{1,2}(6).mean*pln.numOfFractions,dqi_sampled{1,3}(6).mean*pln.numOfFractions); disp(evaluation.DMean);
-evaluation.D98=sprintf('D98: %.2f [%.2f - %.2f] Gy',dqi_sampled{1,1}(6).D_98*pln.numOfFractions,dqi_sampled{1,2}(6).D_98*pln.numOfFractions,dqi_sampled{1,3}(6).D_98*pln.numOfFractions); disp(evaluation.D98);
-evaluation.D2=sprintf('D2: %.2f [%.2f - %.2f] Gy\n',dqi_sampled{1,1}(6).D_2*pln.numOfFractions,dqi_sampled{1,2}(6).D_2*pln.numOfFractions,dqi_sampled{1,3}(6).D_2*pln.numOfFractions); disp(evaluation.D2);
-evaluation.U2=sprintf('U2: %.2f Gy\n',uqi(6).D_2*pln.numOfFractions); disp(evaluation.U2);
+p=cst{6,6}{1,1}.parameters{1,1};
+DMean=sprintf('DMean: %.2f [%.2f - %.2f] Gy',dqi_sampled{1,1}(6).mean*pln.numOfFractions,dqi_sampled{1,2}(6).mean*pln.numOfFractions,dqi_sampled{1,3}(6).mean*pln.numOfFractions); disp(DMean);
+D98=sprintf('D98: %.2f [%.2f - %.2f] Gy',dqi_sampled{1,1}(6).D_98*pln.numOfFractions,dqi_sampled{1,2}(6).D_98*pln.numOfFractions,dqi_sampled{1,3}(6).D_98*pln.numOfFractions); disp(D98);
+D2=sprintf('D2: %.2f [%.2f - %.2f] Gy\n',dqi_sampled{1,1}(6).D_2*pln.numOfFractions,dqi_sampled{1,2}(6).D_2*pln.numOfFractions,dqi_sampled{1,3}(6).D_2*pln.numOfFractions); disp(D2);
+U2=sprintf('U2: %.2f Gy\n',uqi(6).D_2*pln.numOfFractions); disp(U2);
 
 % robustness indexes
-evaluation.AI=sprintf('AI: %.2f Gy',(dqi_sampled{1,1}(6).mean*pln.numOfFractions-p)/p); disp(evaluation.AI);
-evaluation.RI=sprintf('RI: %.2f',uqi(6).D_2.*pln.numOfFractions/p); disp(evaluation.RI);
+AI=sprintf('AI: %.2f Gy',(dqi_sampled{1,1}(6).mean*pln.numOfFractions-p)/p); disp(AI);
+RI=sprintf('RI: %.2f',uqi(6).D_2.*pln.numOfFractions/p); disp(RI);
 OARMean_nominal=dqi(1).mean*pln.numOfFractions;
-OARMean_interval=dqi_sampled{1,1}(1).mean*pln.numOfFractions;
-evaluation.RPI=sprintf('RPI: %.2f\n',(OARMean_interval-OARMean_nominal)/p); disp(evaluation.RPI);
+OARMean_robust=dqi_sampled{1,1}(1).mean*pln.numOfFractions;
+RPI=sprintf('RPI: %.2f\n',(OARMean_robust-OARMean_nominal)/p); disp(RPI);
 
 %% Print evaluation indexes
 % Contralateral Lung
 disp('Contralateral lung evaluation');
-evaluation.V50ConLung=sprintf('V50: %.2f [%.2f - %.2f] %%',dqi_sampled{1,1}(2).V_3_12Gy*100,dqi_sampled{1,2}(2).V_3_12Gy*100,dqi_sampled{1,3}(2).V_3_12Gy*100); disp(evaluation.V50ConLung);
-evaluation.D5ConLung=sprintf('D5: %.2f [%.2f - %.2f] Gy\n',dqi_sampled{1,1}(2).D_5*pln.numOfFractions,dqi_sampled{1,2}(2).D_5*pln.numOfFractions,dqi_sampled{1,3}(2).D_5*pln.numOfFractions); disp(evaluation.D5ConLung);
+V50ConLung=sprintf('V50: %.2f [%.2f - %.2f] %%',dqi_sampled{1,1}(2).V_3_12Gy*100,dqi_sampled{1,2}(2).V_3_12Gy*100,dqi_sampled{1,3}(2).V_3_12Gy*100); disp(V50ConLung);
+D5ConLung=sprintf('D5: %.2f [%.2f - %.2f] Gy\n',dqi_sampled{1,1}(2).D_5*pln.numOfFractions,dqi_sampled{1,2}(2).D_5*pln.numOfFractions,dqi_sampled{1,3}(2).D_5*pln.numOfFractions); disp(D5ConLung);
 
 %% Print evaluation indexes
 % Ipsilateral Lung
 disp('Ipsilateral lung evaluation');
-evaluation.V20IpsLung=sprintf('V20: %.2f [%.2f - %.2f] %%',dqi_sampled{1,1}(3).V_1_25Gy*100,dqi_sampled{1,2}(3).V_1_25Gy*100,dqi_sampled{1,3}(3).V_1_25Gy*100); disp(evaluation.V20IpsLung);
-evaluation.D20IpsLung=sprintf('D20: %.2f [%.2f - %.2f] Gy\n',dqi_sampled{1,1}(3).D_20*pln.numOfFractions,dqi_sampled{1,2}(3).D_20*pln.numOfFractions,dqi_sampled{1,3}(3).D_20*pln.numOfFractions); disp(evaluation.D20IpsLung);
+V20IpsLung=sprintf('V20: %.2f [%.2f - %.2f] %%',dqi_sampled{1,1}(3).V_1_25Gy*100,dqi_sampled{1,2}(3).V_1_25Gy*100,dqi_sampled{1,3}(3).V_1_25Gy*100); disp(V20IpsLung);
+D20IpsLung=sprintf('D20: %.2f [%.2f - %.2f] Gy\n',dqi_sampled{1,1}(3).D_20*pln.numOfFractions,dqi_sampled{1,2}(3).D_20*pln.numOfFractions,dqi_sampled{1,3}(3).D_20*pln.numOfFractions); disp(D20IpsLung);
 
 %% Print evaluation indexes
-% Heart
+% Hear
 disp('Heart evaluation');
-evaluation.DMeanHeart=sprintf('DMean: %.2f [%.2f - %.2f] Gy\n',dqi_sampled{1,1}(4).mean*pln.numOfFractions,dqi_sampled{1,2}(4).mean*pln.numOfFractions,dqi_sampled{1,3}(4).mean*pln.numOfFractions); disp(evaluation.DMeanHeart);
+DMeanHeart=sprintf('DMean: %.2f [%.2f - %.2f] Gy\n',dqi_sampled{1,1}(4).mean*pln.numOfFractions,dqi_sampled{1,2}(4).mean*pln.numOfFractions,dqi_sampled{1,3}(4).mean*pln.numOfFractions); disp(DMeanHeart);
 
 %% Print evaluation indexes
 % Contralateral Breast
 disp('Contralateral Breast evaluation');
-evaluation.DMaxConBreast=sprintf('DMax: %.2f [%.2f - %.2f] Gy\n',dqi_sampled{1,1}(5).max*pln.numOfFractions,dqi_sampled{1,2}(5).max*pln.numOfFractions,dqi_sampled{1,3}(5).max*pln.numOfFractions); disp(evaluation.DMaxConBreast);
+DMaxConBreast=sprintf('DMax: %.2f [%.2f - %.2f] Gy\n',dqi_sampled{1,1}(5).max*pln.numOfFractions,dqi_sampled{1,2}(5).max*pln.numOfFractions,dqi_sampled{1,3}(5).max*pln.numOfFractions); disp(DMaxConBreast);
