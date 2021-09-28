@@ -254,8 +254,8 @@ dij_interval = matRad_calcPhotonDose(ct,stf,pln_interval,cst);
 pln_robust=pln;
 pln_robust.multScen = matRad_multScen(ct,'rndScen'); % 'impSamp' or 'wcSamp'
 pln_robust.multScen.shiftSD = [4 6 8];
-pln_robust.multScen.numOfShiftScen = [2 2 2];
-pln_robust.multScen.numOfRangeShiftScen = 2;
+pln_robust.multScen.numOfShiftScen = [25 25 25];
+pln_robust.multScen.numOfRangeShiftScen = 25;
 pln_robust.multScen.includeNomScen=false;
 
 %% Dose calculation
@@ -273,7 +273,7 @@ now2 = tic();
 DCTime_interval = toc(now2);
 time2=sprintf('DCTime_interval: %.2f\n',DCTime_interval); disp(time2);
 
-%%
+%% Fill dij from interval calculation
 dij_interval.physicalDose(1,2,1)=dij_interval_tmp.physicalDose(1,1);
 dij_interval.physicalDose(1,3,1)=dij_interval_tmp.physicalDose(1,2);
 
@@ -282,7 +282,7 @@ dij_interval.physicalDose(1,3,1)=dij_interval_tmp.physicalDose(1,2);
 
 % CTV
 theta=1/3;
-cst{ixCTV,6}{1} = struct(DoseObjectives.matRad_SquaredBertoluzzaDeviation(800,42.56,theta));
+cst{ixCTV,6}{1} = struct(DoseObjectives.matRad_SquaredBertoluzzaDeviation(800,p,theta));
 cst{ixCTV,6}{1}.robustness  = 'INTERVAL1';
 
 %% Inverse Optimization for IMRT
