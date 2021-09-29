@@ -41,7 +41,7 @@ end
 folderPath = [matRad_cfg.matRadRoot filesep output_folder];
 
 %%
-diary([folderPath filesep 'diary.log']) 
+diary([output_folder filesep 'diary.log']) 
 diary on
 
 %% Patient Data Import
