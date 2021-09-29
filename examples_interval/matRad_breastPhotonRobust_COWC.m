@@ -41,7 +41,7 @@ end
 folderPath = [matRad_cfg.matRadRoot filesep output_folder];
 
 %%
-diary([output_folder filesep 'diary.log']) 
+diary([folderPath filesep 'diary.log']) 
 diary on
 
 %% Patient Data Import
@@ -351,17 +351,23 @@ savefig([folderPath filesep 'uvh.fig']);
 %% Print evaluation indexes
 % CTV
 disp('CTV evaluation');
-p=cst{6,6}{1,1}.parameters{1,1};
-DMean=sprintf('DMean: %.2f [%.2f - %.2f] Gy',dqi_sampled{1,1}(6).mean*pln.numOfFractions,dqi_sampled{1,2}(6).mean*pln.numOfFractions,dqi_sampled{1,3}(6).mean*pln.numOfFractions); disp(DMean);
-D98=sprintf('D98: %.2f [%.2f - %.2f] Gy',dqi_sampled{1,1}(6).D_98*pln.numOfFractions,dqi_sampled{1,2}(6).D_98*pln.numOfFractions,dqi_sampled{1,3}(6).D_98*pln.numOfFractions); disp(D98);
-D2=sprintf('D2: %.2f [%.2f - %.2f] Gy\n',dqi_sampled{1,1}(6).D_2*pln.numOfFractions,dqi_sampled{1,2}(6).D_2*pln.numOfFractions,dqi_sampled{1,3}(6).D_2*pln.numOfFractions); disp(D2);
-U2=sprintf('U2: %.2f Gy\n',uqi(6).D_2*pln.numOfFractions); disp(U2);
+DMean=sprintf('DMean: %.2f [%.2f - %.2f] Gy',dqi_sampled{1,1}(ixCTV).mean*pln.numOfFractions,dqi_sampled{1,2}(ixCTV).mean*pln.numOfFractions,dqi_sampled{1,3}(ixCTV).mean*pln.numOfFractions); disp(DMean);
+D98=sprintf('D98: %.2f [%.2f - %.2f] Gy',dqi_sampled{1,1}(ixCTV).D_98*pln.numOfFractions,dqi_sampled{1,2}(ixCTV).D_98*pln.numOfFractions,dqi_sampled{1,3}(ixCTV).D_98*pln.numOfFractions); disp(D98);
+D2=sprintf('D2: %.2f [%.2f - %.2f] Gy\n',dqi_sampled{1,1}(ixCTV).D_2*pln.numOfFractions,dqi_sampled{1,2}(ixCTV).D_2*pln.numOfFractions,dqi_sampled{1,3}(ixCTV).D_2*pln.numOfFractions); disp(D2);
+U2=sprintf('U2: %.2f Gy\n',uqi(ixCTV).D_2*pln.numOfFractions); disp(U2);
 
 % robustness indexes
-AI=sprintf('AI: %.2f Gy',(dqi_sampled{1,1}(6).mean*pln.numOfFractions-p)/p); disp(AI);
-RI=sprintf('RI: %.2f',uqi(6).D_2.*pln.numOfFractions/p); disp(RI);
-OARMean_nominal=dqi(1).mean*pln.numOfFractions;
-OARMean_robust=dqi_sampled{1,1}(1).mean*pln.numOfFractions;
+AI=sprintf('AI: %.2f Gy',(dqi_sampled{1,1}(ixCTV).mean*pln.numOfFractions-p)/p); disp(AI);
+RI=sprintf('RI: %.2f',uqi(ixCTV).D_2.*pln.numOfFractions/p); disp(RI);
+
+BodyTotal=dqi(1).mean*numel(cst{1,4}{1,1});
+CTVTotal=dqi(ixCTV).mean*numel(cst{ixCTV,4}{1,1});
+OARMean_nominal=(BodyTotal-CTVTotal)/(numel(cst{1,4}{1,1})-numel(cst{ixCTV,4}{1,1}))*pln.numOfFractions;
+
+BodyTotal_robust=dqi_sampled{1,1}(1).mean*numel(cst{1,4}{1,1});
+CTVTotal_robust=dqi_sampled{1,1}(ixCTV).mean*numel(cst{ixCTV,4}{1,1});
+OARMean_robust=(BodyTotal_robust-CTVTotal_robust)/(numel(cst{1,4}{1,1})-numel(cst{ixCTV,4}{1,1}))*pln.numOfFractions;
+
 RPI=sprintf('RPI: %.2f\n',(OARMean_robust-OARMean_nominal)/p); disp(RPI);
 
 %% Print evaluation indexes
@@ -377,7 +383,7 @@ V20IpsLung=sprintf('V20: %.2f [%.2f - %.2f] %%',dqi_sampled{1,1}(3).V_1_25Gy*100
 D20IpsLung=sprintf('D20: %.2f [%.2f - %.2f] Gy\n',dqi_sampled{1,1}(3).D_20*pln.numOfFractions,dqi_sampled{1,2}(3).D_20*pln.numOfFractions,dqi_sampled{1,3}(3).D_20*pln.numOfFractions); disp(D20IpsLung);
 
 %% Print evaluation indexes
-% Hear
+% Heart
 disp('Heart evaluation');
 DMeanHeart=sprintf('DMean: %.2f [%.2f - %.2f] Gy\n',dqi_sampled{1,1}(4).mean*pln.numOfFractions,dqi_sampled{1,2}(4).mean*pln.numOfFractions,dqi_sampled{1,3}(4).mean*pln.numOfFractions); disp(DMeanHeart);
 

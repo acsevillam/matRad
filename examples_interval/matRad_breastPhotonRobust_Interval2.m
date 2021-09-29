@@ -42,7 +42,7 @@ end
 folderPath = [matRad_cfg.matRadRoot filesep output_folder];
 
 %%
-diary([output_folder filesep 'diary.log']) 
+diary([folderPath filesep 'diary.log']) 
 diary on
 
 %% Patient Data Import
@@ -358,7 +358,6 @@ evaluation=[];
 
 % CTV
 disp('CTV evaluation');
-evaluation.p=cst{6,6}{1,1}.parameters{1,1};
 evaluation.DMean=sprintf('DMean: %.2f [%.2f - %.2f] Gy',dqi_sampled{1,1}(6).mean*pln.numOfFractions,dqi_sampled{1,2}(6).mean*pln.numOfFractions,dqi_sampled{1,3}(6).mean*pln.numOfFractions); disp(evaluation.DMean);
 evaluation.D98=sprintf('D98: %.2f [%.2f - %.2f] Gy',dqi_sampled{1,1}(6).D_98*pln.numOfFractions,dqi_sampled{1,2}(6).D_98*pln.numOfFractions,dqi_sampled{1,3}(6).D_98*pln.numOfFractions); disp(evaluation.D98);
 evaluation.D2=sprintf('D2: %.2f [%.2f - %.2f] Gy\n',dqi_sampled{1,1}(6).D_2*pln.numOfFractions,dqi_sampled{1,2}(6).D_2*pln.numOfFractions,dqi_sampled{1,3}(6).D_2*pln.numOfFractions); disp(evaluation.D2);
@@ -367,9 +366,16 @@ evaluation.U2=sprintf('U2: %.2f Gy\n',uqi(6).D_2*pln.numOfFractions); disp(evalu
 % robustness indexes
 evaluation.AI=sprintf('AI: %.2f Gy',(dqi_sampled{1,1}(6).mean*pln.numOfFractions-p)/p); disp(evaluation.AI);
 evaluation.RI=sprintf('RI: %.2f',uqi(6).D_2.*pln.numOfFractions/p); disp(evaluation.RI);
-OARMean_nominal=dqi(1).mean*pln.numOfFractions;
-OARMean_interval=dqi_sampled{1,1}(1).mean*pln.numOfFractions;
-evaluation.RPI=sprintf('RPI: %.2f\n',(OARMean_interval-OARMean_nominal)/p); disp(evaluation.RPI);
+
+BodyTotal=dqi(1).mean*numel(cst{1,4}{1,1});
+CTVTotal=dqi(ixCTV).mean*numel(cst{ixCTV,4}{1,1});
+OARMean_nominal=(BodyTotal-CTVTotal)/(numel(cst{1,4}{1,1})-numel(cst{ixCTV,4}{1,1}))*pln.numOfFractions;
+
+BodyTotal_robust=dqi_sampled{1,1}(1).mean*numel(cst{1,4}{1,1});
+CTVTotal_robust=dqi_sampled{1,1}(ixCTV).mean*numel(cst{ixCTV,4}{1,1});
+OARMean_robust=(BodyTotal_robust-CTVTotal_robust)/(numel(cst{1,4}{1,1})-numel(cst{ixCTV,4}{1,1}))*pln.numOfFractions;
+
+RPI=sprintf('RPI: %.2f\n',(OARMean_robust-OARMean_nominal)/p); disp(RPI);
 
 %% Print evaluation indexes
 % Contralateral Lung
