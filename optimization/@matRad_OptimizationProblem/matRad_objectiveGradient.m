@@ -325,9 +325,14 @@ if exist('delta_CheapCOWC','var')
     %p=ceil(beta*numel(useScen));
     
     [~,ixKp] = maxk(f_CheapCOWC(:),p);
-    
-    for s = 1:numel(ixKp)
-        doseGradient{ixKp(s)} = doseGradient{ixKp(s)} + scenProb(ixKp(s)) * delta_CheapCOWC{ixKp(s)};
+    fGrad = zeros(size(f_CheapCOWC));
+    fGrad(ixKp) = 1;
+            
+    for s = 1:numel(useScen)
+        ixScen = useScen(s);
+        if fGrad(ixScen) ~= 0
+            doseGradient{ixScen} = doseGradient{ixScen} + scenProb(s) * fGrad(ixScen) * delta_CheapCOWC{ixScen};
+        end
     end
     
 end

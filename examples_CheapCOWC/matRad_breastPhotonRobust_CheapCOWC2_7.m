@@ -32,7 +32,7 @@ description_folder = 'breast';
 run_config.robustness = 'c-COWC';
 run_config.mode = 'impScen';
 run_config.beta = 13/13;
-run_config.b = 13;
+run_config.p = 13;
 
 output_folder = ['output' filesep description_folder filesep run_config.robustness filesep num2str(run_config.beta) filesep run_config.mode filesep datestr(datetime)];
 
@@ -293,7 +293,7 @@ time1=sprintf('DCTime_robust: %.2f\n',DCTime_robust); disp(time1);
 % CTV
 cst{ixCTV,6}{1}.robustness  = run_config.robustness;
 cst{ixCTV,8}{1}.beta = run_config.beta;
-cst{ixCTV,8}{1}.b = run_config.b;
+cst{ixCTV,8}{1}.p = run_config.p;
 
 %% Inverse Optimization for IMRT
 % The goal of the fluence optimization is to find a set of beamlet/pencil
@@ -372,7 +372,9 @@ D2=sprintf('D2: %.2f [%.2f - %.2f] Gy\n',dqi_sampled{1,1}(ixCTV).D_2*pln.numOfFr
 U2=sprintf('U2: %.2f Gy\n',uqi(ixCTV).D_2*pln.numOfFractions); disp(U2);
 
 % robustness indexes
-AI=sprintf('AI: %.2f Gy',(dqi_sampled{1,1}(ixCTV).mean*pln.numOfFractions-p)/p); disp(AI);
+HI=sprintf('AI: %.2f Gy',(dqi_sampled{1,1}(ixCTV).D_2*pln.numOfFractions-p)/p); disp(HI);
+HI2=sprintf('AI: %.2f Gy', dqi_sampled{1,1}(ixCTV).HI); disp(HI2);
+
 RI=sprintf('RI: %.2f',uqi(ixCTV).D_2.*pln.numOfFractions/p); disp(RI);
 
 BodyTotal=dqi(1).mean*numel(cst{1,4}{1,1});
@@ -382,6 +384,8 @@ OARMean_nominal=(BodyTotal-CTVTotal)/(numel(cst{1,4}{1,1})-numel(cst{ixCTV,4}{1,
 BodyTotal_robust=dqi_sampled{1,1}(1).mean*numel(cst{1,4}{1,1});
 CTVTotal_robust=dqi_sampled{1,1}(ixCTV).mean*numel(cst{ixCTV,4}{1,1});
 OARMean_robust=(BodyTotal_robust-CTVTotal_robust)/(numel(cst{1,4}{1,1})-numel(cst{ixCTV,4}{1,1}))*pln.numOfFractions;
+
+
 
 RPI=sprintf('RPI: %.2f\n',(OARMean_robust-OARMean_nominal)/p); disp(RPI);
 
