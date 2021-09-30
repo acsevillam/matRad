@@ -273,7 +273,7 @@ if(run_config.mode=="impScen")
     multScen.wcFactor=1.5;
     multScen.shiftSD = [4 6 8];
     multScen.numOfShiftScen = [4 4 4];
-    multScen.numOfRangeShiftScen=0;
+    multScen.numOfRangeShiftScen=4;
     multScen.includeNomScen=true;
 end
 %%
