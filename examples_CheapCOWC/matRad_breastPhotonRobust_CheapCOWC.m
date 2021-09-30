@@ -32,6 +32,7 @@ description_folder = 'breast';
 run_config.robustness = 'c-COWC';
 run_config.mode = 'wcScen';
 run_config.beta = 1/9;
+run_config.p = 1;
 
 output_folder = ['output' filesep description_folder filesep run_config.robustness filesep num2str(run_config.beta) filesep run_config.mode filesep datestr(datetime)];
 
@@ -292,6 +293,7 @@ time1=sprintf('DCTime_robust: %.2f\n',DCTime_robust); disp(time1);
 % CTV
 cst{ixCTV,6}{1}.robustness  = run_config.robustness;
 cst{ixCTV,8}{1}.beta = run_config.beta;
+cst{ixCTV,8}{1}.p = run_config.p;
 
 %% Inverse Optimization for IMRT
 % The goal of the fluence optimization is to find a set of beamlet/pencil
