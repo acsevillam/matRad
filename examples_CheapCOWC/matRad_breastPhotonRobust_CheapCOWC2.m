@@ -30,8 +30,8 @@ param.logLevel=1;
 %% Set output folder
 description_folder = 'breast';
 run_config.robustness = 'c-COWC';
-run_config.mode = 'impScen';
-run_config.beta = 1/13;
+run_config.mode = 'wcScen';
+run_config.beta = 5/13;
 
 output_folder = ['output' filesep description_folder filesep run_config.robustness filesep num2str(run_config.beta) filesep run_config.mode filesep datestr(datetime)];
 

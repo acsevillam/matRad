@@ -241,7 +241,7 @@ end
 if nnz(f_CheapCOWC(:)) > 0
 
     beta = cst{6,8}{1}.beta;
-    p=13%;ceil(beta*numel(useScen));
+    p=ceil(beta*numel(useScen));
     
     [~,ixKp] = maxk(f_CheapCOWC(:),p);
     
