@@ -321,7 +321,7 @@ end
 if exist('delta_CheapCOWC','var')
     
     beta=cst{6,8}{1}.beta;
-    p=ceil(beta*numel(useScen));
+    p=13;%ceil(beta*numel(useScen));
     
     [~,ixKp] = maxk(f_CheapCOWC(:),p);
     
