@@ -61,8 +61,8 @@ vOmega = 0;
 %For COWC
 f_COWC = zeros(size(dij.physicalDose));
 
-%For CheapCOWC
-f_CheapCOWC = zeros(size(dij.physicalDose));
+%For SoftCOWC
+f_SoftCOWC = zeros(size(dij.physicalDose));
 
 % compute objective function for every VOI.
 for  i = 1:size(cst,1)
@@ -266,22 +266,29 @@ for  i = 1:size(cst,1)
                             end
                         end
 
-                    case 'c-COWC' % composite worst case consideres ovarall the worst objective function value
+                    case 's-COWC' % composite worst case consideres ovarall the worst objective function value
                         
-                        %First check the speficic cache for CheapCOWC
-                        if ~exist('delta_CheapCOWC','var')
-                            delta_CheapCOWC             = cell(size(doseGradient));
-                            delta_CheapCOWC(useScen)    = {zeros(dij.doseGrid.numOfVoxels,1)};
-                        end
+                        %First check the speficic cache for SoftCOWC
+                        if ~exist('delta_COWC','var')
+                            delta_SoftCOWC         = cell(size(doseGradient));
+                            delta_SoftCOWC(useScen)    = {zeros(dij.doseGrid.numOfVoxels,1)};
+                        end                      
                         
                         for s = 1:numel(useScen)
                             ixScen = useScen(s);
                             ixContour = contourScen(s);
                             
                             d_i = d{ixScen}(cst{i,4}{ixContour});
-                            
-                            f_CheapCOWC(ixScen) = f_CheapCOWC(ixScen) + objective.computeDoseObjectiveFunction(d_i);
-                            delta_CheapCOWC{ixScen}(cst{i,4}{ixContour}) = delta_CheapCOWC{ixScen}(cst{i,4}{ixContour}) + objective.computeDoseObjectiveGradient(d_i);
+                            f_SoftCOWC(ixScen) = f_SoftCOWC(ixScen) + objective.computeDoseObjectiveFunction(d_i);
+                            delta_SoftCOWC{ixScen}(cst{i,4}{ixContour}) = delta_SoftCOWC{ixScen}(cst{i,4}{ixContour}) + objective.computeDoseObjectiveGradient(d_i);
+                        end
+                        
+                        for s = 1:numel(useScen)
+                            ixScen = useScen(s);
+                            ixContour = contourScen(s);
+                            d_i = d{ixScen}(cst{i,4}{ixContour});
+                            %add to dose gradient
+                            doseGradient{ixScen}(cst{i,4}{ixContour}) = doseGradient{ixScen}(cst{i,4}{ixContour}) + objective.computeDoseObjectiveGradient(d_i);
                         end
                         
                     otherwise
@@ -318,23 +325,32 @@ if exist('delta_COWC','var')
     end
 end
 
-if exist('delta_CheapCOWC','var')
-    
-    beta=cst{6,8}{1}.beta;
-    p = cst{6,8}{1}.p;
-    %p=ceil(beta*numel(useScen));
-    
-    [~,ixKp] = maxk(f_CheapCOWC(:),p);
-    fGrad = zeros(size(f_CheapCOWC));
-    fGrad(ixKp) = 1;
-            
-    for s = 1:numel(useScen)
-        ixScen = useScen(s);
-        if fGrad(ixScen) ~= 0
-            doseGradient{ixScen} = doseGradient{ixScen} + scenProb(s) * fGrad(ixScen) * delta_CheapCOWC{ixScen};
-        end
+if exist('delta_SoftCOWC','var')   
+    switch optiProb.useMaxApprox
+        case 'logsumexp'
+            [~,fGrad] = optiProb.logSumExp(f_SoftCOWC);
+        case 'pnorm'
+            [~,fGrad] = optiProb.pNorm(f_SoftCOWC,numel(useScen));
+        case 'none'
+            [~,ixCurrWC] = max(f_SoftCOWC(:));
+            fGrad = zeros(size(f_SoftCOWC));
+            fGrad(ixCurrWC) = 1;
+        case 'otherwise'
+            matRad_cfg.dispWarning('Unknown maximum approximation desired. Using ''none'' instead.');
+            [~,ixCurrWC] = max(f_SoftCOWC(:));
+            fGrad = zeros(size(f_SoftCOWC));
+            fGrad(ixCurrWC) = 1;
     end
     
+    alpha=cst{6,8}{1}.alpha;
+    
+    for s = 1:numel(useScen)
+        ixScen_nom = useScen(1);
+        ixScen = useScen(s);
+        if fGrad(ixScen) ~= 0
+            doseGradient{ixScen} = doseGradient{ixScen} + (1-alpha)*fGrad(ixScen_nom)*delta_SoftCOWC{ixScen_nom} + alpha*fGrad(ixScen)*delta_SoftCOWC{ixScen};
+        end
+    end
 end
 
 weightGradient = zeros(dij.totalNumOfBixels,1);

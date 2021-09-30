@@ -54,8 +54,8 @@ f = 0;
 % required for COWC opt
 f_COWC = zeros(numel(useScen),1);
 
-% required for CheapCOWC opt
-f_CheapCOWC = zeros(numel(useScen),1);
+% required for SoftCOWC opt
+f_SoftCOWC = zeros(numel(useScen),1);
 
 % compute objective function for every VOI.
 for  i = 1:size(cst,1)
@@ -197,7 +197,7 @@ for  i = 1:size(cst,1)
                         end
                         f = f + fMax;
 
-                    case 'c-COWC'  % composite worst case consideres ovarall the worst objective function value
+                    case 's-COWC'  % composite worst case consideres ovarall the worst objective function value
                         
                         for s = 1:numel(useScen)
                             ixScen = useScen(s);
@@ -205,7 +205,8 @@ for  i = 1:size(cst,1)
                             
                             d_i = d{ixScen}(cst{i,4}{ixContour});
                             
-                            f_CheapCOWC(s) = f_CheapCOWC(s) + objective.computeDoseObjectiveFunction(d_i);
+                            f_SoftCOWC(s) = f_SoftCOWC(s) + objective.computeDoseObjectiveFunction(d_i);
+                            
                         end
                         
                     otherwise
@@ -237,22 +238,23 @@ if nnz(f_COWC(:)) > 0
 end
 
 %Handling the maximum of the composite worst case part
-
-if nnz(f_CheapCOWC(:)) > 0
-
-    beta = cst{6,8}{1}.beta;
-    p = cst{6,8}{1}.p;
-    %p=ceil(beta*numel(useScen));
-    
-    [~,ixKp] = maxk(f_CheapCOWC(:),p);
-    
-    fKp=0;
-    
-    for s = 1:numel(ixKp)
-        fKp=fKp + scenProb(ixKp(s)) * f_CheapCOWC(ixKp(s));
+if nnz(f_SoftCOWC(:)) > 0
+    fMax = max(f_SoftCOWC(:));
+    switch optiProb.useMaxApprox
+        case 'logsumexp'
+            fMax = optiProb.logSumExp(f_SoftCOWC);
+        case 'pnorm'
+            fMax = optiProb.pNorm(f_SoftCOWC,numel(useScen));
+        case 'none'
+            fMax = max(f_SoftCOWC);
+        case 'otherwise'
+            matRad_cfg.dispWarning('Unknown maximum approximation desired. Using ''none'' instead.');
+            fMax = max(f_SoftCOWC);
     end
     
+    alpha = cst{6,8}{1}.alpha;
+    
     %Sum up max of composite worst case part
-    f = f + fKp;    
+    f = f + (1-alpha)*f_SoftCOWC(1)+alpha*fMax;
 end
 

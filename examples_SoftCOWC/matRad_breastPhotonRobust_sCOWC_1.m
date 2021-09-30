@@ -29,12 +29,11 @@ param.logLevel=1;
 
 %% Set output folder
 description_folder = 'breast';
-run_config.robustness = 'c-COWC';
-run_config.mode = 'impScen';
-run_config.beta = 1/13;
-run_config.p = 1;
+run_config.robustness = 's-COWC';
+run_config.mode = 'wcScen';
+run_config.alpha = 0.0;
 
-output_folder = ['output' filesep description_folder filesep run_config.robustness filesep num2str(run_config.beta) filesep run_config.mode filesep datestr(datetime)];
+output_folder = ['output' filesep description_folder filesep run_config.robustness filesep num2str(run_config.alpha) filesep run_config.mode filesep datestr(datetime)];
 
 %Set up parent export folder and full file path
 if ~(isfolder(output_folder))
@@ -265,6 +264,7 @@ if(run_config.mode=="wcScen")
     multScen = matRad_multScen(ct,'wcScen'); 
     multScen.wcFactor=1.5;
     multScen.shiftSD = [4 6 8];
+    multScen.includeNomScen=true;
 end
 %%
 % retrieve 13 scenarios for dose calculation and optimziation
@@ -272,8 +272,8 @@ if(run_config.mode=="impScen")
     multScen = matRad_multScen(ct,'impScen'); 
     multScen.wcFactor=1.5;
     multScen.shiftSD = [4 6 8];
-    multScen.numOfShiftScen = [4 4 4];
-    multScen.numOfRangeShiftScen=4;
+    multScen.numOfShiftScen = [2 2 2];
+    multScen.numOfRangeShiftScen=0;
     multScen.includeNomScen=true;
 end
 %%
@@ -293,8 +293,7 @@ time1=sprintf('DCTime_robust: %.2f\n',DCTime_robust); disp(time1);
 
 % CTV
 cst{ixCTV,6}{1}.robustness  = run_config.robustness;
-cst{ixCTV,8}{1}.beta = run_config.beta;
-cst{ixCTV,8}{1}.p = run_config.p;
+cst{ixCTV,8}{1}.alpha = run_config.alpha;
 
 %% Inverse Optimization for IMRT
 % The goal of the fluence optimization is to find a set of beamlet/pencil
