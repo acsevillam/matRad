@@ -29,10 +29,10 @@ param.logLevel=1;
 
 %% Set output folder
 description_folder = 'breast';
-run_config.robustness = 'INTERVAL1';
-run_config.theta = 1/3;
+run_config.robustness = 'c-COWC';
+run_config.beta = 0.1;
 
-output_folder = ['output' filesep description_folder filesep run_config.robustness filesep num2str(run_config.theta) filesep datestr(datetime)];
+output_folder = ['output' filesep description_folder filesep run_config.robustness filesep num2str(run_config.beta) filesep datestr(datetime)];
 
 %Set up parent export folder and full file path
 if ~(isfolder(output_folder))
@@ -110,7 +110,6 @@ cst{3,5}.Priority = 2; % overlap priority for optimization - a lower number corr
 cst{3,6}{1} = struct(DoseObjectives.matRad_MaxDVH(400,20,20));
 cst{3,6}{1}.robustness  = 'none';
 %cst{3,6}{2} = struct(DoseConstraints.matRad_MinMaxDVH(20,0,20));
-
 
 % Heart
 cst{4,5}.Priority = 2; % overlap priority for optimization - a lower number corresponds to a higher priority
@@ -257,26 +256,17 @@ resultGUI = matRad_fluenceOptimization(dij,cst,pln);
 savefig([folderPath filesep 'dvh_nominal.fig']);
 
 %%
-% retrieve 2 dummy case scenarios for dose calculation and optimziation
-pln_interval=pln;
-pln_interval.multScen = matRad_multScen(ct,'wcScen');
-pln_interval.multScen.numOfShiftScen = [2 0 0];
-pln_interval.multScen.shiftSD = [1 0 0];
-pln_interval.multScen.wcFactor=1;
-pln_interval.multScen.numOfRangeShiftScen = 2;
-pln_interval.multScen.includeNomScen = true;
-
-%% calculate dummy case dij to save interval
-dij_interval = matRad_calcPhotonDose(ct,stf,pln_interval,cst);
+% retrieve 15 scenarios for dose calculation and optimziation
+pln_robust=pln;
+multScen = matRad_multScen(ct,'impScen'); 
+multScen.wcFactor=1.5;
+multScen.shiftSD = [4 6 8];
+multScen.numOfShiftScen = [2 2 2];
+multScen.numOfRangeShiftScen=0;
+multScen.includeNomScen=true;
 
 %%
-% retrieve 25 random case scenarios for dose calculation and optimziation
-pln_robust=pln;
-pln_robust.multScen = matRad_multScen(ct,'rndScen'); % 'impSamp' or 'wcSamp'
-pln_robust.multScen.shiftSD = [4 6 8];
-pln_robust.multScen.numOfShiftScen = [25 25 25];
-pln_robust.multScen.numOfRangeShiftScen = 25;
-pln_robust.multScen.includeNomScen=false;
+pln_robust.multScen=multScen;
 
 %% Dose calculation
 % Let's generate dosimetric information by pre-computing dose influence
@@ -287,23 +277,12 @@ dij_robust = matRad_calcPhotonDose(ct,stf,pln_robust,cst);
 DCTime_robust = toc(now1);
 time1=sprintf('DCTime_robust: %.2f\n',DCTime_robust); disp(time1);
 
-%% Dose interval calculation
-now2 = tic();
-[dij_interval_tmp] = matRad_calcDoseInterval(dij_robust,pln_robust,cst,ixCTV,20,80);
-DCTime_interval = toc(now2);
-time2=sprintf('DCTime_interval: %.2f\n',DCTime_interval); disp(time2);
-
-%% Fill dij from interval calculation
-dij_interval.physicalDose(1,2,1)=dij_interval_tmp.physicalDose(1,1);
-dij_interval.physicalDose(1,3,1)=dij_interval_tmp.physicalDose(1,2);
-
 %% Trigger robust optimization
 % Make the objective to a composite worst case objective
 
 % CTV
-theta=run_config.theta;
-cst{ixCTV,6}{1} = struct(DoseObjectives.matRad_SquaredBertoluzzaDeviation(800,p,theta));
 cst{ixCTV,6}{1}.robustness  = run_config.robustness;
+cst{ixCTV,8}{1}.beta = run_config.beta;
 
 %% Inverse Optimization for IMRT
 % The goal of the fluence optimization is to find a set of beamlet/pencil
@@ -311,24 +290,24 @@ cst{ixCTV,6}{1}.robustness  = run_config.robustness;
 % the clinical objectives and constraints underlying the radiation
 % treatment. Once the optimization has finished, trigger once the GUI to
 % visualize the optimized dose cubes.
-now3 = tic();
-resultGUI_interval = matRad_fluenceOptimization(dij_interval,cst,pln_interval);
-OPTTime_interval = toc(now3);
-time3=sprintf('DCTime_interval: %.2f\n',DCTime_interval); disp(time3);
+now2 = tic();
+resultGUI_robust = matRad_fluenceOptimization(dij_robust,cst,pln_robust);
+OPTTime_robust = toc(now2);
+time2=sprintf('OPTTime_robust: %.2f\n',OPTTime_robust); disp(time2);
 
 %% Plot the Resulting Dose Slice
 % Let's plot the transversal iso-center dose slice
 
 plane      = 3;
-slice      = round(pln_interval.propStf.isoCenter(1,3)./ct.resolution.z);
-doseWindow = [0 max([resultGUI_interval.physicalDose(:)*pln_interval.numOfFractions])];
+slice      = round(pln_robust.propStf.isoCenter(1,3)./ct.resolution.z);
+doseWindow = [0 max([resultGUI_robust.physicalDose(:)*pln_robust.numOfFractions])];
 figure
-matRad_plotSliceWrapper(gca,ct,cst,1,resultGUI_interval.physicalDose*pln_interval.numOfFractions,plane,slice,[],[],colorcube,[],doseWindow,[],[],'Dose [Gy]');
-savefig([folderPath filesep 'dose_interval.fig']);
+matRad_plotSliceWrapper(gca,ct,cst,1,resultGUI_robust.physicalDose*pln_robust.numOfFractions,plane,slice,[],[],colorcube,[],doseWindow,[],[],'Dose [Gy]');
+savefig([folderPath filesep 'dose_robust.fig']);
 
 %% Obtain dose statistics
-[dvh_interval,dqi_interval] = matRad_indicatorWrapper(cst,pln_interval,resultGUI_interval);
-savefig([folderPath filesep 'dvh_interval.fig']);
+[dvh_robust,dqi_robust] = matRad_indicatorWrapper(cst,pln_robust,resultGUI_robust);
+savefig([folderPath filesep 'dvh_robust.fig']);
 
 %% Define sampling parameters
 % select structures to include in sampling; leave empty to sample dose for all structures
@@ -340,23 +319,23 @@ multScen.shiftSD = [4 6 8];
 multScen.numOfRangeShiftScen = matRad_cfg.defaults.samplingScenarios;
 
 %% Perform sampling
-[caSamp, mSampDose, plnSamp, resultGUInomScen] = matRad_sampling(ct,stf,cst,pln_interval,resultGUI_interval.w,structSel,multScen);
+[caSamp, mSampDose, plnSamp, resultGUInomScen] = matRad_sampling(ct,stf,cst,pln_robust,resultGUI_robust.w,structSel,multScen);
 
 %% Perform sampling analysis
 [cstStat, resultGUISamp, meta] = matRad_samplingAnalysis(ct,cst,plnSamp,caSamp, mSampDose, resultGUInomScen);
 
 %% Multi-scenario dose volume histogram (DVH)
 figure,set(gcf,'Color',[1 1 1],'position',[10,10,600,400]);
-matRad_showDVH_sampledScen(caSamp,dvh_interval,cst,plnSamp,[1:25]);
-savefig([folderPath filesep 'dvh_interval_multiscen.fig']);
+matRad_showDVH_sampledScen(caSamp,dvh_robust,cst,plnSamp,[1:25]);
+savefig([folderPath filesep 'dvh_robust_multiscen.fig']);
 
 %% Dose volume histogram (DVH)
 resultGUISamp_ul=[];
-resultGUISamp_ul.physicalDose=resultGUI_interval.physicalDose;
+resultGUISamp_ul.physicalDose=resultGUI_robust.physicalDose;
 resultGUISamp_ul.physicalDose_lower=resultGUISamp.meanCube-resultGUISamp.stdCube;
 resultGUISamp_ul.physicalDose_upper=resultGUISamp.meanCube+resultGUISamp.stdCube;
 [dvh_sampled,dqi_sampled] = matRad_indicatorWrapper_sampled(cst,pln,resultGUISamp_ul,[20,50]/pln.numOfFractions,[2,5,10,20,30,40,50,60,70,80,90,95,98]);
-savefig([folderPath filesep 'dvh_interval_trustband.fig']);
+savefig([folderPath filesep 'dvh_robust_trustband.fig']);
 
 %% STD dose based on sampling
 figure,title('std dose cube based on sampling - conventional');
@@ -374,19 +353,16 @@ resultGUISamp.physicalDose=resultGUISamp.stdCube;
 savefig([folderPath filesep 'uvh.fig']);
 
 %% Print evaluation indexes
-
-evaluation=[];
-
 % CTV
 disp('CTV evaluation');
-evaluation.DMean=sprintf('DMean: %.2f [%.2f - %.2f] Gy',dqi_sampled{1,1}(6).mean*pln.numOfFractions,dqi_sampled{1,2}(6).mean*pln.numOfFractions,dqi_sampled{1,3}(6).mean*pln.numOfFractions); disp(evaluation.DMean);
-evaluation.D98=sprintf('D98: %.2f [%.2f - %.2f] Gy',dqi_sampled{1,1}(6).D_98*pln.numOfFractions,dqi_sampled{1,2}(6).D_98*pln.numOfFractions,dqi_sampled{1,3}(6).D_98*pln.numOfFractions); disp(evaluation.D98);
-evaluation.D2=sprintf('D2: %.2f [%.2f - %.2f] Gy\n',dqi_sampled{1,1}(6).D_2*pln.numOfFractions,dqi_sampled{1,2}(6).D_2*pln.numOfFractions,dqi_sampled{1,3}(6).D_2*pln.numOfFractions); disp(evaluation.D2);
-evaluation.U2=sprintf('U2: %.2f Gy\n',uqi(6).D_2*pln.numOfFractions); disp(evaluation.U2);
+DMean=sprintf('DMean: %.2f [%.2f - %.2f] Gy',dqi_sampled{1,1}(ixCTV).mean*pln.numOfFractions,dqi_sampled{1,2}(ixCTV).mean*pln.numOfFractions,dqi_sampled{1,3}(ixCTV).mean*pln.numOfFractions); disp(DMean);
+D98=sprintf('D98: %.2f [%.2f - %.2f] Gy',dqi_sampled{1,1}(ixCTV).D_98*pln.numOfFractions,dqi_sampled{1,2}(ixCTV).D_98*pln.numOfFractions,dqi_sampled{1,3}(ixCTV).D_98*pln.numOfFractions); disp(D98);
+D2=sprintf('D2: %.2f [%.2f - %.2f] Gy\n',dqi_sampled{1,1}(ixCTV).D_2*pln.numOfFractions,dqi_sampled{1,2}(ixCTV).D_2*pln.numOfFractions,dqi_sampled{1,3}(ixCTV).D_2*pln.numOfFractions); disp(D2);
+U2=sprintf('U2: %.2f Gy\n',uqi(ixCTV).D_2*pln.numOfFractions); disp(U2);
 
 % robustness indexes
-evaluation.AI=sprintf('AI: %.2f Gy',(dqi_sampled{1,1}(6).mean*pln.numOfFractions-p)/p); disp(evaluation.AI);
-evaluation.RI=sprintf('RI: %.2f',uqi(6).D_2.*pln.numOfFractions/p); disp(evaluation.RI);
+AI=sprintf('AI: %.2f Gy',(dqi_sampled{1,1}(ixCTV).mean*pln.numOfFractions-p)/p); disp(AI);
+RI=sprintf('RI: %.2f',uqi(ixCTV).D_2.*pln.numOfFractions/p); disp(RI);
 
 BodyTotal=dqi(1).mean*numel(cst{1,4}{1,1});
 CTVTotal=dqi(ixCTV).mean*numel(cst{ixCTV,4}{1,1});
@@ -401,24 +377,24 @@ RPI=sprintf('RPI: %.2f\n',(OARMean_robust-OARMean_nominal)/p); disp(RPI);
 %% Print evaluation indexes
 % Contralateral Lung
 disp('Contralateral lung evaluation');
-evaluation.V50ConLung=sprintf('V50: %.2f [%.2f - %.2f] %%',dqi_sampled{1,1}(2).V_3_12Gy*100,dqi_sampled{1,2}(2).V_3_12Gy*100,dqi_sampled{1,3}(2).V_3_12Gy*100); disp(evaluation.V50ConLung);
-evaluation.D5ConLung=sprintf('D5: %.2f [%.2f - %.2f] Gy\n',dqi_sampled{1,1}(2).D_5*pln.numOfFractions,dqi_sampled{1,2}(2).D_5*pln.numOfFractions,dqi_sampled{1,3}(2).D_5*pln.numOfFractions); disp(evaluation.D5ConLung);
+V50ConLung=sprintf('V50: %.2f [%.2f - %.2f] %%',dqi_sampled{1,1}(2).V_3_12Gy*100,dqi_sampled{1,2}(2).V_3_12Gy*100,dqi_sampled{1,3}(2).V_3_12Gy*100); disp(V50ConLung);
+D5ConLung=sprintf('D5: %.2f [%.2f - %.2f] Gy\n',dqi_sampled{1,1}(2).D_5*pln.numOfFractions,dqi_sampled{1,2}(2).D_5*pln.numOfFractions,dqi_sampled{1,3}(2).D_5*pln.numOfFractions); disp(D5ConLung);
 
 %% Print evaluation indexes
 % Ipsilateral Lung
 disp('Ipsilateral lung evaluation');
-evaluation.V20IpsLung=sprintf('V20: %.2f [%.2f - %.2f] %%',dqi_sampled{1,1}(3).V_1_25Gy*100,dqi_sampled{1,2}(3).V_1_25Gy*100,dqi_sampled{1,3}(3).V_1_25Gy*100); disp(evaluation.V20IpsLung);
-evaluation.D20IpsLung=sprintf('D20: %.2f [%.2f - %.2f] Gy\n',dqi_sampled{1,1}(3).D_20*pln.numOfFractions,dqi_sampled{1,2}(3).D_20*pln.numOfFractions,dqi_sampled{1,3}(3).D_20*pln.numOfFractions); disp(evaluation.D20IpsLung);
+V20IpsLung=sprintf('V20: %.2f [%.2f - %.2f] %%',dqi_sampled{1,1}(3).V_1_25Gy*100,dqi_sampled{1,2}(3).V_1_25Gy*100,dqi_sampled{1,3}(3).V_1_25Gy*100); disp(V20IpsLung);
+D20IpsLung=sprintf('D20: %.2f [%.2f - %.2f] Gy\n',dqi_sampled{1,1}(3).D_20*pln.numOfFractions,dqi_sampled{1,2}(3).D_20*pln.numOfFractions,dqi_sampled{1,3}(3).D_20*pln.numOfFractions); disp(D20IpsLung);
 
 %% Print evaluation indexes
 % Heart
 disp('Heart evaluation');
-evaluation.DMeanHeart=sprintf('DMean: %.2f [%.2f - %.2f] Gy\n',dqi_sampled{1,1}(4).mean*pln.numOfFractions,dqi_sampled{1,2}(4).mean*pln.numOfFractions,dqi_sampled{1,3}(4).mean*pln.numOfFractions); disp(evaluation.DMeanHeart);
+DMeanHeart=sprintf('DMean: %.2f [%.2f - %.2f] Gy\n',dqi_sampled{1,1}(4).mean*pln.numOfFractions,dqi_sampled{1,2}(4).mean*pln.numOfFractions,dqi_sampled{1,3}(4).mean*pln.numOfFractions); disp(DMeanHeart);
 
 %% Print evaluation indexes
 % Contralateral Breast
 disp('Contralateral Breast evaluation');
-evaluation.DMaxConBreast=sprintf('DMax: %.2f [%.2f - %.2f] Gy\n',dqi_sampled{1,1}(5).max*pln.numOfFractions,dqi_sampled{1,2}(5).max*pln.numOfFractions,dqi_sampled{1,3}(5).max*pln.numOfFractions); disp(evaluation.DMaxConBreast);
+DMaxConBreast=sprintf('DMax: %.2f [%.2f - %.2f] Gy\n',dqi_sampled{1,1}(5).max*pln.numOfFractions,dqi_sampled{1,2}(5).max*pln.numOfFractions,dqi_sampled{1,3}(5).max*pln.numOfFractions); disp(DMaxConBreast);
 
 %%
 diary off
