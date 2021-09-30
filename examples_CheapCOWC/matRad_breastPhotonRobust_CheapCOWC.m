@@ -30,6 +30,7 @@ param.logLevel=1;
 %% Set output folder
 description_folder = 'breast';
 run_config.robustness = 'c-COWC';
+run_config.mode = 'wcScen';
 run_config.beta = 0.1;
 
 output_folder = ['output' filesep description_folder filesep run_config.robustness filesep num2str(run_config.beta) filesep datestr(datetime)];
@@ -256,15 +257,23 @@ resultGUI = matRad_fluenceOptimization(dij,cst,pln);
 savefig([folderPath filesep 'dvh_nominal.fig']);
 
 %%
-% retrieve 15 scenarios for dose calculation and optimziation
-pln_robust=pln;
-multScen = matRad_multScen(ct,'impScen'); 
-multScen.wcFactor=1.5;
-multScen.shiftSD = [4 6 8];
-multScen.numOfShiftScen = [2 2 2];
-multScen.numOfRangeShiftScen=0;
-multScen.includeNomScen=true;
-
+% retrieve 13 scenarios for dose calculation and optimziation
+ pln_robust=pln;
+if(run_config.mode=="wcScen")
+    multScen = matRad_multScen(ct,'wcScen'); 
+    multScen.wcFactor=1.5;
+    multScen.shiftSD = [4 6 8];
+end
+%%
+% retrieve 13 scenarios for dose calculation and optimziation
+if(run_config.mode=="impScen")
+    multScen = matRad_multScen(ct,'impScen'); 
+    multScen.wcFactor=1.5;
+    multScen.shiftSD = [4 6 8];
+    multScen.numOfShiftScen = [2 2 2];
+    multScen.numOfRangeShiftScen=0;
+    multScen.includeNomScen=true;
+end
 %%
 pln_robust.multScen=multScen;
 

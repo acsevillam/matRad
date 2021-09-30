@@ -61,6 +61,9 @@ vOmega = 0;
 %For COWC
 f_COWC = zeros(size(dij.physicalDose));
 
+%For CheapCOWC
+f_CheapCOWC = zeros(size(dij.physicalDose));
+
 % compute objective function for every VOI.
 for  i = 1:size(cst,1)
    
@@ -263,113 +266,22 @@ for  i = 1:size(cst,1)
                             end
                         end
 
-                    case 'INTERVAL1' % perform stochastic optimization with weighted / random scenarios
+                    case 'c-COWC' % composite worst case consideres ovarall the worst objective function value
                         
-                        ixScenMin = useScen(2);
-                        ixContourMin = contourScen(2);
-                        
-                        ixScenMax = useScen(3);
-                        ixContourMax = contourScen(3);
-                        
-                        dose=[];
-
-                        dose.dose_center = (d{ixScenMax}(cst{i,4}{ixContourMax})+d{ixScenMin}(cst{i,4}{ixContourMin}))/2.;
-                        dose.dose_radius = (d{ixScenMax}(cst{i,4}{ixContourMax})-d{ixScenMin}(cst{i,4}{ixContourMin}))/2.;
-                            
-                        for s = 1:numel(useScen)
-                            ixScen = useScen(s);
-                            ixContour = contourScen(s);
-                            
-                            doseGradient{ixScen}(cst{i,4}{ixContour}) = doseGradient{ixScen}(cst{i,4}{ixContour}) + objective.computeDoseObjectiveGradient(dose);
+                        %First check the speficic cache for CheapCOWC
+                        if ~exist('delta_CheapCOWC','var')
+                            delta_CheapCOWC             = cell(size(doseGradient));
+                            delta_CheapCOWC(useScen)    = {zeros(dij.doseGrid.numOfVoxels,1)};
                         end
-                        
-                    case 'INTERVAL2' % perform stochastic optimization with weighted / random scenarios
-
-                        ixScenNom = useScen(1);
-                        ixContourNom = contourScen(1);
-                        
-                        ixScenMin = useScen(2);
-                        ixContourMin = contourScen(2);
-                        
-                        ixScenMax = useScen(3);
-                        ixContourMax = contourScen(3);
-                        
-                        dose=[];
-
-                        dose.dose_center = d{ixScenNom}(cst{i,4}{ixContourNom});
-                        dose.dose_radius = (d{ixScenMax}(cst{i,4}{ixContourMax})-d{ixScenMin}(cst{i,4}{ixContourMin}))/2.;
-
-                        for s = 1:numel(useScen)
-                            ixScen = useScen(s);
-                            ixContour = contourScen(s);
-                            
-                            doseGradient{ixScen}(cst{i,4}{ixContour}) = doseGradient{ixScen}(cst{i,4}{ixContour}) + objective.computeDoseObjectiveGradient(dose);
-                        end
-                    
-                    case 'INTERVAL3'
-
-                        contourIx = unique(contourScen);
-                        if ~isscalar(contourIx)
-                            % voxels need to be tracked through the 4D CT,
-                            % not yet implemented
-                            matRad_cfg.dispError('4D INTERVAL3 optimization is currently not supported');
-                        end
-                        
-                        % prepare min/max dose vector for voxel-wise worst case
-                        if ~exist('d_tmp','var')
-                            d_tmp = [d{useScen}];
-                        end
-                        
-                        d_Scen = d_tmp(cst{i,4}{contourIx},:);
-                        d_max = max(d_Scen,[],2);
-                        d_min = min(d_Scen,[],2);
-                        
-                        if any(isnan(d_i))
-                            matRad_cfg.dispWarning('%d NaN values in gradient.',numel(isnan(d_i)));
-                        end
-                        
-                        dose=[];
-                        dose.dose_center = (d_max+d_min)/2.;
-                        dose.dose_radius = (d_max-d_min)/2.;
                         
                         for s = 1:numel(useScen)
                             ixScen = useScen(s);
                             ixContour = contourScen(s);
                             
-                            doseGradient{ixScen}(cst{i,4}{ixContour}) = doseGradient{ixScen}(cst{i,4}{ixContour}) + objective.computeDoseObjectiveGradient(dose);
-                        end
-                        
-                    case 'INTERVAL4'
-
-                        contourIx = unique(contourScen);
-                        if ~isscalar(contourIx)
-                            % voxels need to be tracked through the 4D CT,
-                            % not yet implemented
-                            matRad_cfg.dispError('4D INTERVAL4 optimization is currently not supported');
-                        end
-                        
-                        % prepare min/max dose vector for voxel-wise worst case
-                        if ~exist('d_tmp','var')
-                            d_tmp = [d{useScen}];
-                        end
-                        
-                        d_Scen = d_tmp(cst{i,4}{contourIx},:);
-                        d_max = max(d_Scen,[],2);
-                        d_min = min(d_Scen,[],2);
-                        
-                        if any(isnan(d_i))
-                            matRad_cfg.dispWarning('%d NaN values in gradient.',numel(isnan(d_i)));
-                        end
-                        
-                        dose=[];
-                        dose.dose_center = d{ixScen}(cst{i,4}{ixContour});
-                        dose.dose_radius = (d_max-d_min)/2.;
-                        
-                        for s = 1:numel(useScen)
-                            ixScen = useScen(s);
-                            ixContour = contourScen(s);
+                            d_i = d{ixScen}(cst{i,4}{ixContour});
                             
-                            doseGradient{ixScen}(cst{i,4}{ixContour}) = doseGradient{ixScen}(cst{i,4}{ixContour}) + objective.computeDoseObjectiveGradient(dose);
+                            f_CheapCOWC(ixScen) = f_CheapCOWC(ixScen) + objective.computeDoseObjectiveFunction(d_i);
+                            delta_CheapCOWC{ixScen}(cst{i,4}{ixContour}) = delta_CheapCOWC{ixScen}(cst{i,4}{ixContour}) + objective.computeDoseObjectiveGradient(d_i);
                         end
                         
                     otherwise
@@ -404,6 +316,19 @@ if exist('delta_COWC','var')
             doseGradient{ixScen} = doseGradient{ixScen} + fGrad(ixScen)*delta_COWC{ixScen};
         end
     end
+end
+
+if exist('delta_CheapCOWC','var')
+    
+    beta=cst{6,8}{1}.beta;
+    p=ceil(beta*numel(useScen));
+    
+    [~,ixKp] = maxk(f_CheapCOWC(:),p);
+    
+    for s = 1:numel(ixKp)
+        doseGradient{ixKp(s)} = doseGradient{ixKp(s)} + scenProb(ixKp(s)) * delta_CheapCOWC{ixKp(s)};
+    end
+    
 end
 
 weightGradient = zeros(dij.totalNumOfBixels,1);

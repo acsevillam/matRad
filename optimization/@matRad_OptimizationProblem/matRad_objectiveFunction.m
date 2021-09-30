@@ -54,6 +54,9 @@ f = 0;
 % required for COWC opt
 f_COWC = zeros(numel(useScen),1);
 
+% required for CheapCOWC opt
+f_CheapCOWC = zeros(numel(useScen),1);
+
 % compute objective function for every VOI.
 for  i = 1:size(cst,1)
     
@@ -76,8 +79,8 @@ for  i = 1:size(cst,1)
                 
                 switch robustness
                     case 'none' % if conventional opt: just sum objectives of nominal dose
-                        for ixScen = useScen
-                            d_i = d{ixScen}(cst{i,4}{useScen(1)});
+                        for ixScen = useScen(1)
+                            d_i = d{ixScen}(cst{i,4}{ixScen});
                             f = f + objective.computeDoseObjectiveFunction(d_i);
                         end
                         
@@ -165,6 +168,7 @@ for  i = 1:size(cst,1)
                             d_i = d{ixScen}(cst{i,4}{ixContour});
                             
                             f_COWC(s) = f_COWC(s) + objective.computeDoseObjectiveFunction(d_i);
+                            
                         end
                         
                     case 'OWC'   % objective-wise worst case considers the worst individual objective function value
@@ -193,88 +197,16 @@ for  i = 1:size(cst,1)
                         end
                         f = f + fMax;
 
-                    case 'INTERVAL1' % if prob opt: sum up expectation value of objectives
+                    case 'c-COWC'  % composite worst case consideres ovarall the worst objective function value
                         
-                        ixScenMin = useScen(2);
-                        ixContourMin = contourScen(2);
-                        
-                        ixScenMax = useScen(3);
-                        ixContourMax = contourScen(3);
-                        
-                        dose=[];
-
-                        dose.dose_center = (d{ixScenMax}(cst{i,4}{ixContourMax})+d{ixScenMin}(cst{i,4}{ixContourMin}))/2.;
-                        dose.dose_radius = (d{ixScenMax}(cst{i,4}{ixContourMax})-d{ixScenMin}(cst{i,4}{ixContourMin}))/2.;
-
-                        f   = f + objective.computeDoseObjectiveFunction(dose);
-                        
-                    case 'INTERVAL2' % if prob opt: sum up expectation value of objectives
-                        
-                        ixScenNom = useScen(1);
-                        ixContourNom = contourScen(1);
-                        
-                        ixScenMin = useScen(2);
-                        ixContourMin = contourScen(2);
-                        
-                        ixScenMax = useScen(3);
-                        ixContourMax = contourScen(3);
-                        
-                        dose=[];
-
-                        dose.dose_center = d{ixScenNom}(cst{i,4}{ixContourNom});
-                        dose.dose_radius = (d{ixScenMax}(cst{i,4}{ixContourMax})-d{ixScenMin}(cst{i,4}{ixContourMin}))/2.;
-
-                        f   = f + objective.computeDoseObjectiveFunction(dose);
-
-                    case 'INTERVAL3' % if prob opt: sum up expectation value of objectives
-
-                        contourIx = unique(contourScen);
-                        if ~isscalar(contourIx)
-                            % voxels need to be tracked through the 4D CT,
-                            % not yet implemented
-                            matRad_cfg.dispError('4D inverted INTERVAL3 optimization is currently not supported');
+                        for s = 1:numel(useScen)
+                            ixScen = useScen(s);
+                            ixContour = contourScen(s);
+                            
+                            d_i = d{ixScen}(cst{i,4}{ixContour});
+                            
+                            f_CheapCOWC(s) = f_CheapCOWC(s) + objective.computeDoseObjectiveFunction(d_i);
                         end
-                        
-                        % prepare min/max dose vector
-                        if ~exist('d_tmp','var')
-                            d_tmp = [d{:}];
-                        end
-                                                
-                        d_Scen = d_tmp(cst{i,4}{contourIx},:);
-                        
-                        d_max = max(d_Scen,[],2);
-                        d_min = min(d_Scen,[],2);
-                        
-                        dose=[];
-                        dose.dose_center = (d_max+d_min)/2.;
-                        dose.dose_radius = (d_max-d_min)/2.;
-
-                        f   = f + objective.computeDoseObjectiveFunction(dose);
-                        
-                    case 'INTERVAL4' % if prob opt: sum up expectation value of objectives
-                        
-                        contourIx = unique(contourScen);
-                        if ~isscalar(contourIx)
-                            % voxels need to be tracked through the 4D CT,
-                            % not yet implemented
-                            matRad_cfg.dispError('4D inverted INTERVAL4 optimization is currently not supported');
-                        end
-                        
-                        % prepare min/max dose vector
-                        if ~exist('d_tmp','var')
-                            d_tmp = [d{:}];
-                        end
-                                                
-                        d_Scen = d_tmp(cst{i,4}{contourIx},:);
-                        
-                        d_max = max(d_Scen,[],2);
-                        d_min = min(d_Scen,[],2);
-                        
-                        dose=[];
-                        dose.dose_center = d{ixScen}(cst{i,4}{useScen(1)});
-                        dose.dose_radius = (d_max-d_min)/2.;
-                        
-                        f = f + objective.computeDoseObjectiveFunction(dose);
                         
                     otherwise
                         matRad_cfg.dispError('Robustness setting %s not supported!',objective.robustness);
@@ -287,8 +219,8 @@ end %cst structure loop
 
 
 %Handling the maximum of the composite worst case part
-fMax = max(f_COWC(:));
-if fMax > 0
+if nnz(f_COWC(:)) > 0
+    fMax = max(f_COWC(:));
     switch optiProb.useMaxApprox
         case 'logsumexp'
             fMax = optiProb.logSumExp(f_COWC);
@@ -300,6 +232,26 @@ if fMax > 0
             matRad_cfg.dispWarning('Unknown maximum approximation desired. Using ''none'' instead.');
             fMax = max(f_COWC);
     end
+    %Sum up max of composite worst case part
+    f = f + fMax;
 end
-%Sum up max of composite worst case part
-f = f + fMax;
+
+%Handling the maximum of the composite worst case part
+
+if nnz(f_CheapCOWC(:)) > 0
+
+    beta = cst{6,8}{1}.beta;
+    p=ceil(beta*numel(useScen));
+    
+    [~,ixKp] = maxk(f_CheapCOWC(:),p);
+    
+    fKp=0;
+    
+    for s = 1:numel(ixKp)
+        fKp=fKp + scenProb(ixKp(s)) * f_CheapCOWC(ixKp(s));
+    end
+    
+    %Sum up max of composite worst case part
+    f = f + fKp;    
+end
+
