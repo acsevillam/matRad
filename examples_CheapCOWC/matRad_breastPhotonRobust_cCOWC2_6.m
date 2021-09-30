@@ -272,7 +272,7 @@ if(run_config.mode=="impScen")
     multScen = matRad_multScen(ct,'impScen'); 
     multScen.wcFactor=1.5;
     multScen.shiftSD = [4 6 8];
-    multScen.numOfShiftScen = [2 2 2];
+    multScen.numOfShiftScen = [4 4 4];
     multScen.numOfRangeShiftScen=0;
     multScen.includeNomScen=true;
 end
