@@ -53,13 +53,17 @@ end
 dvh = matRad_calcDVH(cst,doseCube,'cum');
 qi  = matRad_calcQualityIndicators(cst,pln,doseCube,refGy,refVol);
 
-figure,set(gcf,'Color',[1 1 1]);
-subplot(2,1,1)
+x0=10;
+y0=10;
+width=600;
+height=400;
+figure,set(gcf,'Color',[1 1 1],'position',[x0,y0,width,height]);
+%subplot(2,1,1)
 matRad_showDVH(dvh,cst,pln);
-subplot(2,1,2)
+%subplot(2,1,2)
 ixVoi = cellfun(@(c) c.Visible == 1,cst(:,5));
 qi = qi(ixVoi);
-matRad_showQualityIndicators(qi);
+%matRad_showQualityIndicators(qi);
 
 
 

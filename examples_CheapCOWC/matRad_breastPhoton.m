@@ -283,7 +283,8 @@ multScen.numOfRangeShiftScen = matRad_cfg.defaults.samplingScenarios;
 [caSamp, mSampDose, plnSamp, resultGUInomScen] = matRad_sampling(ct,stf,cst,pln,resultGUI.w,structSel,multScen);
 
 %% Perform sampling analysis
-[cstStat, resultGUISamp, meta] = matRad_samplingAnalysis(ct,cst,plnSamp,caSamp, mSampDose, resultGUInomScen);
+varargin.GammaCriterion = [2 2]; % [%  mm] 
+[cstStat, resultGUISamp, meta] = matRad_samplingAnalysis(ct,cst,plnSamp,caSamp, mSampDose, resultGUInomScen,varargin);
 
 %% Multi-scenario dose volume histogram (DVH)
 figure,set(gcf,'Color',[1 1 1],'position',[10,10,600,400]);
@@ -295,45 +296,90 @@ resultGUISamp_ul=[];
 resultGUISamp_ul.physicalDose=resultGUI.physicalDose;
 resultGUISamp_ul.physicalDose_lower=resultGUISamp.meanCube-resultGUISamp.stdCube;
 resultGUISamp_ul.physicalDose_upper=resultGUISamp.meanCube+resultGUISamp.stdCube;
-[dvh_sampled,dqi_sampled] = matRad_indicatorWrapper_sampled(cst,pln,resultGUISamp_ul,[20,50]/pln.numOfFractions,[2,5,10,20,30,40,50,60,70,80,90,95,98]);
+[dvh_sampled,dqi_sampled] = matRad_indicatorWrapper_sampled(cst,pln,resultGUISamp_ul,[20,50,100]/pln.numOfFractions,[2,5,10,20,30,40,50,60,70,80,90,95,98]);
 savefig([folderPath filesep 'dvh_nominal_trustband.fig']);
 
 %% STD dose based on sampling
-figure,title('std dose cube based on sampling - conventional');
+figure;
 matRad_plotSliceWrapper(gca,ct,cst,1,resultGUISamp.stdCube*pln.numOfFractions,plane,slice,[],[],colorcube,[],[0 max(resultGUISamp.stdCube(:)*pln.numOfFractions)],[],[],'Dose uncertainty [Gy]');
 savefig([folderPath filesep 'uncertainty.fig']);
-
-%% Gamma index based on sampling
-figure,title('gamma index cube based on sampling - conventional');
-matRad_plotSliceWrapper(gca,ct,cst,1,resultGUISamp.gammaAnalysis.gammaCube,plane,slice,[],[],colorcube,[],[0 max(resultGUISamp.gammaAnalysis.gammaCube(:))],[],[],'Gamma index');
-savefig([folderPath filesep 'gamma.fig']);
 
 %% Uncertainty volume histogram (UVH)
 resultGUISamp.physicalDose=resultGUISamp.stdCube;
 [uvh,uqi] = matRad_indicatorWrapper_UVH(cst,pln,resultGUI,resultGUISamp);
 savefig([folderPath filesep 'uvh.fig']);
 
+%% Gamma index based on sampling
+figure;
+matRad_plotSliceWrapper(gca,ct,cst,1,resultGUISamp.gammaAnalysis.gammaCube,plane,slice,[],[],colorcube,[],[0 max(resultGUISamp.gammaAnalysis.gammaCube(:))],[],[],'Gamma index');
+savefig([folderPath filesep 'gamma.fig']);
+
+%% Gamma index based on sampling
+figure;
+resultGUISamp.gammaAnalysis.robustnessViolationCube = (resultGUISamp.gammaAnalysis.gammaCube>power(1,1/2));
+matRad_plotSliceWrapper(gca,ct,cst,1,resultGUISamp.gammaAnalysis.robustnessViolationCube,plane,slice,[],[],colorcube,[],[0 max(resultGUISamp.gammaAnalysis.gammaCube(:))],[],[],'Gamma index');
+savefig([folderPath filesep 'robustness_violation.fig']);
+
 %% Print evaluation indexes
 % CTV
 disp('CTV evaluation');
 DMean=sprintf('DMean: %.2f [%.2f - %.2f] Gy',dqi_sampled{1,1}(ixCTV).mean*pln.numOfFractions,dqi_sampled{1,2}(ixCTV).mean*pln.numOfFractions,dqi_sampled{1,3}(ixCTV).mean*pln.numOfFractions); disp(DMean);
 D98=sprintf('D98: %.2f [%.2f - %.2f] Gy',dqi_sampled{1,1}(ixCTV).D_98*pln.numOfFractions,dqi_sampled{1,2}(ixCTV).D_98*pln.numOfFractions,dqi_sampled{1,3}(ixCTV).D_98*pln.numOfFractions); disp(D98);
-D2=sprintf('D2: %.2f [%.2f - %.2f] Gy\n',dqi_sampled{1,1}(ixCTV).D_2*pln.numOfFractions,dqi_sampled{1,2}(ixCTV).D_2*pln.numOfFractions,dqi_sampled{1,3}(ixCTV).D_2*pln.numOfFractions); disp(D2);
-U2=sprintf('U2: %.2f Gy\n',uqi(ixCTV).D_2*pln.numOfFractions); disp(U2);
+D50=sprintf('D50: %.2f [%.2f - %.2f] Gy',dqi_sampled{1,1}(ixCTV).D_50*pln.numOfFractions,dqi_sampled{1,2}(ixCTV).D_50*pln.numOfFractions,dqi_sampled{1,3}(ixCTV).D_50*pln.numOfFractions); disp(D50);
+D2=sprintf('D2: %.2f [%.2f - %.2f] Gy \n',dqi_sampled{1,1}(ixCTV).D_2*pln.numOfFractions,dqi_sampled{1,2}(ixCTV).D_2*pln.numOfFractions,dqi_sampled{1,3}(ixCTV).D_2*pln.numOfFractions); disp(D2);
 
+%%
 % robustness indexes
-AI=sprintf('AI: %.2f',(dqi_sampled{1,1}(ixCTV).mean*pln.numOfFractions-p)/p); disp(AI);
-RI=sprintf('RI: %.2f',uqi(ixCTV).D_2.*pln.numOfFractions/p); disp(RI);
 
-BodyTotal=dqi_sampled{1,1}(1).mean*numel(cst{1,4}{1,1});
-CTVTotal=dqi_sampled{1,1}(ixCTV).mean*numel(cst{ixCTV,4}{1,1});
+disp('Robustness evaluation (Method 1)');
+
+U2=sprintf('U2: %.2f Gy',uqi(ixCTV).D_2*pln.numOfFractions); disp(U2);
+U50=sprintf('U50: %.2f Gy',uqi(ixCTV).D_50*pln.numOfFractions); disp(U50);
+U95=sprintf('U95: %.2f Gy',uqi(ixCTV).D_95*pln.numOfFractions); disp(U95);
+U98=sprintf('U98: %.2f Gy',uqi(ixCTV).D_95*pln.numOfFractions); disp(U98);
+UI=sprintf('UI (>=0): %.2f \n',uqi(ixCTV).D_2.*pln.numOfFractions/p); disp(UI);
+
+disp('Robustness evaluation (Method 2)');
+
+UncertaintyIndex=nnz(resultGUISamp.gammaAnalysis.robustnessViolationCube(cst{ixCTV,4}{1,1}))/numel(cst{ixCTV,4}{1,1});
+
+UI2=sprintf('UI (0-1): %.2f',UncertaintyIndex); disp(UI2);
+
+RobustnessIndex=1-UncertaintyIndex;
+RI2=sprintf('RI (0-1): %.2f \n',RobustnessIndex); disp(RI2);
+
+h1=histogram(resultGUISamp.gammaAnalysis.gammaCube(cst{6,4}{1,1}));
+savefig([folderPath filesep 'gamma_histo.fig']);
+
+%%
+% Evaluating nominal and robust solutions
+
+w_nominal=resultGUI.w;
+f_nominal = matRad_calcObjectiveFunction(w_nominal,dij,cst,pln);
+
+w_robust=resultGUI.w;
+f_robust = matRad_calcObjectiveFunction(w_robust,dij,cst,pln);
+
+%%
+% robustness price indexes
+
+disp('Robustness price evaluation (Method 1)');
+BodyTotal=dqi(1).mean*numel(cst{1,4}{1,1});
+CTVTotal=dqi(ixCTV).mean*numel(cst{ixCTV,4}{1,1});
 OARMean_nominal=(BodyTotal-CTVTotal)/(numel(cst{1,4}{1,1})-numel(cst{ixCTV,4}{1,1}))*pln.numOfFractions;
 
 BodyTotal_robust=dqi_sampled{1,1}(1).mean*numel(cst{1,4}{1,1});
 CTVTotal_robust=dqi_sampled{1,1}(ixCTV).mean*numel(cst{ixCTV,4}{1,1});
 OARMean_robust=(BodyTotal_robust-CTVTotal_robust)/(numel(cst{1,4}{1,1})-numel(cst{ixCTV,4}{1,1}))*pln.numOfFractions;
 
-RPI=sprintf('RPI: %.2f\n',(OARMean_robust-OARMean_nominal)/p); disp(RPI);
+RPI=sprintf('RPI: %.2f\n',(OARMean_robust-OARMean_nominal)/OARMean_nominal); disp(RPI);
+
+disp('Robustness price evaluation (Method 2)');
+
+F_nominal=sprintf('F(nominal): %.2f',f_nominal); disp(F_nominal); % 1.6149103490694448e+00
+F_robust=sprintf('F(robust): %.2f \n',f_robust); disp(F_robust);
+
+RPI2=sprintf('RPI: %.2f \n',(f_robust-f_nominal)/f_nominal); disp(RPI2);
 
 %% Print evaluation indexes
 % Contralateral Lung
