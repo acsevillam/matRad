@@ -282,15 +282,7 @@ for  i = 1:size(cst,1)
                             f_SoftCOWC(ixScen) = f_SoftCOWC(ixScen) + objective.computeDoseObjectiveFunction(d_i);
                             delta_SoftCOWC{ixScen}(cst{i,4}{ixContour}) = delta_SoftCOWC{ixScen}(cst{i,4}{ixContour}) + objective.computeDoseObjectiveGradient(d_i);
                         end
-                        
-                        for s = 1:numel(useScen)
-                            ixScen = useScen(s);
-                            ixContour = contourScen(s);
-                            d_i = d{ixScen}(cst{i,4}{ixContour});
-                            %add to dose gradient
-                            doseGradient{ixScen}(cst{i,4}{ixContour}) = doseGradient{ixScen}(cst{i,4}{ixContour}) + objective.computeDoseObjectiveGradient(d_i);
-                        end
-                        
+
                     otherwise
                         matRad_cfg.dispError('Robustness setting %s not supported!',objective.robustness);
                         
