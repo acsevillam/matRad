@@ -283,7 +283,7 @@ multScen.numOfRangeShiftScen = matRad_cfg.defaults.samplingScenarios;
 [caSamp, mSampDose, plnSamp, resultGUInomScen] = matRad_sampling(ct,stf,cst,pln,resultGUI.w,structSel,multScen);
 
 %% Perform sampling analysis
-varargin.GammaCriterion = [2 2]; % [%  mm] 
+varargin.GammaCriterion = [3 3]; % [%  mm] 
 [cstStat, resultGUISamp, meta] = matRad_samplingAnalysis(ct,cst,plnSamp,caSamp, mSampDose, resultGUInomScen,varargin);
 
 %% Multi-scenario dose volume histogram (DVH)
