@@ -340,7 +340,7 @@ if exist('delta_SoftCOWC','var')
         ixScen_nom = useScen(1);
         ixScen = useScen(s);
         if fGrad(ixScen) ~= 0
-            doseGradient{ixScen} = doseGradient{ixScen} + (1-alpha)*fGrad(ixScen_nom)*delta_SoftCOWC{ixScen_nom} + alpha*fGrad(ixScen)*delta_SoftCOWC{ixScen};
+            doseGradient{ixScen} = doseGradient{ixScen} + (1-alpha)*delta_SoftCOWC{ixScen_nom} + alpha*fGrad(ixScen)*delta_SoftCOWC{ixScen};
         end
     end
 end
