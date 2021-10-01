@@ -30,7 +30,8 @@ param.logLevel=1;
 %% Set output folder
 description_folder = 'breast';
 run_config.robustness = 's-COWC';
-run_config.mode = 'wcScen';
+run_config.mode = 'impScen';
+run_config.sampling_mode = 'impScen';
 run_config.alpha = 0.0;
 
 output_folder = ['output' filesep description_folder filesep run_config.robustness filesep num2str(run_config.alpha) filesep run_config.mode filesep datestr(datetime)];
@@ -272,8 +273,8 @@ if(run_config.mode=="impScen")
     multScen = matRad_multScen(ct,'impScen'); 
     multScen.wcFactor=1.5;
     multScen.shiftSD = [4 6 8];
-    multScen.numOfShiftScen = [2 2 2];
-    multScen.numOfRangeShiftScen=0;
+    multScen.numOfShiftScen = [4 4 4];
+    multScen.numOfRangeShiftScen=4;
     multScen.includeNomScen=true;
 end
 %%
@@ -324,16 +325,28 @@ savefig([folderPath filesep 'dvh_robust.fig']);
 % select structures to include in sampling; leave empty to sample dose for all structures
 % sampling does not know on which scenario sampling should be performed
 structSel = {}; % structSel = {'PTV','OAR1'};
-multScen = matRad_multScen(ct,'rndScen'); % 'impSamp' or 'wcSamp'
-multScen.numOfShiftScen = matRad_cfg.defaults.samplingScenarios * ones(3,1);
-multScen.shiftSD = [4 6 8];
-multScen.numOfRangeShiftScen = matRad_cfg.defaults.samplingScenarios;
+
+if(run_config.sampling_mode=="rndScen")
+    multScen = matRad_multScen(ct,'rndScen'); % 'impSamp' or 'wcSamp'
+    multScen.numOfShiftScen = matRad_cfg.defaults.samplingScenarios * ones(3,1);
+    multScen.shiftSD = [4 6 8];
+    multScen.numOfRangeShiftScen = matRad_cfg.defaults.samplingScenarios;
+end
+
+if(run_config.sampling_mode=="impScen")
+    multScen = matRad_multScen(ct,'impScen'); 
+    multScen.wcFactor=1.5;
+    multScen.shiftSD = [4 6 8];
+    multScen.numOfShiftScen = [8 8 8];
+    multScen.numOfRangeShiftScen=8;
+    multScen.includeNomScen=true;
+end
 
 %% Perform sampling
 [caSamp, mSampDose, plnSamp, resultGUInomScen] = matRad_sampling(ct,stf,cst,pln_robust,resultGUI_robust.w,structSel,multScen);
 
 %% Perform sampling analysis
-varargin.GammaCriterion = [2 2]; % [%  mm]
+varargin.GammaCriterion = [3 3]; % [%  mm]
 [cstStat, resultGUISamp, meta] = matRad_samplingAnalysis(ct,cst,plnSamp,caSamp, mSampDose, resultGUInomScen);
 
 %% Multi-scenario dose volume histogram (DVH)
