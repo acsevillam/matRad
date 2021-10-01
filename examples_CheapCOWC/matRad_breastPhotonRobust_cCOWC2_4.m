@@ -31,7 +31,7 @@ param.logLevel=1;
 description_folder = 'breast';
 run_config.robustness = 'c-COWC';
 run_config.mode = 'impScen';
-run_config.sampling_mode = 'impScen';
+run_config.sampling_mode = 'rndScen';
 run_config.p = 7;
 run_config.beta = run_config.p/13;
 
@@ -347,7 +347,7 @@ end
 [caSamp, mSampDose, plnSamp, resultGUInomScen] = matRad_sampling(ct,stf,cst,pln_robust,resultGUI_robust.w,structSel,multScen);
 
 %% Perform sampling analysis
-varargin.GammaCriterion = [3 3]; % [%  mm]
+varargin.GammaCriterion = [2 2]; % [%  mm]
 [cstStat, resultGUISamp, meta] = matRad_samplingAnalysis(ct,cst,plnSamp,caSamp, mSampDose, resultGUInomScen);
 
 %% Multi-scenario dose volume histogram (DVH)
