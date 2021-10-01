@@ -131,7 +131,7 @@ ixCTV = 6;
 cst{ixCTV,5}.Priority = 1; % overlap priority for optimization - a lower number corresponds to a higher priority
 cst{ixCTV,6}{1} = struct(DoseObjectives.matRad_SquaredDeviation(800,p));
 cst{ixCTV,6}{1}.robustness  = 'none';
-cst{ixCTV,6}{2} = struct(DoseConstraints.matRad_MinMaxDVH(p,95,100));
+%cst{ixCTV,6}{2} = struct(DoseConstraints.matRad_MinMaxDVH(p,95,100));
 
 display(cst{ixCTV,6});
 

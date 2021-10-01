@@ -127,7 +127,7 @@ ixCTV = 6;
 cst{ixCTV,5}.Priority = 1; % overlap priority for optimization - a lower number corresponds to a higher priority
 cst{ixCTV,6}{1} = struct(DoseObjectives.matRad_SquaredDeviation(800,p));
 cst{ixCTV,6}{1}.robustness  = 'none';
-cst{ixCTV,6}{2} = struct(DoseConstraints.matRad_MinMaxDVH(p,95,100));
+%cst{ixCTV,6}{2} = struct(DoseConstraints.matRad_MinMaxDVH(p,95,100));
 
 display(cst{ixCTV,6});
 
@@ -261,6 +261,7 @@ time2=sprintf('OPTTime_robust: %.2f\n',OPTTime); disp(time2);
 
 plane      = 3;
 slice      = round(pln.propStf.isoCenter(1,3)./ct.resolution.z);
+doseWindow = [0 max([resultGUI.physicalDose(:)*pln.numOfFractions])];
 doseWindow = [0 max([resultGUI.physicalDose(:)*pln.numOfFractions])];
 figure
 matRad_plotSliceWrapper(gca,ct,cst,1,resultGUI.physicalDose*pln.numOfFractions,plane,slice,[],[],colorcube,[],doseWindow,[],[],'Dose [Gy]');
