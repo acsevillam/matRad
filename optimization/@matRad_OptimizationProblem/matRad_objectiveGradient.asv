@@ -358,9 +358,10 @@ if exist('delta_SoftCOWC','var')
         ixScenNom = useScen(1);
         ixScen = useScen(s);
         if fGrad(ixScen) ~= 0
-            doseGradient{ixScen} = doseGradient{ixScen} + (1-alpha)/nnz(fGrad(:))*delta_SoftCOWC{ixScenNom} + alpha*fGrad(ixScen)*delta_SoftCOWC{ixScen};
+            doseGradient{ixScen} = doseGradient{ixScen} + (1-alpha)*fGrad(ixScen)*delta_SoftCOWC{ixScenNom} + alpha*fGrad(ixScen)*delta_SoftCOWC{ixScen};
         end
     end
+    doseGradient{ixScen} = doseGradient{ixScen} +
 end
 
 weightGradient = zeros(dij.totalNumOfBixels,1);
