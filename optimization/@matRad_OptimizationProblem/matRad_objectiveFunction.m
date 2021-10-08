@@ -198,7 +198,7 @@ for  i = 1:size(cst,1)
                         f = f + fMax;
 
                     case 's-COWC'  % composite worst case consideres ovarall the worst objective function value
-                        
+
                         for s = 1:numel(useScen)
                             ixScen = useScen(s);
                             ixContour = contourScen(s);
@@ -252,9 +252,11 @@ if nnz(f_SoftCOWC(:)) > 0
             fMax = max(f_SoftCOWC);
     end
     
+    
     alpha = cst{6,8}{1}.alpha;
+    ixScenNom = useScen(1);
     
     %Sum up max of composite worst case part
-    f = f + (1-alpha)*f_SoftCOWC(1)+alpha*fMax;
+    f = f + (1-alpha)*f_SoftCOWC(ixScenNom)+alpha*fMax;
 end
 
