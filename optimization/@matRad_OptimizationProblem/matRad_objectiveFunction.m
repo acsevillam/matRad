@@ -254,7 +254,6 @@ if nnz(f_SoftCOWC(:)) > 0
             fMax = max(f_SoftCOWC);
     end
     
-    
     alpha = cst{6,8}{1}.alpha;
     ixScenNom = useScen(1);
     

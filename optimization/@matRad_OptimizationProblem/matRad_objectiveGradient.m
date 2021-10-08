@@ -279,18 +279,22 @@ for  i = 1:size(cst,1)
                             delta_SoftCOWC(useScen)    = {zeros(dij.doseGrid.numOfVoxels,1)};
                         end                      
                         
+                        alpha=cst{6,8}{1}.alpha;
+                        
+                        ixScenNom = useScen(1);
+                        ixContourNom = contourScen(1);
+                        
+                        d_i_nom = d{ixScenNom}(cst{i,4}{ixContourNom});
+                        
                         for s = 1:numel(useScen)
+                            
                             ixScen = useScen(s);
                             ixContour = contourScen(s);
                             
                             d_i = d{ixScen}(cst{i,4}{ixContour});
                             
                             f_SoftCOWC(ixScen) = f_SoftCOWC(ixScen) + objective.computeDoseObjectiveFunction(d_i);
-                            delta_SoftCOWC{ixScen}(cst{i,4}{ixContour}) = delta_SoftCOWC{ixScen}(cst{i,4}{ixContour}) + objective.computeDoseObjectiveGradient(d_i);
-                            
-                            if(i==6 && ixScen==1)
-                                %display("s-COWC grad: "+objective.computeDoseObjectiveGradient(d_i));
-                            end
+                            delta_SoftCOWC{ixScen}(cst{i,4}{ixContour}) = delta_SoftCOWC{ixScen}(cst{i,4}{ixContour}) + (1-alpha)*objective.computeDoseObjectiveGradient(d_i_nom)+alpha*objective.computeDoseObjectiveGradient(d_i);
                             
                         end
 
@@ -345,20 +349,10 @@ if exist('delta_SoftCOWC','var')
             fGrad(ixCurrWC) = 1;
     end
     
-    alpha=cst{6,8}{1}.alpha;
-    weightSum=0;
-
     for s = 1:numel(useScen)
-        if fGrad(ixScen) ~= 0
-            weightSum=weightSum+fGrad(ixScen);
-        end
-    end
-    
-    for s = 1:numel(useScen)
-        ixScenNom = useScen(1);
         ixScen = useScen(s);
         if fGrad(ixScen) ~= 0
-            doseGradient{ixScen} = doseGradient{ixScen} + (1-alpha)/nnz(fGrad(:))*delta_SoftCOWC{ixScenNom} + alpha*fGrad(ixScen)*delta_SoftCOWC{ixScen};
+            doseGradient{ixScen} = doseGradient{ixScen} + fGrad(ixScen)*delta_SoftCOWC{ixScen};
         end
     end
 end
