@@ -95,7 +95,7 @@ for  i = 1:size(cst,1)
                             doseGradient{ixScen}(cst{i,4}{ixContour}) = doseGradient{ixScen}(cst{i,4}{ixContour}) + objective.computeDoseObjectiveGradient(d_i);
                             
                             if(i==6 && ixScen==1)
-                                display("Nominal grad: "+objective.computeDoseObjectiveGradient(d_i));
+                                %display("Nominal grad: "+objective.computeDoseObjectiveGradient(d_i));
                             end
                             
                         end
@@ -289,7 +289,7 @@ for  i = 1:size(cst,1)
                             delta_SoftCOWC{ixScen}(cst{i,4}{ixContour}) = delta_SoftCOWC{ixScen}(cst{i,4}{ixContour}) + objective.computeDoseObjectiveGradient(d_i);
                             
                             if(i==6 && ixScen==1)
-                                display("s-COWC grad: "+objective.computeDoseObjectiveGradient(d_i));
+                                %display("s-COWC grad: "+objective.computeDoseObjectiveGradient(d_i));
                             end
                             
                         end
