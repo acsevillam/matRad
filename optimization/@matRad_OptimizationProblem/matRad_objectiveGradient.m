@@ -93,11 +93,6 @@ for  i = 1:size(cst,1)
                             d_i = d{ixScen}(cst{i,4}{ixContour});
                             %add to dose gradient
                             doseGradient{ixScen}(cst{i,4}{ixContour}) = doseGradient{ixScen}(cst{i,4}{ixContour}) + objective.computeDoseObjectiveGradient(d_i);
-                            
-                            if(i==6 && ixScen==1)
-                                %display("Nominal grad: "+objective.computeDoseObjectiveGradient(d_i));
-                            end
-                            
                         end
                     case 'STOCH' % perform stochastic optimization with weighted / random scenarios
                         for s = 1:numel(useScen)
@@ -274,7 +269,7 @@ for  i = 1:size(cst,1)
                     case 's-COWC' % composite worst case consideres ovarall the worst objective function value
                         
                         %First check the speficic cache for SoftCOWC
-                        if ~exist('delta_COWC','var')
+                        if ~exist('delta_SoftCOWC','var')
                             delta_SoftCOWC             = cell(size(doseGradient));
                             delta_SoftCOWC(useScen)    = {zeros(dij.doseGrid.numOfVoxels,1)};
                         end
