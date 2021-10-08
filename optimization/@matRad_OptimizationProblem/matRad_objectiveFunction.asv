@@ -83,7 +83,9 @@ for  i = 1:size(cst,1)
                             
                             d_i = d{ixScen}(cst{i,4}{ixScen});
                             f = f + objective.computeDoseObjectiveFunction(d_i);
-                            
+                            if(i==6)
+                                display("Nominal: "+objective.computeDoseObjectiveFunction(d_i));
+                            end
                         end
                         
                     case 'STOCH' % if prob opt: sum up expectation value of objectives

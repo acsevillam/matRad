@@ -93,6 +93,11 @@ for  i = 1:size(cst,1)
                             d_i = d{ixScen}(cst{i,4}{ixContour});
                             %add to dose gradient
                             doseGradient{ixScen}(cst{i,4}{ixContour}) = doseGradient{ixScen}(cst{i,4}{ixContour}) + objective.computeDoseObjectiveGradient(d_i);
+                            
+                            if(i==6 && ixScen==1)
+                                display("Nominal grad: "+objective.computeDoseObjectiveGradient(d_i));
+                            end
+                            
                         end
                     case 'STOCH' % perform stochastic optimization with weighted / random scenarios
                         for s = 1:numel(useScen)
@@ -282,6 +287,11 @@ for  i = 1:size(cst,1)
                             
                             f_SoftCOWC(ixScen) = f_SoftCOWC(ixScen) + objective.computeDoseObjectiveFunction(d_i);
                             delta_SoftCOWC{ixScen}(cst{i,4}{ixContour}) = delta_SoftCOWC{ixScen}(cst{i,4}{ixContour}) + objective.computeDoseObjectiveGradient(d_i);
+                            
+                            if(i==6 && ixScen==1)
+                                display("s-COWC grad: "+objective.computeDoseObjectiveGradient(d_i));
+                            end
+                            
                         end
 
                     otherwise
@@ -341,7 +351,7 @@ if exist('delta_SoftCOWC','var')
         ixScenNom = useScen(1);
         ixScen = useScen(s);
         if fGrad(ixScen) ~= 0
-            doseGradient{ixScen} = doseGradient{ixScen} + (1-alpha)*fGrad(ixScen)*delta_SoftCOWC{ixScenNom} + alpha*fGrad(ixScen)*delta_SoftCOWC{ixScen};
+            doseGradient{ixScen} = doseGradient{ixScen} + (1-alpha)*delta_SoftCOWC{ixScenNom} + alpha*fGrad(ixScen)*delta_SoftCOWC{ixScen};
         end
     end
 end
