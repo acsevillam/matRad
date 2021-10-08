@@ -277,14 +277,7 @@ for  i = 1:size(cst,1)
                         if ~exist('delta_COWC','var')
                             delta_SoftCOWC             = cell(size(doseGradient));
                             delta_SoftCOWC(useScen)    = {zeros(dij.doseGrid.numOfVoxels,1)};
-                        end                      
-                        
-                        alpha=cst{6,8}{1}.alpha;
-                        
-                        ixScenNom = useScen(1);
-                        ixContourNom = contourScen(1);
-                        
-                        d_i_nom = d{ixScenNom}(cst{i,4}{ixContourNom});
+                        end
                         
                         for s = 1:numel(useScen)
                             
@@ -294,7 +287,7 @@ for  i = 1:size(cst,1)
                             d_i = d{ixScen}(cst{i,4}{ixContour});
                             
                             f_SoftCOWC(ixScen) = f_SoftCOWC(ixScen) + objective.computeDoseObjectiveFunction(d_i);
-                            delta_SoftCOWC{ixScen}(cst{i,4}{ixContour}) = delta_SoftCOWC{ixScen}(cst{i,4}{ixContour}) + (1-alpha)*objective.computeDoseObjectiveGradient(d_i_nom)+alpha*objective.computeDoseObjectiveGradient(d_i);
+                            delta_SoftCOWC{ixScen}(cst{i,4}{ixContour}) = delta_SoftCOWC{ixScen}(cst{i,4}{ixContour}) + objective.computeDoseObjectiveGradient(d_i);
                             
                         end
 
@@ -362,8 +355,16 @@ weightGradient = zeros(dij.totalNumOfBixels,1);
 optiProb.BP.computeGradient(dij,doseGradient,w);
 g = optiProb.BP.GetGradient();
 
-for s = 1:numel(useScen)
-   weightGradient = weightGradient + g{useScen(s)};
+
+if exist('delta_SoftCOWC','var') 
+    alpha = cst{6,8}{1}.alpha;
+    for s = 1:numel(useScen)
+       weightGradient = weightGradient + (1-alpha)*g{useScen(1)}+alpha*g{useScen(s)};
+    end
+else
+    for s = 1:numel(useScen)
+       weightGradient = weightGradient + g{useScen(s)};
+    end    
 end
 
 if vOmega ~= 0
