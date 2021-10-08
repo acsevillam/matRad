@@ -265,17 +265,15 @@ for  i = 1:size(cst,1)
                                 doseGradient{ixScen}(cst{i,4}{ixContour}) = doseGradient{ixScen}(cst{i,4}{ixContour}) + fGrad(ixScen)*delta_OWC{ixScen}(cst{i,4}{ixContour});
                             end
                         end
-
-                    case 's-COWC' % composite worst case consideres ovarall the worst objective function value
                         
-                        %First check the speficic cache for SoftCOWC
+                    case 's-COWC' % composite worst case consideres ovarall the worst objective function value
+                        %First check the speficic cache for COWC
                         if ~exist('delta_SoftCOWC','var')
-                            delta_SoftCOWC             = cell(size(doseGradient));
+                            delta_SoftCOWC         = cell(size(doseGradient));
                             delta_SoftCOWC(useScen)    = {zeros(dij.doseGrid.numOfVoxels,1)};
                         end
                         
                         for s = 1:numel(useScen)
-                            
                             ixScen = useScen(s);
                             ixContour = contourScen(s);
                             
@@ -283,7 +281,6 @@ for  i = 1:size(cst,1)
                             
                             f_SoftCOWC(ixScen) = f_SoftCOWC(ixScen) + objective.computeDoseObjectiveFunction(d_i);
                             delta_SoftCOWC{ixScen}(cst{i,4}{ixContour}) = delta_SoftCOWC{ixScen}(cst{i,4}{ixContour}) + objective.computeDoseObjectiveGradient(d_i);
-                            
                         end
 
                     otherwise
@@ -353,8 +350,9 @@ g = optiProb.BP.GetGradient();
 
 if exist('delta_SoftCOWC','var') 
     alpha = cst{6,8}{1}.alpha;
+    weightGradient = (1-alpha)*g{useScen(1)};
     for s = 1:numel(useScen)
-       weightGradient = weightGradient + (1-alpha)*g{useScen(1)}+alpha*g{useScen(s)};
+       weightGradient = weightGradient + alpha*g{useScen(s)};
     end
 else
     for s = 1:numel(useScen)
