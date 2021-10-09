@@ -30,7 +30,7 @@ param.logLevel=1;
 %% Set output folder
 description_folder = 'breast';
 run_config.robustness = 'c-COWC';
-run_config.mode = 'wcScen';
+run_config.mode = 'impScen';
 run_config.sampling_mode = 'rndScen';
 run_config.p = 1;
 run_config.beta = run_config.p/13;
