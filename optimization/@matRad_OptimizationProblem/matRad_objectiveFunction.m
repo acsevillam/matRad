@@ -251,8 +251,7 @@ if nnz(f_CheapCOWC(:)) > 0
     probSum=0;
 
     for s = 1:numel(useScen)
-        ixScen = useScen(s);
-        if fGrad(ixScen) ~= 0
+        if fGrad(s) ~= 0
             probSum = probSum + scenProb(s);
         end
     end
@@ -260,9 +259,8 @@ if nnz(f_CheapCOWC(:)) > 0
     fKp=0;
     
     for s = 1:numel(useScen)
-        ixScen = useScen(s);
-        if fGrad(ixScen) ~= 0
-            fKp = fKp + scenProb(s) * f_CheapCOWC(ixScen)/probSum;
+        if fGrad(s) ~= 0
+            fKp = fKp + scenProb(s) * f_CheapCOWC(s)/probSum;
         end
     end
     

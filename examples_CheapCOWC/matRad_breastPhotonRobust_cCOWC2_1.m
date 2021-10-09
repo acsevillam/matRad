@@ -30,7 +30,7 @@ param.logLevel=1;
 %% Set output folder
 description_folder = 'breast';
 run_config.robustness = 'c-COWC';
-run_config.mode = 'impScen';
+run_config.mode = 'wcScen';
 run_config.sampling_mode = 'rndScen';
 run_config.p = 1;
 run_config.beta = run_config.p/13;
@@ -253,6 +253,11 @@ dij = matRad_calcPhotonDose(ct,stf,pln,cst);
 % visualize the optimized dose cubes.
 resultGUI = matRad_fluenceOptimization(dij,cst,pln);
 %matRadGUI;
+
+%% Plot dose distribution
+figure;
+matRad_geo3DWrapper(gca,ct,cst,resultGUI.physicalDose*pln.numOfFractions,[],[0.002 0.00005],colorcube,[],'Dose [Gy]');
+savefig([folderPath filesep 'dose3d_nominal.fig']);
 
 %% Obtain dose statistics
 [dvh,dqi] = matRad_indicatorWrapper(cst,pln,resultGUI);
