@@ -261,6 +261,8 @@ pln_robust=pln;
 multScen = matRad_multScen(ct,'wcScen'); 
 multScen.wcFactor=1.5;
 multScen.shiftSD = [4 6 8];
+multScen.rangeRelSD=0;
+multScen.rangeAbsSD=0;
 multScen.includeNomScen=true;
 
 pln_robust.multScen=multScen;

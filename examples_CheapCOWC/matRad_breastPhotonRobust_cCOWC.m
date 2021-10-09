@@ -114,7 +114,6 @@ cst{3,6}{1} = struct(DoseObjectives.matRad_MaxDVH(400,20,20));
 cst{3,6}{1}.robustness  = 'none';
 %cst{3,6}{2} = struct(DoseConstraints.matRad_MinMaxDVH(20,0,20));
 
-
 % Heart
 cst{4,5}.Priority = 2; % overlap priority for optimization - a lower number corresponds to a higher priority
 cst{4,6}{1} = struct(DoseObjectives.matRad_MeanDose(250,4));
@@ -131,7 +130,7 @@ ixCTV = 6;
 cst{ixCTV,5}.Priority = 1; % overlap priority for optimization - a lower number corresponds to a higher priority
 cst{ixCTV,6}{1} = struct(DoseObjectives.matRad_SquaredDeviation(800,p));
 cst{ixCTV,6}{1}.robustness  = 'none';
-cst{ixCTV,6}{2} = struct(DoseConstraints.matRad_MinMaxDVH(p,95,100));
+%cst{ixCTV,6}{2} = struct(DoseConstraints.matRad_MinMaxDVH(p,95,100));
 
 display(cst{ixCTV,6});
 
@@ -255,6 +254,11 @@ dij = matRad_calcPhotonDose(ct,stf,pln,cst);
 resultGUI = matRad_fluenceOptimization(dij,cst,pln);
 %matRadGUI;
 
+%% Plot dose distribution
+figure;
+matRad_geo3DWrapper(gca,ct,cst,resultGUI.physicalDose*pln.numOfFractions,[],[0.002 0.00005],colorcube,[],'Dose [Gy]');
+savefig([folderPath filesep 'dose3d_nominal.fig']);
+
 %% Obtain dose statistics
 [dvh,dqi] = matRad_indicatorWrapper(cst,pln,resultGUI);
 savefig([folderPath filesep 'dvh_nominal.fig']);
@@ -265,6 +269,8 @@ savefig([folderPath filesep 'dvh_nominal.fig']);
 if(run_config.mode=="wcScen")
     multScen = matRad_multScen(ct,'wcScen'); 
     multScen.wcFactor=1.5;
+    multScen.rangeRelSD=0;
+    multScen.rangeAbsSD=0;
     multScen.shiftSD = [4 6 8];
 end
 %%
@@ -275,6 +281,8 @@ if(run_config.mode=="impScen")
     multScen.shiftSD = [4 6 8];
     multScen.numOfShiftScen = [4 4 4];
     multScen.numOfRangeShiftScen=4;
+    multScen.rangeRelSD=0;
+    multScen.rangeAbsSD=0;
     multScen.includeNomScen=true;
 end
 %%
@@ -317,6 +325,11 @@ doseWindow = [0 max([resultGUI_robust.physicalDose(:)*pln_robust.numOfFractions]
 figure
 matRad_plotSliceWrapper(gca,ct,cst,1,resultGUI_robust.physicalDose*pln_robust.numOfFractions,plane,slice,[],[],colorcube,[],doseWindow,[],[],'Dose [Gy]');
 savefig([folderPath filesep 'dose_robust.fig']);
+
+%% Plot dose distribution
+figure;
+matRad_geo3DWrapper(gca,ct,cst,resultGUI_robust.physicalDose*pln_robust.numOfFractions,[],[0.002 0.00005],colorcube,[],'Dose [Gy]');
+savefig([folderPath filesep 'dose3d_robust.fig']);
 
 %% Obtain dose statistics
 [dvh_robust,dqi_robust] = matRad_indicatorWrapper(cst,pln_robust,resultGUI_robust);
@@ -368,6 +381,11 @@ figure;
 matRad_plotSliceWrapper(gca,ct,cst,1,resultGUISamp.stdCube*pln.numOfFractions,plane,slice,[],[],colorcube,[],[0 max(resultGUISamp.stdCube(:)*pln.numOfFractions)],[],[],'Dose uncertainty [Gy]');
 savefig([folderPath filesep 'uncertainty.fig']);
 
+%% Plot uncertainty distribution
+figure;
+matRad_geo3DWrapper(gca,ct,cst,resultGUISamp.stdCube*pln.numOfFractions,[],[0.002 0.00005],colorcube,[],'Dose uncertainty [Gy]');
+savefig([folderPath filesep 'uncertainty3d_robust.fig']);
+
 %% Uncertainty volume histogram (UVH)
 resultGUISamp.physicalDose=resultGUISamp.stdCube;
 [uvh,uqi] = matRad_indicatorWrapper_UVH(cst,pln,resultGUI,resultGUISamp);
@@ -378,11 +396,21 @@ figure;
 matRad_plotSliceWrapper(gca,ct,cst,1,resultGUISamp.gammaAnalysis.gammaCube,plane,slice,[],[],colorcube,[],[0 max(resultGUISamp.gammaAnalysis.gammaCube(:))],[],[],'Gamma index');
 savefig([folderPath filesep 'gamma.fig']);
 
+%% Plot uncertainty distribution
+figure;
+matRad_geo3DWrapper(gca,ct,cst,resultGUISamp.gammaAnalysis.gammaCube,[],[0.002 0.00005],colorcube,[],'gamma index');
+savefig([folderPath filesep 'gamma3d.fig']);
+
 %% Gamma index based on sampling
 figure;
 resultGUISamp.gammaAnalysis.robustnessViolationCube = (resultGUISamp.gammaAnalysis.gammaCube>power(1,1/2));
 matRad_plotSliceWrapper(gca,ct,cst,1,resultGUISamp.gammaAnalysis.robustnessViolationCube,plane,slice,[],[],colorcube,[],[0 max(resultGUISamp.gammaAnalysis.gammaCube(:))],[],[],'Gamma index');
 savefig([folderPath filesep 'robustness_violation.fig']);
+
+%% Plot uncertainty distribution
+figure;
+matRad_geo3DWrapper(gca,ct,cst,resultGUISamp.gammaAnalysis.robustnessViolationCube,[],[0.002 0.00005],colorcube,[],'gamma index violation');
+savefig([folderPath filesep 'robustness_violation3d.fig']);
 
 %% Print evaluation indexes
 % CTV
