@@ -294,6 +294,7 @@ for  i = 1:size(cst,1)
 end %cst structure loop
 
 if exist('delta_COWC','var')   
+    optiProb.useMaxApprox='none';
     switch optiProb.useMaxApprox
         case 'logsumexp'
             [~,fGrad] = optiProb.logSumExp(f_COWC);
