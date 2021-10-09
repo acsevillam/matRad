@@ -325,7 +325,7 @@ if exist('delta_CheapCOWC','var')
     p = cst{6,8}{1}.p;
     %p=ceil(beta*numel(useScen));
     
-    [~,ixKp] = maxk(f_CheapCOWC(:),p);
+    [~,ixKp] = maxk(f_CheapCOWC(:,:,1),p);
     fGrad = zeros(size(f_CheapCOWC));
     fGrad(ixKp) = 1;
     

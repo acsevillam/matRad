@@ -51,11 +51,11 @@ contourScen = fullScen{1};
 % initialize f
 f = 0;
 
-% required for COWC opt
-f_COWC = zeros(numel(useScen),1);
+%For COWC
+f_COWC = zeros(size(dij.physicalDose));
 
-% required for CheapCOWC opt
-f_CheapCOWC = zeros(numel(useScen),1);
+%For CheapCOWC
+f_CheapCOWC = zeros(size(dij.physicalDose));
 
 % compute objective function for every VOI.
 for  i = 1:size(cst,1)
@@ -167,7 +167,7 @@ for  i = 1:size(cst,1)
                             
                             d_i = d{ixScen}(cst{i,4}{ixContour});
                             
-                            f_COWC(s) = f_COWC(s) + objective.computeDoseObjectiveFunction(d_i);
+                            f_COWC(ixScen) = f_COWC(ixScen) + objective.computeDoseObjectiveFunction(d_i);
                             
                         end
                         
@@ -205,7 +205,7 @@ for  i = 1:size(cst,1)
                             
                             d_i = d{ixScen}(cst{i,4}{ixContour});
                             
-                            f_CheapCOWC(s) = f_CheapCOWC(s) + objective.computeDoseObjectiveFunction(d_i);
+                            f_CheapCOWC(ixScen) = f_CheapCOWC(ixScen) + objective.computeDoseObjectiveFunction(d_i);
                         end
                         
                     otherwise
@@ -244,14 +244,15 @@ if nnz(f_CheapCOWC(:)) > 0
     p = cst{6,8}{1}.p;
     %p=ceil(beta*numel(useScen));
     
-    [~,ixKp] = maxk(f_CheapCOWC(:),p);
+    [~,ixKp] = maxk(f_CheapCOWC(:,:,1),p);
     fGrad = zeros(size(f_CheapCOWC));
     fGrad(ixKp) = 1;
     
     probSum=0;
 
     for s = 1:numel(useScen)
-        if fGrad(s) ~= 0
+        ixScen = useScen(s);
+        if fGrad(ixScen) ~= 0
             probSum = probSum + scenProb(s);
         end
     end
@@ -259,8 +260,9 @@ if nnz(f_CheapCOWC(:)) > 0
     fKp=0;
     
     for s = 1:numel(useScen)
-        if fGrad(s) ~= 0
-            fKp = fKp + scenProb(s) * f_CheapCOWC(s)/probSum;
+        ixScen = useScen(s);
+        if fGrad(ixScen) ~= 0
+            fKp = fKp + scenProb(s) * f_CheapCOWC(ixScen)/probSum;
         end
     end
     
