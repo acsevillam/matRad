@@ -245,11 +245,25 @@ if nnz(f_CheapCOWC(:)) > 0
     %p=ceil(beta*numel(useScen));
     
     [~,ixKp] = maxk(f_CheapCOWC(:),p);
+    fGrad = zeros(size(f_CheapCOWC));
+    fGrad(ixKp) = 1;
+    
+    probSum=0;
+
+    for s = 1:numel(useScen)
+        ixScen = useScen(s);
+        if fGrad(ixScen) ~= 0
+            probSum = probSum + scenProb(s);
+        end
+    end
     
     fKp=0;
     
-    for s = 1:numel(ixKp)
-        fKp=fKp + scenProb(ixKp(s)) * f_CheapCOWC(ixKp(s));
+    for s = 1:numel(useScen)
+        ixScen = useScen(s);
+        if fGrad(ixScen) ~= 0
+            fKp = fKp + scenProb(s) * f_CheapCOWC(ixScen)/probSum;
+        end
     end
     
     %Sum up max of composite worst case part
