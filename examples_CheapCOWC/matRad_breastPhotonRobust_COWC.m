@@ -30,8 +30,8 @@ param.logLevel=1;
 %% Set output folder
 description_folder = 'breast';
 run_config.robustness = 'COWC';
-run_config.sampling_mode = 'rndScen';
-run_config.sampling_size = 50;
+run_config.sampling_mode = 'impScen';
+%run_config.sampling_size = 50;
 run_config.resolution = '5x5x5';
 
 output_folder = ['output' filesep description_folder filesep run_config.robustness filesep datestr(datetime)];
@@ -344,9 +344,11 @@ end
 if(run_config.sampling_mode=="impScen")
     multScen = matRad_multScen(ct,'impScen'); 
     multScen.wcFactor=1.5;
-    multScen.numOfShiftScen = [20 20 20];
+    multScen.numOfShiftScen = [4 4 4];
     multScen.shiftSD = [4 6 8];
-    multScen.numOfRangeShiftScen=20;
+    multScen.shiftGenType = 'equidistant';
+    multScen.shiftCombType='permuted';
+    multScen.numOfRangeShiftScen=124;
     multScen.rangeRelSD=0;
     multScen.rangeAbsSD=0;
     multScen.scenCombType = 'combined';
@@ -358,7 +360,7 @@ end
 
 %% Perform sampling analysis
 varargin.GammaCriterion = [3 3]; % [%  mm]
-[cstStat, resultGUISamp, meta] = matRad_samplingAnalysis(ct,cst,plnSamp,caSamp, mSampDose, resultGUInomScen);
+[cstStat, resultGUISamp, meta] = matRad_samplingAnalysis(ct,cst,plnSamp,caSamp, mSampDose, resultGUInomScen, varargin);
 
 %% Multi-scenario dose volume histogram (DVH)
 figure,set(gcf,'Color',[1 1 1],'position',[10,10,600,400]);
@@ -390,7 +392,7 @@ savefig([folderPath filesep 'gamma.fig']);
 
 %% Gamma index based on sampling
 figure;
-resultGUISamp.gammaAnalysis.robustnessViolationCube = (resultGUISamp.gammaAnalysis.gammaCube>power(1,1/2));
+resultGUISamp.gammaAnalysis.robustnessViolationCube = (resultGUISamp.gammaAnalysis.gammaCube>1);
 matRad_plotSliceWrapper(gca,ct,cst,1,resultGUISamp.gammaAnalysis.robustnessViolationCube,plane,slice,[],[],colorcube,[],[0 max(resultGUISamp.gammaAnalysis.gammaCube(:))],[],[],'Gamma index');
 savefig([folderPath filesep 'robustness_violation.fig']);
 

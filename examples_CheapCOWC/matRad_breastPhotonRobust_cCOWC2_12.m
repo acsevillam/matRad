@@ -35,7 +35,7 @@ run_config.sampling_mode = 'impScen';
 %run_config.sampling_size = 50;
 run_config.p1 = 1;
 run_config.beta1 = run_config.p1/27;
-run_config.p2 = 3;
+run_config.p2 = 23;
 run_config.beta2 = run_config.p2/27;
 run_config.resolution = '5x5x5';
 

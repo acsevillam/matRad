@@ -31,12 +31,12 @@ param.logLevel=1;
 description_folder = 'breast';
 run_config.robustness = 'c-COWC';
 run_config.mode = 'impScen';
-run_config.sampling_mode = 'rndScen';
-run_config.sampling_size = 50;
+run_config.sampling_mode = 'impScen';
+%run_config.sampling_size = 50;
 run_config.p1 = 1;
-run_config.beta1 = run_config.p1/13;
+run_config.beta1 = run_config.p1/27;
 run_config.p2 = 7;
-run_config.beta2 = run_config.p2/13;
+run_config.beta2 = run_config.p2/27;
 run_config.resolution = '5x5x5';
 
 output_folder = ['output' filesep description_folder filesep run_config.robustness filesep num2str(run_config.beta1) '_to_' num2str(run_config.beta2) filesep run_config.mode filesep datestr(datetime)];
@@ -293,14 +293,17 @@ if(run_config.mode=="wcScen")
     multScen.rangeAbsSD=0;
     multScen.scenCombType = 'combined';
 end
+
 %%
-% retrieve 13 scenarios for dose calculation and optimziation
+% retrieve 27 scenarios for dose calculation and optimziation
 if(run_config.mode=="impScen")
     multScen = matRad_multScen(ct,'impScen'); 
     multScen.wcFactor=1.5;
-    multScen.numOfShiftScen = [4 4 4];
+    multScen.numOfShiftScen = [2 2 2];
     multScen.shiftSD = [4 6 8];
-    multScen.numOfRangeShiftScen=4;
+    multScen.shiftGenType = 'equidistant';
+    multScen.shiftCombType='permuted';
+    multScen.numOfRangeShiftScen=26;
     multScen.rangeRelSD=0;
     multScen.rangeAbsSD=0;
     multScen.scenCombType = 'combined';
@@ -379,9 +382,11 @@ end
 if(run_config.sampling_mode=="impScen")
     multScen = matRad_multScen(ct,'impScen'); 
     multScen.wcFactor=1.5;
-    multScen.numOfShiftScen = [20 20 20];
+    multScen.numOfShiftScen = [4 4 4];
     multScen.shiftSD = [4 6 8];
-    multScen.numOfRangeShiftScen=20;
+    multScen.shiftGenType = 'equidistant';
+    multScen.shiftCombType='permuted';
+    multScen.numOfRangeShiftScen=124;
     multScen.rangeRelSD=0;
     multScen.rangeAbsSD=0;
     multScen.scenCombType = 'combined';
@@ -393,7 +398,7 @@ end
 
 %% Perform sampling analysis
 varargin.GammaCriterion = [3 3]; % [%  mm]
-[cstStat, resultGUISamp, meta] = matRad_samplingAnalysis(ct,cst,plnSamp,caSamp, mSampDose, resultGUInomScen);
+[cstStat, resultGUISamp, meta] = matRad_samplingAnalysis(ct,cst,plnSamp,caSamp, mSampDose, resultGUInomScen, varargin);
 
 %% Multi-scenario dose volume histogram (DVH)
 figure,set(gcf,'Color',[1 1 1],'position',[10,10,600,400]);
@@ -415,7 +420,7 @@ savefig([folderPath filesep 'uncertainty.fig']);
 
 %% Plot uncertainty distribution
 figure;
-matRad_geo3DWrapper(gca,ct,cst,resultGUISamp.stdCube*pln.numOfFractions,[],[0.2 0.00005],colorcube,[],'Dose uncertainty [Gy]');
+matRad_geo3DWrapper(gca,ct,cst,resultGUISamp.stdCube*pln.numOfFractions,[],[0.05 0.00005],colorcube,[],'Dose uncertainty [Gy]');
 savefig([folderPath filesep 'uncertainty3d_robust.fig']);
 
 %% Uncertainty volume histogram (UVH)
@@ -430,18 +435,18 @@ savefig([folderPath filesep 'gamma.fig']);
 
 %% Plot gamma distribution
 figure;
-matRad_geo3DWrapper(gca,ct,cst,resultGUISamp.gammaAnalysis.gammaCube,[],[0.2 0.00005],colorcube,[],'gamma index');
+matRad_geo3DWrapper(gca,ct,cst,resultGUISamp.gammaAnalysis.gammaCube,[],[0.05 0.00005],colorcube,[],'gamma index');
 savefig([folderPath filesep 'gamma3d.fig']);
 
 %% Gamma index based on sampling
 figure;
-resultGUISamp.gammaAnalysis.robustnessViolationCube = (resultGUISamp.gammaAnalysis.gammaCube>power(1,1/2));
+resultGUISamp.gammaAnalysis.robustnessViolationCube = (resultGUISamp.gammaAnalysis.gammaCube>1);
 matRad_plotSliceWrapper(gca,ct,cst,1,resultGUISamp.gammaAnalysis.robustnessViolationCube,plane,slice,[],[],colorcube,[],[0 max(resultGUISamp.gammaAnalysis.gammaCube(:))],[],[],'Gamma index');
 savefig([folderPath filesep 'robustness_violation.fig']);
 
 %% Plot uncertainty distribution
 figure;
-matRad_geo3DWrapper(gca,ct,cst,resultGUISamp.gammaAnalysis.robustnessViolationCube,[],[1 0.00005],colorcube,[],'gamma index violation');
+matRad_geo3DWrapper(gca,ct,cst,resultGUISamp.gammaAnalysis.robustnessViolationCube,[],[0.05 0.00005],colorcube,[],'gamma index violation');
 savefig([folderPath filesep 'robustness_violation3d.fig']);
 
 %% Print evaluation indexes
