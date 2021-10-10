@@ -285,7 +285,7 @@ savefig([folderPath filesep 'dvh_nominal.fig']);
 if(run_config.mode=="wcScen")
     multScen = matRad_multScen(ct,'wcScen'); 
     multScen.wcFactor=1.5;
-    multScen.numOfRangeShiftScen=0;
+    multScen.numOfRangeShiftScen=2;
     multScen.shiftSD = [4 6 8];
 end
 %%
@@ -295,7 +295,7 @@ if(run_config.mode=="impScen")
     multScen.wcFactor=1.5;
     multScen.shiftSD = [4 6 8];
     multScen.numOfShiftScen = [4 4 4];
-    multScen.numOfRangeShiftScen=0;
+    multScen.numOfRangeShiftScen=4;
     multScen.includeNomScen=true;
 end
 %%
@@ -355,17 +355,17 @@ structSel = {}; % structSel = {'PTV','OAR1'};
 
 if(run_config.sampling_mode=="rndScen")
     multScen = matRad_multScen(ct,'rndScen'); % 'impSamp' or 'wcSamp'
-    multScen.numOfShiftScen = matRad_cfg.defaults.samplingScenarios * ones(3,1);
+    multScen.numOfShiftScen = 50 * ones(3,1);
     multScen.shiftSD = [4 6 8];
-    multScen.numOfRangeShiftScen = matRad_cfg.defaults.samplingScenarios;
+    multScen.numOfRangeShiftScen = 0;
 end
 
 if(run_config.sampling_mode=="impScen")
     multScen = matRad_multScen(ct,'impScen'); 
     multScen.wcFactor=1.5;
     multScen.shiftSD = [4 6 8];
-    multScen.numOfShiftScen = [8 8 8];
-    multScen.numOfRangeShiftScen=8;
+    multScen.numOfShiftScen = [20 20 20];
+    multScen.numOfRangeShiftScen=0;
     multScen.includeNomScen=true;
 end
 
@@ -373,7 +373,7 @@ end
 [caSamp, mSampDose, plnSamp, resultGUInomScen] = matRad_sampling(ct,stf,cst,pln_robust,resultGUI_robust.w,structSel,multScen);
 
 %% Perform sampling analysis
-varargin.GammaCriterion = [2 2]; % [%  mm]
+varargin.GammaCriterion = [3 3]; % [%  mm]
 [cstStat, resultGUISamp, meta] = matRad_samplingAnalysis(ct,cst,plnSamp,caSamp, mSampDose, resultGUInomScen);
 
 %% Multi-scenario dose volume histogram (DVH)

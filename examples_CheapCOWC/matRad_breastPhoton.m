@@ -291,9 +291,9 @@ savefig([folderPath filesep 'dvh_nominal.fig']);
 % sampling does not know on which scenario sampling should be performed
 structSel = {}; % structSel = {'PTV','OAR1'};
 multScen = matRad_multScen(ct,'rndScen'); % 'impSamp' or 'wcSamp'
-multScen.numOfShiftScen = matRad_cfg.defaults.samplingScenarios * ones(3,1);
+multScen.numOfShiftScen = 50 * ones(3,1);
 multScen.shiftSD = [4 6 8];
-multScen.numOfRangeShiftScen = matRad_cfg.defaults.samplingScenarios;
+multScen.numOfRangeShiftScen = 0;
 
 %% Perform sampling
 [caSamp, mSampDose, plnSamp, resultGUInomScen] = matRad_sampling(ct,stf,cst,pln,resultGUI.w,structSel,multScen);
