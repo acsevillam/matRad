@@ -400,7 +400,7 @@ savefig([folderPath filesep 'uncertainty.fig']);
 
 %% Plot uncertainty distribution
 figure;
-matRad_geo3DWrapper(gca,ct,cst,resultGUISamp.stdCube*pln.numOfFractions,[],[0.002 0.00005],colorcube,[],'Dose uncertainty [Gy]');
+matRad_geo3DWrapper(gca,ct,cst,resultGUISamp.stdCube*pln.numOfFractions,[],[0.2 0.00005],colorcube,[],'Dose uncertainty [Gy]');
 savefig([folderPath filesep 'uncertainty3d_robust.fig']);
 
 %% Uncertainty volume histogram (UVH)
@@ -413,9 +413,9 @@ figure;
 matRad_plotSliceWrapper(gca,ct,cst,1,resultGUISamp.gammaAnalysis.gammaCube,plane,slice,[],[],colorcube,[],[0 max(resultGUISamp.gammaAnalysis.gammaCube(:))],[],[],'Gamma index');
 savefig([folderPath filesep 'gamma.fig']);
 
-%% Plot uncertainty distribution
+%% Plot gamma distribution
 figure;
-matRad_geo3DWrapper(gca,ct,cst,resultGUISamp.gammaAnalysis.gammaCube,[],[0.002 0.00005],colorcube,[],'gamma index');
+matRad_geo3DWrapper(gca,ct,cst,resultGUISamp.gammaAnalysis.gammaCube,[],[0.2 0.00005],colorcube,[],'gamma index');
 savefig([folderPath filesep 'gamma3d.fig']);
 
 %% Gamma index based on sampling
@@ -426,7 +426,7 @@ savefig([folderPath filesep 'robustness_violation.fig']);
 
 %% Plot uncertainty distribution
 figure;
-matRad_geo3DWrapper(gca,ct,cst,resultGUISamp.gammaAnalysis.robustnessViolationCube,[],[0.002 0.00005],colorcube,[],'gamma index violation');
+matRad_geo3DWrapper(gca,ct,cst,resultGUISamp.gammaAnalysis.robustnessViolationCube,[],[1 0.00005],colorcube,[],'gamma index violation');
 savefig([folderPath filesep 'robustness_violation3d.fig']);
 
 %% Print evaluation indexes

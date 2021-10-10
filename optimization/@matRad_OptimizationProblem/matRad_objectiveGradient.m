@@ -321,7 +321,7 @@ end
 
 if exist('delta_CheapCOWC','var')
     
-    beta2=cst{6,8}{1}.beta;
+    beta2=cst{6,8}{1}.beta2;
     p2 = cst{6,8}{1}.p2;
     %p2=ceil(beta*numel(useScen));
     
