@@ -285,7 +285,7 @@ savefig([folderPath filesep 'dvh_nominal.fig']);
 if(run_config.mode=="wcScen")
     multScen = matRad_multScen(ct,'wcScen'); 
     multScen.wcFactor=1.5;
-    multScen.numOfRangeShiftScen=0;
+    multScen.numOfRangeShiftScen=2;
     multScen.shiftSD = [4 6 8];
 end
 %%
@@ -295,7 +295,7 @@ if(run_config.mode=="impScen")
     multScen.wcFactor=1.5;
     multScen.shiftSD = [4 6 8];
     multScen.numOfShiftScen = [4 4 4];
-    multScen.numOfRangeShiftScen=0;
+    multScen.numOfRangeShiftScen=4;
     multScen.includeNomScen=true;
 end
 %%
