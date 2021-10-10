@@ -297,16 +297,16 @@ if exist('delta_COWC','var')
     optiProb.useMaxApprox='none';
     switch optiProb.useMaxApprox
         case 'logsumexp'
-            [~,fGrad] = optiProb.logSumExp(f_COWC);
+            [~,fGrad] = optiProb.logSumExp(f_COWC(:,:,1));
         case 'pnorm'
-            [~,fGrad] = optiProb.pNorm(f_COWC,numel(useScen));
+            [~,fGrad] = optiProb.pNorm(f_COWC(:,:,1),numel(useScen));
         case 'none'
-            [~,ixCurrWC] = max(f_COWC(:));
+            [~,ixCurrWC] = max(f_COWC(:,:,1));
             fGrad = zeros(size(f_COWC));
             fGrad(ixCurrWC) = 1;
         case 'otherwise'
             matRad_cfg.dispWarning('Unknown maximum approximation desired. Using ''none'' instead.');
-            [~,ixCurrWC] = max(f_COWC(:));
+            [~,ixCurrWC] = max(f_COWC(:,:,1));
             fGrad = zeros(size(f_COWC));
             fGrad(ixCurrWC) = 1;
     end

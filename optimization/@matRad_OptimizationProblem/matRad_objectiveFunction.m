@@ -223,14 +223,14 @@ if nnz(f_COWC(:)) > 0
     optiProb.useMaxApprox='none';
     switch optiProb.useMaxApprox
         case 'logsumexp'
-            fMax = optiProb.logSumExp(f_COWC);
+            fMax = optiProb.logSumExp(f_COWC(:,:,1));
         case 'pnorm'
-            fMax = optiProb.pNorm(f_COWC,numel(useScen));
+            fMax = optiProb.pNorm(f_COWC(:,:,1),numel(useScen));
         case 'none'
-            fMax = max(f_COWC);
+            fMax = max(f_COWC(:,:,1));
         case 'otherwise'
             matRad_cfg.dispWarning('Unknown maximum approximation desired. Using ''none'' instead.');
-            fMax = max(f_COWC);
+            fMax = max(f_COWC(:,:,1));
     end
     %Sum up max of composite worst case part
     f = f + fMax;
