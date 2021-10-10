@@ -357,7 +357,7 @@ if(run_config.sampling_mode=="rndScen")
     multScen = matRad_multScen(ct,'rndScen'); % 'impSamp' or 'wcSamp'
     multScen.numOfShiftScen = 50 * ones(3,1);
     multScen.shiftSD = [4 6 8];
-    multScen.numOfRangeShiftScen = 0;
+    multScen.numOfRangeShiftScen = 50;
 end
 
 if(run_config.sampling_mode=="impScen")
@@ -365,7 +365,7 @@ if(run_config.sampling_mode=="impScen")
     multScen.wcFactor=1.5;
     multScen.shiftSD = [4 6 8];
     multScen.numOfShiftScen = [20 20 20];
-    multScen.numOfRangeShiftScen=0;
+    multScen.numOfRangeShiftScen=20;
     multScen.includeNomScen=true;
 end
 
@@ -378,7 +378,7 @@ varargin.GammaCriterion = [3 3]; % [%  mm]
 
 %% Multi-scenario dose volume histogram (DVH)
 figure,set(gcf,'Color',[1 1 1],'position',[10,10,600,400]);
-matRad_showDVH_sampledScen(caSamp,dvh_robust,cst,plnSamp,[1:25]);
+matRad_showDVH_sampledScen(caSamp,dvh_robust,cst,plnSamp,[1:50]);
 savefig([folderPath filesep 'dvh_robust_multiscen.fig']);
 
 %% Dose volume histogram (DVH)

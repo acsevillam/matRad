@@ -293,18 +293,18 @@ structSel = {}; % structSel = {'PTV','OAR1'};
 multScen = matRad_multScen(ct,'rndScen'); % 'impSamp' or 'wcSamp'
 multScen.numOfShiftScen = 50 * ones(3,1);
 multScen.shiftSD = [4 6 8];
-multScen.numOfRangeShiftScen = 0;
+multScen.numOfRangeShiftScen = 50;
 
 %% Perform sampling
 [caSamp, mSampDose, plnSamp, resultGUInomScen] = matRad_sampling(ct,stf,cst,pln,resultGUI.w,structSel,multScen);
 
 %% Perform sampling analysis
-varargin.GammaCriterion = [2 2]; % [%  mm] 
+varargin.GammaCriterion = [3 3]; % [%  mm] 
 [cstStat, resultGUISamp, meta] = matRad_samplingAnalysis(ct,cst,plnSamp,caSamp, mSampDose, resultGUInomScen,varargin);
 
 %% Multi-scenario dose volume histogram (DVH)
 figure,set(gcf,'Color',[1 1 1],'position',[10,10,600,400]);
-matRad_showDVH_sampledScen(caSamp,dvh,cst,plnSamp,[1:25]);
+matRad_showDVH_sampledScen(caSamp,dvh,cst,plnSamp,[1:50]);
 savefig([folderPath filesep 'dvh_nominal_multiscen.fig']);
 
 %% Dose volume histogram (DVH)

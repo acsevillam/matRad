@@ -32,11 +32,13 @@ description_folder = 'breast';
 run_config.robustness = 'c-COWC';
 run_config.mode = 'impScen';
 run_config.sampling_mode = 'rndScen';
-run_config.p = 11;
-run_config.beta = run_config.p/13;
+run_config.p1 = 1;
+run_config.beta1 = run_config.p1/13;
+run_config.p2 = 11;
+run_config.beta2 = run_config.p2/13;
 run_config.resolution = '5x5x5';
 
-output_folder = ['output' filesep description_folder filesep run_config.robustness filesep num2str(run_config.beta) filesep run_config.mode filesep datestr(datetime)];
+output_folder = ['output' filesep description_folder filesep run_config.robustness filesep num2str(run_config.beta1) '_to_' num2str(run_config.beta2) filesep run_config.mode filesep datestr(datetime)];
 
 %Set up parent export folder and full file path
 if ~(isfolder(output_folder))
@@ -315,8 +317,10 @@ time1=sprintf('DCTime_robust: %.2f\n',DCTime_robust); disp(time1);
 
 % CTV
 cst{ixCTV,6}{1}.robustness  = run_config.robustness;
-cst{ixCTV,8}{1}.beta = run_config.beta;
-cst{ixCTV,8}{1}.p = run_config.p;
+cst{ixCTV,8}{1}.beta1 = run_config.beta1;
+cst{ixCTV,8}{1}.p1 = run_config.p1;
+cst{ixCTV,8}{1}.beta2 = run_config.beta2;
+cst{ixCTV,8}{1}.p2 = run_config.p2;
 
 %% Inverse Optimization for IMRT
 % The goal of the fluence optimization is to find a set of beamlet/pencil
@@ -357,7 +361,7 @@ if(run_config.sampling_mode=="rndScen")
     multScen = matRad_multScen(ct,'rndScen'); % 'impSamp' or 'wcSamp'
     multScen.numOfShiftScen = 50 * ones(3,1);
     multScen.shiftSD = [4 6 8];
-    multScen.numOfRangeShiftScen = 0;
+    multScen.numOfRangeShiftScen = 50;
 end
 
 if(run_config.sampling_mode=="impScen")
@@ -365,7 +369,7 @@ if(run_config.sampling_mode=="impScen")
     multScen.wcFactor=1.5;
     multScen.shiftSD = [4 6 8];
     multScen.numOfShiftScen = [20 20 20];
-    multScen.numOfRangeShiftScen=0;
+    multScen.numOfRangeShiftScen=20;
     multScen.includeNomScen=true;
 end
 
@@ -378,7 +382,7 @@ varargin.GammaCriterion = [3 3]; % [%  mm]
 
 %% Multi-scenario dose volume histogram (DVH)
 figure,set(gcf,'Color',[1 1 1],'position',[10,10,600,400]);
-matRad_showDVH_sampledScen(caSamp,dvh_robust,cst,plnSamp,[1:25]);
+matRad_showDVH_sampledScen(caSamp,dvh_robust,cst,plnSamp,[1:50]);
 savefig([folderPath filesep 'dvh_robust_multiscen.fig']);
 
 %% Dose volume histogram (DVH)

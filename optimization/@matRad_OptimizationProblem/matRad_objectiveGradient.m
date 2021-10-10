@@ -321,13 +321,22 @@ end
 
 if exist('delta_CheapCOWC','var')
     
-    beta=cst{6,8}{1}.beta;
-    p = cst{6,8}{1}.p;
-    %p=ceil(beta*numel(useScen));
+    beta2=cst{6,8}{1}.beta;
+    p2 = cst{6,8}{1}.p2;
+    %p2=ceil(beta*numel(useScen));
     
-    [~,ixKp] = maxk(f_CheapCOWC(:,:,1),p);
+    [~,ixKp2] = maxk(f_CheapCOWC(:,:,1),p2);
     fGrad = zeros(size(f_CheapCOWC));
-    fGrad(ixKp) = 1;
+    fGrad(ixKp2) = 1;
+    
+    beta1 = cst{6,8}{1}.beta1;
+    p1 = cst{6,8}{1}.p1;
+    %p1=ceil(beta1*numel(useScen));
+    
+    if (p1 > 1)
+        [~,ixKp1] = maxk(f_CheapCOWC(:,:,1),p1-1);
+        fGrad(ixKp1) = 0;
+    end
     
     probSum=0;
 
