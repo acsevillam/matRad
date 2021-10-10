@@ -220,7 +220,7 @@ end %cst structure loop
 
 %Handling the maximum of the composite worst case part
 if nnz(f_COWC(:)) > 0
-    fMax = max(f_COWC(:));
+    optiProb.useMaxApprox='none';
     switch optiProb.useMaxApprox
         case 'logsumexp'
             fMax = optiProb.logSumExp(f_COWC);
@@ -262,7 +262,7 @@ if nnz(f_CheapCOWC(:)) > 0
     for s = 1:numel(useScen)
         ixScen = useScen(s);
         if fGrad(ixScen) ~= 0
-            fKp = fKp + scenProb(s) * f_CheapCOWC(ixScen)/probSum;
+            fKp = fKp + scenProb(s)/probSum * f_CheapCOWC(ixScen);
         end
     end
     

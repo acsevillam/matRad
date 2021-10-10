@@ -34,6 +34,7 @@ run_config.mode = 'impScen';
 run_config.sampling_mode = 'rndScen';
 run_config.p = 13;
 run_config.beta = run_config.p/13;
+run_config.resolution = '5x5x5';
 
 output_folder = ['output' filesep description_folder filesep run_config.robustness filesep num2str(run_config.beta) filesep run_config.mode filesep datestr(datetime)];
 
@@ -54,7 +55,14 @@ diary on
 % structure defining the CT images and the structure set. Make sure the
 % matRad root directory with all its subdirectories is added to the Matlab
 % search path.
-load('patient3_5mm.mat');
+
+if(run_config.resolution=="3x3x3")
+    load('patient3_3x3x3mm.mat');
+end
+
+if(run_config.resolution=="5x5x5")
+    load('patient3_5x5x5mm.mat');
+end
 
 %% plot CT slice
 if param.logLevel == 1
@@ -210,9 +218,17 @@ pln.propStf.isoCenter       = ones(pln.propStf.numOfBeams,1) * matRad_getIsoCent
 
 %% dose calculation settings
 % set resolution of dose calculation and optimization
-pln.propDoseCalc.doseGrid.resolution.x = 5; % [mm]
-pln.propDoseCalc.doseGrid.resolution.y = 5; % [mm]
-pln.propDoseCalc.doseGrid.resolution.z = 5; % [mm]
+if(run_config.resolution=="3x3x3")
+    pln.propDoseCalc.doseGrid.resolution.x = 3; % [mm]
+    pln.propDoseCalc.doseGrid.resolution.y = 3; % [mm]
+    pln.propDoseCalc.doseGrid.resolution.z = 3; % [mm]
+end
+
+if(run_config.resolution=="5x5x5")
+    pln.propDoseCalc.doseGrid.resolution.x = 5; % [mm]
+    pln.propDoseCalc.doseGrid.resolution.y = 5; % [mm]
+    pln.propDoseCalc.doseGrid.resolution.z = 5; % [mm]
+end
 
 %%
 % Enable sequencing and disable direct aperture optimization (DAO) for now.
@@ -269,8 +285,7 @@ savefig([folderPath filesep 'dvh_nominal.fig']);
 if(run_config.mode=="wcScen")
     multScen = matRad_multScen(ct,'wcScen'); 
     multScen.wcFactor=1.5;
-    multScen.rangeRelSD=0;
-    multScen.rangeAbsSD=0;
+    multScen.numOfRangeShiftScen=0;
     multScen.shiftSD = [4 6 8];
 end
 %%
@@ -280,9 +295,7 @@ if(run_config.mode=="impScen")
     multScen.wcFactor=1.5;
     multScen.shiftSD = [4 6 8];
     multScen.numOfShiftScen = [4 4 4];
-    multScen.numOfRangeShiftScen=4;
-    multScen.rangeRelSD=0;
-    multScen.rangeAbsSD=0;
+    multScen.numOfRangeShiftScen=0;
     multScen.includeNomScen=true;
 end
 %%

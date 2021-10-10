@@ -341,7 +341,7 @@ if exist('delta_CheapCOWC','var')
     for s = 1:numel(useScen)
         ixScen = useScen(s);
         if fGrad(ixScen) ~= 0
-            doseGradient{ixScen} = doseGradient{ixScen} + (scenProb(s) * fGrad(ixScen) * delta_CheapCOWC{ixScen})/probSum;
+            doseGradient{ixScen} = doseGradient{ixScen} + scenProb(s)/probSum * fGrad(ixScen) * delta_CheapCOWC{ixScen};
         end
     end
     

@@ -30,6 +30,7 @@ param.logLevel=1;
 %% Set output folder
 description_folder = 'breast';
 run_config.robustness = 'none';
+run_config.resolution = '5x5x5';
 
 output_folder = ['output' filesep description_folder filesep run_config.robustness filesep datestr(datetime)];
 
@@ -50,7 +51,13 @@ diary on
 % structure defining the CT images and the structure set. Make sure the
 % matRad root directory with all its subdirectories is added to the Matlab
 % search path.
-load('patient3_5mm.mat');
+if(run_config.resolution=="3x3x3")
+    load('patient3_3x3x3mm.mat');
+end
+
+if(run_config.resolution=="5x5x5")
+    load('patient3_5x5x5mm.mat');
+end
 
 %% plot CT slice
 if param.logLevel == 1
@@ -207,9 +214,17 @@ pln.propStf.isoCenter       = ones(pln.propStf.numOfBeams,1) * matRad_getIsoCent
 
 %% dose calculation settings
 % set resolution of dose calculation and optimization
-pln.propDoseCalc.doseGrid.resolution.x = 5; % [mm]
-pln.propDoseCalc.doseGrid.resolution.y = 5; % [mm]
-pln.propDoseCalc.doseGrid.resolution.z = 5; % [mm]
+if(run_config.resolution=="3x3x3")
+    pln.propDoseCalc.doseGrid.resolution.x = 3; % [mm]
+    pln.propDoseCalc.doseGrid.resolution.y = 3; % [mm]
+    pln.propDoseCalc.doseGrid.resolution.z = 3; % [mm]
+end
+
+if(run_config.resolution=="5x5x5")
+    pln.propDoseCalc.doseGrid.resolution.x = 5; % [mm]
+    pln.propDoseCalc.doseGrid.resolution.y = 5; % [mm]
+    pln.propDoseCalc.doseGrid.resolution.z = 5; % [mm]
+end
 
 %%
 % Enable sequencing and disable direct aperture optimization (DAO) for now.
