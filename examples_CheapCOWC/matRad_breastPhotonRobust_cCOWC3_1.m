@@ -32,6 +32,7 @@ description_folder = 'breast';
 run_config.robustness = 'c-COWC';
 run_config.mode = 'impScen';
 run_config.sampling_mode = 'rndScen';
+run_config.sampling_size = 50;
 run_config.p1 = 13;
 run_config.beta1 = run_config.p1/13;
 run_config.p2 = 13;
@@ -287,17 +288,22 @@ savefig([folderPath filesep 'dvh_nominal.fig']);
 if(run_config.mode=="wcScen")
     multScen = matRad_multScen(ct,'wcScen'); 
     multScen.wcFactor=1.5;
-    multScen.numOfRangeShiftScen=2;
     multScen.shiftSD = [4 6 8];
+    multScen.rangeRelSD=0;
+    multScen.rangeAbsSD=0;
+    multScen.scenCombType = 'combined';
 end
 %%
 % retrieve 13 scenarios for dose calculation and optimziation
 if(run_config.mode=="impScen")
     multScen = matRad_multScen(ct,'impScen'); 
     multScen.wcFactor=1.5;
-    multScen.shiftSD = [4 6 8];
     multScen.numOfShiftScen = [4 4 4];
+    multScen.shiftSD = [4 6 8];
     multScen.numOfRangeShiftScen=4;
+    multScen.rangeRelSD=0;
+    multScen.rangeAbsSD=0;
+    multScen.scenCombType = 'combined';
     multScen.includeNomScen=true;
 end
 %%
@@ -359,17 +365,26 @@ structSel = {}; % structSel = {'PTV','OAR1'};
 
 if(run_config.sampling_mode=="rndScen")
     multScen = matRad_multScen(ct,'rndScen'); % 'impSamp' or 'wcSamp'
-    multScen.numOfShiftScen = 50 * ones(3,1);
+    multScen.wcFactor=1.5;
     multScen.shiftSD = [4 6 8];
-    multScen.numOfRangeShiftScen = 50;
+    multScen.shiftGenType = 'sampled_truncated';
+    multScen.shiftCombType = 'combined';
+    multScen.numOfShiftScen = run_config.sampling_size * ones(3,1);
+    multScen.numOfRangeShiftScen = run_config.sampling_size;
+    multScen.rangeRelSD=0;
+    multScen.rangeAbsSD=0;
+    multScen.scenCombType = 'combined';
 end
 
 if(run_config.sampling_mode=="impScen")
     multScen = matRad_multScen(ct,'impScen'); 
     multScen.wcFactor=1.5;
-    multScen.shiftSD = [4 6 8];
     multScen.numOfShiftScen = [20 20 20];
+    multScen.shiftSD = [4 6 8];
     multScen.numOfRangeShiftScen=20;
+    multScen.rangeRelSD=0;
+    multScen.rangeAbsSD=0;
+    multScen.scenCombType = 'combined';
     multScen.includeNomScen=true;
 end
 
@@ -382,7 +397,7 @@ varargin.GammaCriterion = [3 3]; % [%  mm]
 
 %% Multi-scenario dose volume histogram (DVH)
 figure,set(gcf,'Color',[1 1 1],'position',[10,10,600,400]);
-matRad_showDVH_sampledScen(caSamp,dvh_robust,cst,plnSamp,[1:50]);
+matRad_showDVH_sampledScen(caSamp,dvh_robust,cst,plnSamp,[1:multScen.totNumShiftScen]);
 savefig([folderPath filesep 'dvh_robust_multiscen.fig']);
 
 %% Dose volume histogram (DVH)

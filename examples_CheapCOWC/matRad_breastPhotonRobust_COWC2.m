@@ -30,6 +30,8 @@ param.logLevel=1;
 %% Set output folder
 description_folder = 'breast';
 run_config.robustness = 'COWC';
+run_config.sampling_mode = 'rndScen';
+run_config.sampling_size = 50;
 run_config.resolution = '5x5x5';
 
 output_folder = ['output' filesep description_folder filesep run_config.robustness filesep datestr(datetime)];
@@ -271,14 +273,18 @@ resultGUI = matRad_fluenceOptimization(dij,cst,pln);
 savefig([folderPath filesep 'dvh_nominal.fig']);
 
 %%
-% retrieve 9 worst case scenarios for dose calculation and optimziation
+% retrieve 13 worst case scenarios for dose calculation and optimziation
 pln_robust=pln;
 multScen = matRad_multScen(ct,'impScen'); 
 multScen.wcFactor=1.5;
-multScen.shiftSD = [4 6 8];
 multScen.numOfShiftScen = [4 4 4];
+multScen.shiftSD = [4 6 8];
 multScen.numOfRangeShiftScen=4;
+multScen.rangeRelSD=0;
+multScen.rangeAbsSD=0;
+multScen.scenCombType = 'combined';
 multScen.includeNomScen=true;
+
 pln_robust.multScen=multScen;
 
 %% Dose calculation
@@ -325,10 +331,30 @@ savefig([folderPath filesep 'dvh_robust.fig']);
 % select structures to include in sampling; leave empty to sample dose for all structures
 % sampling does not know on which scenario sampling should be performed
 structSel = {}; % structSel = {'PTV','OAR1'};
-multScen = matRad_multScen(ct,'rndScen'); % 'impSamp' or 'wcSamp'
-multScen.numOfShiftScen = 50 * ones(3,1);
-multScen.shiftSD = [4 6 8];
-multScen.numOfRangeShiftScen = 50;
+if(run_config.sampling_mode=="rndScen")
+    multScen = matRad_multScen(ct,'rndScen'); % 'impSamp' or 'wcSamp'
+    multScen.wcFactor=1.5;
+    multScen.shiftSD = [4 6 8];
+    multScen.shiftGenType = 'sampled_truncated';
+    multScen.shiftCombType = 'combined';
+    multScen.numOfShiftScen = run_config.sampling_size * ones(3,1);
+    multScen.numOfRangeShiftScen = run_config.sampling_size;
+    multScen.rangeRelSD=0;
+    multScen.rangeAbsSD=0;
+    multScen.scenCombType = 'combined';
+end
+
+if(run_config.sampling_mode=="impScen")
+    multScen = matRad_multScen(ct,'impScen'); 
+    multScen.wcFactor=1.5;
+    multScen.numOfShiftScen = [20 20 20];
+    multScen.shiftSD = [4 6 8];
+    multScen.numOfRangeShiftScen=20;
+    multScen.rangeRelSD=0;
+    multScen.rangeAbsSD=0;
+    multScen.scenCombType = 'combined';
+    multScen.includeNomScen=true;
+end
 
 %% Perform sampling
 [caSamp, mSampDose, plnSamp, resultGUInomScen] = matRad_sampling(ct,stf,cst,pln_robust,resultGUI_robust.w,structSel,multScen);

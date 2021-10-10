@@ -32,11 +32,14 @@ description_folder = 'breast';
 run_config.robustness = 'c-COWC';
 run_config.mode = 'wcScen';
 run_config.sampling_mode = 'rndScen';
-run_config.p = 1;
-run_config.beta = run_config.p/13;
+run_config.sampling_size = 50;
+run_config.p1 = 1;
+run_config.beta1 = run_config.p1/13;
+run_config.p2 = 1;
+run_config.beta2 = run_config.p2/13;
 run_config.resolution = '5x5x5';
 
-output_folder = ['output' filesep description_folder filesep run_config.robustness filesep num2str(run_config.beta) filesep run_config.mode filesep datestr(datetime)];
+output_folder = ['output' filesep description_folder filesep run_config.robustness filesep num2str(run_config.beta1) '_to_' num2str(run_config.beta2) filesep run_config.mode filesep datestr(datetime)];
 
 %Set up parent export folder and full file path
 if ~(isfolder(output_folder))
@@ -280,22 +283,27 @@ savefig([folderPath filesep 'dose3d_nominal.fig']);
 savefig([folderPath filesep 'dvh_nominal.fig']);
 
 %%
-% retrieve 13 scenarios for dose calculation and optimziation
+% retrieve 6 scenarios for dose calculation and optimziation
  pln_robust=pln;
 if(run_config.mode=="wcScen")
     multScen = matRad_multScen(ct,'wcScen'); 
     multScen.wcFactor=1.5;
-    multScen.numOfRangeShiftScen=2;
     multScen.shiftSD = [4 6 8];
+    multScen.rangeRelSD=0;
+    multScen.rangeAbsSD=0;
+    multScen.scenCombType = 'combined';
 end
 %%
 % retrieve 13 scenarios for dose calculation and optimziation
 if(run_config.mode=="impScen")
     multScen = matRad_multScen(ct,'impScen'); 
     multScen.wcFactor=1.5;
-    multScen.shiftSD = [4 6 8];
     multScen.numOfShiftScen = [4 4 4];
+    multScen.shiftSD = [4 6 8];
     multScen.numOfRangeShiftScen=4;
+    multScen.rangeRelSD=0;
+    multScen.rangeAbsSD=0;
+    multScen.scenCombType = 'combined';
     multScen.includeNomScen=true;
 end
 %%
@@ -315,8 +323,10 @@ time1=sprintf('DCTime_robust: %.2f\n',DCTime_robust); disp(time1);
 
 % CTV
 cst{ixCTV,6}{1}.robustness  = run_config.robustness;
-cst{ixCTV,8}{1}.beta = run_config.beta;
-cst{ixCTV,8}{1}.p = run_config.p;
+cst{ixCTV,8}{1}.beta1 = run_config.beta1;
+cst{ixCTV,8}{1}.p1 = run_config.p1;
+cst{ixCTV,8}{1}.beta2 = run_config.beta2;
+cst{ixCTV,8}{1}.p2 = run_config.p2;
 
 %% Inverse Optimization for IMRT
 % The goal of the fluence optimization is to find a set of beamlet/pencil
@@ -355,17 +365,26 @@ structSel = {}; % structSel = {'PTV','OAR1'};
 
 if(run_config.sampling_mode=="rndScen")
     multScen = matRad_multScen(ct,'rndScen'); % 'impSamp' or 'wcSamp'
-    multScen.numOfShiftScen = 50 * ones(3,1);
+    multScen.wcFactor=1.5;
     multScen.shiftSD = [4 6 8];
-    multScen.numOfRangeShiftScen = 50;
+    multScen.shiftGenType = 'sampled_truncated';
+    multScen.shiftCombType = 'combined';
+    multScen.numOfShiftScen = run_config.sampling_size * ones(3,1);
+    multScen.numOfRangeShiftScen = run_config.sampling_size;
+    multScen.rangeRelSD=0;
+    multScen.rangeAbsSD=0;
+    multScen.scenCombType = 'combined';
 end
 
 if(run_config.sampling_mode=="impScen")
     multScen = matRad_multScen(ct,'impScen'); 
     multScen.wcFactor=1.5;
-    multScen.shiftSD = [4 6 8];
     multScen.numOfShiftScen = [20 20 20];
+    multScen.shiftSD = [4 6 8];
     multScen.numOfRangeShiftScen=20;
+    multScen.rangeRelSD=0;
+    multScen.rangeAbsSD=0;
+    multScen.scenCombType = 'combined';
     multScen.includeNomScen=true;
 end
 
@@ -378,7 +397,7 @@ varargin.GammaCriterion = [3 3]; % [%  mm]
 
 %% Multi-scenario dose volume histogram (DVH)
 figure,set(gcf,'Color',[1 1 1],'position',[10,10,600,400]);
-matRad_showDVH_sampledScen(caSamp,dvh_robust,cst,plnSamp,[1:50]);
+matRad_showDVH_sampledScen(caSamp,dvh_robust,cst,plnSamp,[1:multScen.totNumShiftScen]);
 savefig([folderPath filesep 'dvh_robust_multiscen.fig']);
 
 %% Dose volume histogram (DVH)
@@ -396,7 +415,7 @@ savefig([folderPath filesep 'uncertainty.fig']);
 
 %% Plot uncertainty distribution
 figure;
-matRad_geo3DWrapper(gca,ct,cst,resultGUISamp.stdCube*pln.numOfFractions,[],[0.002 0.00005],colorcube,[],'Dose uncertainty [Gy]');
+matRad_geo3DWrapper(gca,ct,cst,resultGUISamp.stdCube*pln.numOfFractions,[],[0.2 0.00005],colorcube,[],'Dose uncertainty [Gy]');
 savefig([folderPath filesep 'uncertainty3d_robust.fig']);
 
 %% Uncertainty volume histogram (UVH)
@@ -409,9 +428,9 @@ figure;
 matRad_plotSliceWrapper(gca,ct,cst,1,resultGUISamp.gammaAnalysis.gammaCube,plane,slice,[],[],colorcube,[],[0 max(resultGUISamp.gammaAnalysis.gammaCube(:))],[],[],'Gamma index');
 savefig([folderPath filesep 'gamma.fig']);
 
-%% Plot uncertainty distribution
+%% Plot gamma distribution
 figure;
-matRad_geo3DWrapper(gca,ct,cst,resultGUISamp.gammaAnalysis.gammaCube,[],[0.002 0.00005],colorcube,[],'gamma index');
+matRad_geo3DWrapper(gca,ct,cst,resultGUISamp.gammaAnalysis.gammaCube,[],[0.2 0.00005],colorcube,[],'gamma index');
 savefig([folderPath filesep 'gamma3d.fig']);
 
 %% Gamma index based on sampling
@@ -422,7 +441,7 @@ savefig([folderPath filesep 'robustness_violation.fig']);
 
 %% Plot uncertainty distribution
 figure;
-matRad_geo3DWrapper(gca,ct,cst,resultGUISamp.gammaAnalysis.robustnessViolationCube,[],[0.002 0.00005],colorcube,[],'gamma index violation');
+matRad_geo3DWrapper(gca,ct,cst,resultGUISamp.gammaAnalysis.robustnessViolationCube,[],[1 0.00005],colorcube,[],'gamma index violation');
 savefig([folderPath filesep 'robustness_violation3d.fig']);
 
 %% Print evaluation indexes

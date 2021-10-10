@@ -304,7 +304,7 @@ classdef matRad_multScen
         end
         
         function this = set.shiftGenType(this,value)
-            if ischar(value) && any(strcmp(value,{'equidistant','sampled'}))
+            if ischar(value) && any(strcmp(value,{'equidistant','sampled','sampled_truncated'}))
                 this.shiftGenType = value;
                 this = this.updateScenariosFromUncertainties();
             else
@@ -314,7 +314,7 @@ classdef matRad_multScen
         end
         
         function this = set.rangeGenType(this,value)
-            if ischar(value) && any(strcmp(value,{'equidistant','sampled'}))
+            if ischar(value) && any(strcmp(value,{'equidistant','sampled','sampled_truncated'}))
                 this.rangeGenType = value;
                 this = this.updateScenariosFromUncertainties();
             else
@@ -455,6 +455,21 @@ classdef matRad_multScen
                     isoShiftVec{2} = [0 this.shiftSD(2) .* randn(1, this.numOfShiftScen(2)) + meanP(2)];
                     if matRad_getEnvironment == 'MATLAB' rng('shuffle'), end;
                     isoShiftVec{3} = [0 this.shiftSD(3) .* randn(1, this.numOfShiftScen(3)) + meanP(3)];
+                case 'sampled_truncated'
+                    meanP = zeros(1,3); % mean (parameter)
+                    if matRad_getEnvironment == 'MATLAB' rng('shuffle'), end;
+                    pd{1} = makedist('Normal','mu',meanP(1),'sigma',this.shiftSD(1));
+                    t{1} = truncate(pd{1},-this.shiftSD(1) * this.wcFactor,this.shiftSD(1) * this.wcFactor);
+                    isoShiftVec{1} = [0 transpose(random(t{1},this.numOfShiftScen(1),1))];
+                    if matRad_getEnvironment == 'MATLAB' rng('shuffle'), end;
+                    pd{2} = makedist('Normal','mu',meanP(2),'sigma',this.shiftSD(2));
+                    t{2} = truncate(pd{2},-this.shiftSD(2) * this.wcFactor,this.shiftSD(2) * this.wcFactor);
+                    isoShiftVec{2} = [0 transpose(random(t{2},this.numOfShiftScen(2),1))];
+                    if matRad_getEnvironment == 'MATLAB' rng('shuffle'), end;
+                    pd{3} = makedist('Normal','mu',meanP(3),'sigma',this.shiftSD(3));
+                    t{3} = truncate(pd{3},-this.shiftSD(3) * this.wcFactor,this.shiftSD(3) * this.wcFactor);
+                    isoShiftVec{3} = [0 transpose(random(t{3},this.numOfShiftScen(3),1))];
+                    
                 otherwise
                     matRad_cfg.dispError('did not expect that!');
             end
@@ -534,6 +549,18 @@ classdef matRad_multScen
                     std = this.rangeAbsSD; meanP = 0;
                     if matRad_getEnvironment == 'MATLAB' rng('shuffle'), end;
                     this.absRangeShift = [nomScen std .* randn(1, this.numOfRangeShiftScen) + meanP];
+                case 'sampled_truncated'
+                    std = this.rangeRelSD; meanP = 0;
+                    % relRange
+                    if matRad_getEnvironment == 'MATLAB' rng('shuffle'), end;
+                    pd{1} = makedist('Normal','mu',meanP(1),'sigma',std);
+                    t{1} = truncate(pd{1},-std * this.wcFactor,std * this.wcFactor);
+                    this.relRangeShift = [nomScen random(t{1},this.numOfShiftScen(1),1)];
+                    % absRange
+                    if matRad_getEnvironment == 'MATLAB' rng('shuffle'), end;
+                    pd{2} = makedist('Normal','mu',meanP(1),'sigma',std);
+                    t{2} = truncate(pd{2},-std * this.wcFactor,std * this.wcFactor);
+                    this.absRangeShift = [nomScen random(t{1},this.numOfShiftScen(1),1)];
                 otherwise
                     matRad_cfg.dispError('Not a valid type of generating data.');
             end
