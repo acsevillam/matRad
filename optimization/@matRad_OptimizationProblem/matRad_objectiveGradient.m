@@ -297,16 +297,16 @@ if exist('delta_COWC','var')
     optiProb.useMaxApprox='none';
     switch optiProb.useMaxApprox
         case 'logsumexp'
-            [~,fGrad] = optiProb.logSumExp(f_COWC(:,:,1));
+            [~,fGrad] = optiProb.logSumExp(f_COWC(:));
         case 'pnorm'
-            [~,fGrad] = optiProb.pNorm(f_COWC(:,:,1),numel(useScen));
+            [~,fGrad] = optiProb.pNorm(f_COWC(:),numel(useScen));
         case 'none'
-            [~,ixCurrWC] = max(f_COWC(:,:,1));
+            [~,ixCurrWC] = max(f_COWC(:));
             fGrad = zeros(size(f_COWC));
             fGrad(ixCurrWC) = 1;
         case 'otherwise'
             matRad_cfg.dispWarning('Unknown maximum approximation desired. Using ''none'' instead.');
-            [~,ixCurrWC] = max(f_COWC(:,:,1));
+            [~,ixCurrWC] = max(f_COWC(:));
             fGrad = zeros(size(f_COWC));
             fGrad(ixCurrWC) = 1;
     end
@@ -325,7 +325,7 @@ if exist('delta_CheapCOWC','var')
     p2 = cst{6,8}{1}.p2;
     %p2=ceil(beta*numel(useScen));
     
-    [~,ixKp2] = maxk(f_CheapCOWC(:,:,1),p2);
+    [~,ixKp2] = maxk(f_CheapCOWC(:),p2);
     fGrad = zeros(size(f_CheapCOWC));
     fGrad(ixKp2) = 1;
     
@@ -334,7 +334,7 @@ if exist('delta_CheapCOWC','var')
     %p1=ceil(beta1*numel(useScen));
     
     if (p1 > 1)
-        [~,ixKp1] = maxk(f_CheapCOWC(:,:,1),p1-1);
+        [~,ixKp1] = maxk(f_CheapCOWC(:),p1-1);
         fGrad(ixKp1) = 0;
     end
     

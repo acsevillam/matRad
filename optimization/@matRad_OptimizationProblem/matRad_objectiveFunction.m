@@ -223,14 +223,14 @@ if nnz(f_COWC(:)) > 0
     optiProb.useMaxApprox='none';
     switch optiProb.useMaxApprox
         case 'logsumexp'
-            fMax = optiProb.logSumExp(f_COWC(:,:,1));
+            fMax = optiProb.logSumExp(f_COWC(:));
         case 'pnorm'
-            fMax = optiProb.pNorm(f_COWC(:,:,1),numel(useScen));
+            fMax = optiProb.pNorm(f_COWC(:),numel(useScen));
         case 'none'
-            fMax = max(f_COWC(:,:,1));
+            fMax = max(f_COWC(:));
         case 'otherwise'
             matRad_cfg.dispWarning('Unknown maximum approximation desired. Using ''none'' instead.');
-            fMax = max(f_COWC(:,:,1));
+            fMax = max(f_COWC(:));
     end
     %Sum up max of composite worst case part
     f = f + fMax;
@@ -244,7 +244,7 @@ if nnz(f_CheapCOWC(:)) > 0
     p2 = cst{6,8}{1}.p2;
     %p2=ceil(beta2*numel(useScen));
     
-    [~,ixKp2] = maxk(f_CheapCOWC(:,:,1),p2);
+    [~,ixKp2] = maxk(f_CheapCOWC(:),p2);
     fGrad = zeros(size(f_CheapCOWC));
     fGrad(ixKp2) = 1;
     
@@ -253,7 +253,7 @@ if nnz(f_CheapCOWC(:)) > 0
     %p1=ceil(beta1*numel(useScen));
     
     if (p1 > 1)
-        [~,ixKp1] = maxk(f_CheapCOWC(:,:,1),p1-1);
+        [~,ixKp1] = maxk(f_CheapCOWC(:),p1-1);
         fGrad(ixKp1) = 0;
     end
     
