@@ -36,21 +36,23 @@ run_config.sampling_mode = 'impScen';
 %run_config.sampling_size = 50;
 
 if ~exist('p1','var') || isempty(p1)
-    run_config.p1 = p1;
-else
     run_config.p1 = 1;
+else
+    run_config.p1 = p1;
 end
 
 run_config.beta1 = run_config.p1/27;
 
 if ~exist('p2','var') || isempty(p2)
-    run_config.p2 = p2;
-else
     run_config.p2 = 1;
+else
+    run_config.p2 = p2;
 end
 
 run_config.beta2 = run_config.p2/27;
 run_config.resolution = '5x5x5';
+
+display(run_config);
 
 output_folder = ['output' filesep description_folder filesep run_config.robustness filesep num2str(run_config.beta1) '_to_' num2str(run_config.beta2) filesep run_config.mode filesep datestr(datetime)];
 
@@ -60,6 +62,8 @@ if ~(isfolder(output_folder))
 end
 
 folderPath = [matRad_cfg.matRadRoot filesep output_folder];
+
+display(folderPath);
 
 %%
 diary([folderPath filesep 'diary.log']) 
