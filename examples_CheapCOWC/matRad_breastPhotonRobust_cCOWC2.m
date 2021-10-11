@@ -21,7 +21,7 @@ function matRad_breastPhotonRobust_cCOWC2(p1,p2)
 % (iv) how to visually and quantitatively evaluate the result
 
 %%
-clear;
+clearvars -except p1 p2;
 clc;
 
 %% set matRad runtime configuration
