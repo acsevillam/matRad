@@ -1,4 +1,4 @@
-function matRad_breastPhotonRobust_cCOWC2(p1,p2)
+function matRad_breastPhotonRobust_cCOWC2(p1,p2,rootPath)
 %% Example: Photon Treatment Plan
 %
 % %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -21,7 +21,7 @@ function matRad_breastPhotonRobust_cCOWC2(p1,p2)
 % (iv) how to visually and quantitatively evaluate the result
 
 %%
-clearvars -except p1 p2;
+clearvars -except p1 p2 rootPath;
 clc;
 
 %% set matRad runtime configuration
@@ -52,18 +52,22 @@ end
 run_config.beta2 = run_config.p2/27;
 run_config.resolution = '5x5x5';
 
-display(run_config);
+if ~exist('rootPath','var') || isempty(rootPath)
+    run_config.rootPath = matRad_cfg.matRadRoot;
+else
+    run_config.rootPath = rootPath;
+end
 
 output_folder = ['output' filesep description_folder filesep run_config.robustness filesep num2str(run_config.beta1) '_to_' num2str(run_config.beta2) filesep run_config.mode filesep datestr(datetime)];
 
 %Set up parent export folder and full file path
 if ~(isfolder(output_folder))
-    mkdir(matRad_cfg.matRadRoot, output_folder);
+    mkdir(run_config.rootPath, output_folder);
 end
 
-folderPath = [matRad_cfg.matRadRoot filesep output_folder];
+folderPath = [run_config.rootPath filesep output_folder];
 
-display(folderPath);
+display(run_config);
 
 %%
 diary([folderPath filesep 'diary.log']) 
