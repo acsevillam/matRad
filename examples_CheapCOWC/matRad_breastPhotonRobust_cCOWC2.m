@@ -44,7 +44,7 @@ else
     run_config.p1 = p1;
 end
 
-run_config.beta1 = run_config.p1/27;
+run_config.beta1 = run_config.p1/87;
 
 if ~exist('p2','var') || isempty(p2)
     run_config.p2 = 1;
@@ -52,7 +52,7 @@ else
     run_config.p2 = p2;
 end
 
-run_config.beta2 = run_config.p2/27;
+run_config.beta2 = run_config.p2/87;
 
 if ~exist('rootPath','var') || isempty(rootPath)
     run_config.rootPath = matRad_cfg.matRadRoot;
@@ -172,7 +172,7 @@ display(cst{ixCTV,6});
 run_config.doseWindow = [0 p*1.25];
 run_config.doseWindow_dvh = [0 p*1.6];
 run_config.doseWindow_uncertainty = [0 p*0.5];
-run_config.doseWindow_uvh = [0 p*1.6];
+run_config.doseWindow_uvh = [0 p*0.5];
 run_config.gammaWindow = [0 5];
 
 %%
@@ -312,10 +312,20 @@ savefig([folderPath filesep 'dose3d_nominal.fig']);
 target_mask = zeros(size(resultGUI.physicalDose));
 target_mask(cst{ixCTV,4}{1,1}) = 1;
 
-%% Plot dose distribution
+%% Create OAR mask
+OAR_mask = zeros(size(resultGUI.physicalDose));
+OAR_mask(cst{1,4}{1,1}) = 1;
+OAR_mask(cst{ixCTV,4}{1,1}) = 0;
+
+%% Plot target dose distribution
 figure;
 matRad_geo3DWrapper(gca,ct,cst,resultGUI.physicalDose.*target_mask*pln.numOfFractions,run_config.doseWindow,[0.002 0.00005],colorcube,[],'Dose [Gy]');
 savefig([folderPath filesep 'target_dose3d_nominal.fig']);
+
+%% Plot OAR dose distribution
+figure;
+matRad_geo3DWrapper(gca,ct,cst,resultGUI.physicalDose.*OAR_mask*pln.numOfFractions,run_config.doseWindow,[0.002 0.00005],colorcube,[],'Dose [Gy]');
+savefig([folderPath filesep 'OAR_dose3d_nominal.fig']);
 
 %% Obtain dose statistics
 [dvh,dqi] = matRad_indicatorWrapper(cst,pln,resultGUI.physicalDose*pln.numOfFractions,[],[],run_config.doseWindow_dvh);
@@ -334,19 +344,19 @@ if(run_config.mode=="wcScen")
 end
 
 %%
-% retrieve 27 scenarios for dose calculation and optimziation
+% retrieve 87 scenarios for dose calculation and optimziation
 if(run_config.mode=="impScen")
     multScen = matRad_multScen(ct,'impScen'); 
     multScen.wcFactor=run_config.wcFactor;
-    multScen.numOfShiftScen = [4 4 4];
+    multScen.numOfShiftScen = [5 5 5];
     multScen.shiftSD = [4 6 8];
     multScen.shiftGenType = 'equidistant';
     multScen.shiftCombType='permuted_truncated';
-    multScen.numOfRangeShiftScen=32;
+    multScen.numOfRangeShiftScen=87;
     multScen.rangeRelSD=0;
     multScen.rangeAbsSD=0;
     multScen.scenCombType = 'combined';
-    multScen.includeNomScen=true;
+    %multScen.includeNomScen=true;
 end
 
 %%
@@ -404,6 +414,11 @@ figure;
 matRad_geo3DWrapper(gca,ct,cst,resultGUI_robust.physicalDose.*target_mask*pln_robust.numOfFractions,run_config.doseWindow,[0.002 0.00005],colorcube,[],'Dose [Gy]');
 savefig([folderPath filesep 'target_dose3d_robust.fig']);
 
+%% Plot OAR dose distribution
+figure;
+matRad_geo3DWrapper(gca,ct,cst,resultGUI_robust.physicalDose.*OAR_mask*pln_robust.numOfFractions,run_config.doseWindow,[0.002 0.00005],colorcube,[],'Dose [Gy]');
+savefig([folderPath filesep 'OAR_dose3d_robust.fig']);
+
 %% Obtain dose statistics
 [dvh_robust,dqi_robust] = matRad_indicatorWrapper(cst,pln_robust,resultGUI_robust.physicalDose*pln_robust.numOfFractions,[],[],run_config.doseWindow_dvh);
 savefig([folderPath filesep 'dvh_robust.fig']);
@@ -429,15 +444,15 @@ end
 if(run_config.sampling_mode=="impScen")
     multScen = matRad_multScen(ct,'impScen'); 
     multScen.wcFactor=run_config.wcFactor;
-    multScen.numOfShiftScen = [4 4 4];
+    multScen.numOfShiftScen = [5 5 5];
     multScen.shiftSD = [4 6 8];
     multScen.shiftGenType = 'equidistant';
     multScen.shiftCombType='permuted_truncated';
-    multScen.numOfRangeShiftScen=32;
+    multScen.numOfRangeShiftScen=87;
     multScen.rangeRelSD=0;
     multScen.rangeAbsSD=0;
     multScen.scenCombType = 'combined';
-    multScen.includeNomScen=true;
+    %multScen.includeNomScen=true;
 end
 
 %% Perform sampling
@@ -614,13 +629,8 @@ f_robust = matRad_calcObjectiveFunction(w_robust,dij,cst,pln);
 % robustness price indexes
 
 disp('Robustness price evaluation (Method 1)');
-BodyTotal=dqi(1).mean*numel(cst{1,4}{1,1});
-CTVTotal=dqi(ixCTV).mean*numel(cst{ixCTV,4}{1,1});
-OARMean_nominal=(BodyTotal-CTVTotal)/(numel(cst{1,4}{1,1})-numel(cst{ixCTV,4}{1,1}))*pln.numOfFractions;
-
-BodyTotal_robust=dqi_sampled{1,1}(1).mean*numel(cst{1,4}{1,1});
-CTVTotal_robust=dqi_sampled{1,1}(ixCTV).mean*numel(cst{ixCTV,4}{1,1});
-OARMean_robust=(BodyTotal_robust-CTVTotal_robust)/(numel(cst{1,4}{1,1})-numel(cst{ixCTV,4}{1,1}))*pln.numOfFractions;
+OARMean_nominal=mean(resultGUI.physicalDose.*OAR_mask,'all')*pln.numOfFractions;
+OARMean_robust=mean(resultGUI_robust.physicalDose.*OAR_mask,'all')*pln.numOfFractions;
 
 RPI1=sprintf('RPI: %.2f\n',(OARMean_robust-OARMean_nominal)/OARMean_nominal); disp(RPI1);
 results.robustness.RPI1=(OARMean_robust-OARMean_nominal)/OARMean_nominal;
