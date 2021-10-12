@@ -73,7 +73,7 @@ for i = 1:numOfVois
     ix      = max([1 find(dvh(i).volumePoints>0,1,'last')]);
     currDvh = [dvh(i).doseGrid(1:ix);dvh(i).volumePoints(1:ix)];
     
-    plot(currDvh(1,:),currDvh(2,:),'LineWidth',4,'Color',colorMx(i,:), ...
+    plot(currDvh(1,:),currDvh(2,:),'LineWidth',2,'Color',colorMx(i,:), ...
         'LineStyle',lineStyles{lineStyleIndicator},'DisplayName',cstNames{i})
     
     maxDVHvol  = max(maxDVHvol,max(currDvh(2,:)));
@@ -85,12 +85,12 @@ myLegend = legend('show','location','NorthEast');
 set(myLegend,'FontSize',10,'Interpreter','none');
 legend boxoff
 
-ylim([0 1.1*maxDVHvol]);
-xlim([0 1.2*maxDVHdose]);
+ylim([0 1.05*maxDVHvol]);
+xlim([0 1.4*maxDVHdose]);
 
 grid on,grid minor
 box(gca,'on');
-set(gca,'LineWidth',1.5,'FontSize',fontSizeValue);
+set(gca,'LineWidth',0.5,'FontSize',fontSizeValue);
 ylabel('Volume [%]','FontSize',fontSizeValue)
 
 if exist('pln','var') && ~isempty(pln)

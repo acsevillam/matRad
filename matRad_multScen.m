@@ -324,7 +324,7 @@ classdef matRad_multScen
         end
         
         function this = set.shiftCombType(this,value)
-            if ischar(value) && any(strcmp(value,{'individual','combined','permuted'}))
+            if ischar(value) && any(strcmp(value,{'individual','combined','permuted','permuted_truncated'}))
                 this.shiftCombType = value;
                 this = this.updateScenariosFromUncertainties();
             else
@@ -488,6 +488,16 @@ classdef matRad_multScen
                     scenMaskIso(1,1,:) = true; % z shifts
                 case 'permuted'
                     scenMaskIso(:,:,:) = true;
+                case 'permuted_truncated'
+                    for ix=1:numel(isoShiftVec{1})
+                        for iy=1:numel(isoShiftVec{2})
+                            for iz=1:numel(isoShiftVec{3})
+                                if isoShiftVec{1}(ix)^2/this.shiftSD(1)^2+isoShiftVec{2}(iy)^2/this.shiftSD(2)^2+isoShiftVec{3}(iz)^2/this.shiftSD(3)^2<=this.wcFactor^2;
+                                    scenMaskIso(ix,iy,iz) = true;    
+                                end
+                            end
+                        end
+                    end
                 case 'combined'
                     % determine that matrix is cubic
                     if isequal(numIso(1), numIso(2), numIso(3))

@@ -89,7 +89,7 @@ for k = scenarios
             ix{1,k}      = max([1 find(caSamp(k).dvh(i).volumePoints>0,1,'last')]);
             currDvh{1,k} = [caSamp(k).dvh(i).doseGrid(1:ix{1,k})*pln.numOfFractions;caSamp(k).dvh(i).volumePoints(1:ix{1,k})];
 
-            p=plot(currDvh{1,k}(1,:),currDvh{1,k}(2,:),'LineWidth',0.5,'Color',[colorMx(i,:) 0.5], ...
+            p=plot(currDvh{1,k}(1,:),currDvh{1,k}(2,:),'LineWidth',0.5,'Color',[colorMx(i,:) 0.2], ...
                 'LineStyle',lineStyles{lineStyleIndicator},'DisplayName',cst{i,2});
             
             p.Annotation.LegendInformation.IconDisplayStyle = 'off';

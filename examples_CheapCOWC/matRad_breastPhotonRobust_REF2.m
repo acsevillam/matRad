@@ -41,7 +41,7 @@ run_config.resolution = '5x5x5';
 run_config.mode = 'impScen';
 run_config.sampling_mode = 'impScen';
 %run_config.sampling_size = 50;
-run_config.wcFactor = 1.0;
+run_config.wcFactor = 1.5;
 
 if ~exist('rootPath','var') || isempty(rootPath)
     run_config.rootPath = matRad_cfg.matRadRoot;
@@ -318,16 +318,17 @@ end
 if(run_config.mode=="impScen")
     multScen = matRad_multScen(ct,'impScen'); 
     multScen.wcFactor=run_config.wcFactor;
-    multScen.numOfShiftScen = [2 2 2];
+    multScen.numOfShiftScen = [4 4 4];
     multScen.shiftSD = [4 6 8];
     multScen.shiftGenType = 'equidistant';
-    multScen.shiftCombType='permuted';
-    multScen.numOfRangeShiftScen=26;
+    multScen.shiftCombType='permuted_truncated';
+    multScen.numOfRangeShiftScen=32;
     multScen.rangeRelSD=0;
     multScen.rangeAbsSD=0;
     multScen.scenCombType = 'combined';
     multScen.includeNomScen=true;
 end
+
 %%
 pln_robust.multScen=multScen;
 
@@ -405,8 +406,8 @@ if(run_config.sampling_mode=="impScen")
     multScen.numOfShiftScen = [4 4 4];
     multScen.shiftSD = [4 6 8];
     multScen.shiftGenType = 'equidistant';
-    multScen.shiftCombType='permuted';
-    multScen.numOfRangeShiftScen=124;
+    multScen.shiftCombType='permuted_truncated';
+    multScen.numOfRangeShiftScen=32;
     multScen.rangeRelSD=0;
     multScen.rangeAbsSD=0;
     multScen.scenCombType = 'combined';
