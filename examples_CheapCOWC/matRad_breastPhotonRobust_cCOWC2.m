@@ -60,7 +60,7 @@ else
     run_config.rootPath = rootPath;
 end
 
-output_folder = ['output' filesep run_config.description filesep run_config.robustness filesep num2str(run_config.beta1) '_to_' num2str(run_config.beta2) filesep run_config.mode filesep datestr(datetime)];
+output_folder = ['output' filesep run_config.description filesep run_config.robustness filesep num2str(run_config.beta1) '_to_' num2str(run_config.beta2) filesep run_config.mode filesep datestr(datetime,'yyyy-mm-dd HH-MM-SS')];
 
 %Set up parent export folder and full file path
 if ~(isfolder(output_folder))
