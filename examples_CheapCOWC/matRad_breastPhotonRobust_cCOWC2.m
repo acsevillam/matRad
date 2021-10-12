@@ -35,7 +35,7 @@ run_config.resolution = '5x5x5';
 run_config.mode = 'impScen';
 run_config.sampling_mode = 'impScen';
 %run_config.sampling_size = 50;
-run_config.wfactor = 1.0;
+run_config.wcFactor = 1.0;
 
 if ~exist('p1','var') || isempty(p1)
     run_config.p1 = 1;
