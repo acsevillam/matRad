@@ -300,6 +300,15 @@ figure;
 matRad_geo3DWrapper(gca,ct,cst,resultGUI.physicalDose*pln.numOfFractions,[],[0.002 0.00005],colorcube,[],'Dose [Gy]');
 savefig([folderPath filesep 'dose3d_nominal.fig']);
 
+%% Create target mask
+target_mask = zeros(size(resultGUI.physicalDose));
+target_mask(cst{ixCTV,4}{1,1}) = 1;
+
+%% Plot dose distribution
+figure;
+matRad_geo3DWrapper(gca,ct,cst,resultGUI.physicalDose.*target_mask*pln.numOfFractions,[],[0.002 0.00005],colorcube,[],'Dose [Gy]');
+savefig([folderPath filesep 'target_dose3d_nominal.fig']);
+
 %% Obtain dose statistics
 [dvh,dqi] = matRad_indicatorWrapper(cst,pln,resultGUI);
 savefig([folderPath filesep 'dvh_nominal.fig']);
@@ -379,6 +388,11 @@ figure;
 matRad_geo3DWrapper(gca,ct,cst,resultGUI_robust.physicalDose*pln_robust.numOfFractions,[],[0.002 0.00005],colorcube,[],'Dose [Gy]');
 savefig([folderPath filesep 'dose3d_robust.fig']);
 
+%% Plot target dose distribution
+figure;
+matRad_geo3DWrapper(gca,ct,cst,resultGUI_robust.physicalDose.*target_mask*pln_robust.numOfFractions,[],[0.002 0.00005],colorcube,[],'Dose [Gy]');
+savefig([folderPath filesep 'target_dose3d_robust.fig']);
+
 %% Obtain dose statistics
 [dvh_robust,dqi_robust] = matRad_indicatorWrapper(cst,pln_robust,resultGUI_robust);
 savefig([folderPath filesep 'dvh_robust.fig']);
@@ -447,7 +461,7 @@ savefig([folderPath filesep 'uncertainty3d_robust.fig']);
 
 %% Plot target uncertainty distribution
 figure;
-matRad_geo3DWrapper(gca,ct,cst,resultGUISamp.stdCube(cst{ixCTV,4}{1,1})*pln.numOfFractions,[],[0.05 0.00005],colorcube,[],'Dose uncertainty [Gy]');
+matRad_geo3DWrapper(gca,ct,cst,resultGUISamp.stdCube.*target_mask*pln.numOfFractions,[],[0.05 0.00005],colorcube,[],'Dose uncertainty [Gy]');
 savefig([folderPath filesep 'uncertainty3d_target_robust.fig']);
 
 %% Uncertainty volume histogram (UVH)
@@ -462,7 +476,7 @@ savefig([folderPath filesep 'gamma.fig']);
 
 %% Target gamma index based on sampling
 figure;
-matRad_plotSliceWrapper(gca,ct,cst,1,resultGUISamp.gammaAnalysis.gammaCube(cst{ixCTV,4}{1,1}),plane,slice,[],[],colorcube,[],[0 max(resultGUISamp.gammaAnalysis.gammaCube(:))],[],[],'Gamma index');
+matRad_plotSliceWrapper(gca,ct,cst,1,resultGUISamp.gammaAnalysis.gammaCube.*target_mask,plane,slice,[],[],colorcube,[],[0 max(resultGUISamp.gammaAnalysis.gammaCube(:))],[],[],'Gamma index');
 savefig([folderPath filesep 'target_gamma.fig']);
 
 %% Plot gamma distribution
@@ -472,7 +486,7 @@ savefig([folderPath filesep 'gamma3d.fig']);
 
 %% Plot target gamma distribution
 figure;
-matRad_geo3DWrapper(gca,ct,cst,resultGUISamp.gammaAnalysis.gammaCube(cst{ixCTV,4}{1,1}),[],[0.05 0.00005],colorcube,[],'gamma index');
+matRad_geo3DWrapper(gca,ct,cst,resultGUISamp.gammaAnalysis.gammaCube.*target_mask,[],[0.05 0.00005],colorcube,[],'gamma index');
 savefig([folderPath filesep 'gamma_target3d.fig']);
 
 %% Gamma index based on sampling
@@ -488,7 +502,7 @@ savefig([folderPath filesep 'robustness_violation3d.fig']);
 
 %% Plot target gamma index distribution
 figure;
-matRad_geo3DWrapper(gca,ct,cst,resultGUISamp.gammaAnalysis.robustnessViolationCube(cst{ixCTV,4}{1,1}),[],[0.05 0.00005],colorcube,[],'gamma index violation');
+matRad_geo3DWrapper(gca,ct,cst,resultGUISamp.gammaAnalysis.robustnessViolationCube.*target_mask,[],[0.05 0.00005],colorcube,[],'gamma index violation');
 savefig([folderPath filesep 'robustness_target_violation3d.fig']);
 
 %% Print evaluation indexes
@@ -533,7 +547,7 @@ savefig([folderPath filesep 'gamma_histo.fig']);
 %% plot target gamma index distribution
 
 figure;
-h2=histogram(resultGUISamp.gammaAnalysis.gammaCube(cst{6,4}{1,1}));
+h2=histogram(resultGUISamp.gammaAnalysis.gammaCube.*target_mask);
 xlabel('gamma index');
 ylabel('[counts]');
 savefig([folderPath filesep 'target_gamma_histo.fig']);
