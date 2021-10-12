@@ -602,18 +602,20 @@ results.robustness.RI2=RobustnessIndex;
 
 figure;
 edges = [0:0.025:run_config.gammaWindow(2)];
-h1=histogram(resultGUISamp.gammaAnalysis.gammaCube,edges);
+h1=histogram(resultGUISamp.gammaAnalysis.gammaCube,edges,'Normalization','probability', 'DisplayStyle','stairs','LineWidth', 2);
 xlabel('gamma index');
-ylabel('[counts]');
+ylabel('[%]');
+ylim([0 1.0]);
 savefig([folderPath filesep 'gamma_histo.fig']);
 
 %% plot target gamma index distribution
 
 figure;
 edges = [0:0.025:run_config.gammaWindow(2)];
-h2=histogram(resultGUISamp.gammaAnalysis.gammaCube.*target_mask,edges);
+h2=histogram(resultGUISamp.gammaAnalysis.gammaCube(cst{ixCTV,4}{1,1}),edges,'Normalization','probability', 'DisplayStyle','stairs','LineWidth', 2);
 xlabel('gamma index');
-ylabel('[counts]');
+ylabel('[%]');
+ylim([0 0.25]);
 savefig([folderPath filesep 'target_gamma_histo.fig']);
 
 %%
