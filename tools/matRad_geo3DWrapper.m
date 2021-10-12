@@ -1,4 +1,4 @@
-function [hCube,hCt] = matRad_geo3DWrapper(axesHandle,ct,cst,cube,thresh,alpha,contourColorMap,...
+function [hCube,hCt] = matRad_geo3DWrapper(axesHandle,ct,cst,cube,window,alpha,contourColorMap,...
                                                                           voiSelection,colorBarLabel,boolPlotLegend,varargin)
 % matRad tool function to directly plot a complete slice of a ct with dose
 % including contours and isolines.
@@ -63,8 +63,8 @@ function [hCube,hCt] = matRad_geo3DWrapper(axesHandle,ct,cst,cube,thresh,alpha,c
 
 % Handle the argument list
 
-if ~exist('thresh','var') || isempty(thresh)
-    thresh = [];
+if ~exist('window','var') || isempty(window)
+    window = [];
 end
 if ~exist('alpha','var') || isempty(alpha)
     alpha = [0.1 0.1];
@@ -97,7 +97,8 @@ ax1.Toolbar.Visible = 'off';
 ax1.Visible = 'off';
 ax1.OuterPosition = [0 0 0.9 1];
 ax1.View = [60 30];
-hCube = matRad_plotCube3D(ax1,cube,'jet',[],alpha(1));
+caxis(ax1,window);
+hCube = matRad_plotCube3D(ax1,cube,'jet',window,alpha(1));
 axis equal;
 
 ax2 = axes();

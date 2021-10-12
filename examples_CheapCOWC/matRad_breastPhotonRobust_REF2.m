@@ -42,6 +42,7 @@ run_config.mode = 'impScen';
 run_config.sampling_mode = 'impScen';
 %run_config.sampling_size = 50;
 run_config.wcFactor = 1.5;
+run_config.GammaCriterion = [3 3];
 
 if ~exist('rootPath','var') || isempty(rootPath)
     run_config.rootPath = matRad_cfg.matRadRoot;
@@ -154,6 +155,13 @@ cst{ixCTV,6}{1}.robustness  = 'none';
 %cst{ixCTV,6}{2} = struct(DoseConstraints.matRad_MinMaxDVH(p,95,100));
 
 display(cst{ixCTV,6});
+
+%%
+run_config.doseWindow = [0 p*1.25];
+run_config.doseWindow_dvh = [0 p*1.6];
+run_config.doseWindow_uncertainty = [0 p*0.5];
+run_config.doseWindow_uvh = [0 p*1.6];
+run_config.gammaWindow = [0 5];
 
 %%
 % The file TG119.mat contains two Matlab variables. Let's check what we
@@ -285,20 +293,20 @@ resultGUI = matRad_fluenceOptimization(dij,cst,pln);
 
 %% Plot dose distribution
 figure;
-matRad_geo3DWrapper(gca,ct,cst,resultGUI.physicalDose*pln.numOfFractions,[],[0.002 0.00005],colorcube,[],'Dose [Gy]');
+matRad_geo3DWrapper(gca,ct,cst,resultGUI.physicalDose*pln.numOfFractions,run_config.doseWindow,[0.002 0.00005],colorcube,[],'Dose [Gy]');
 savefig([folderPath filesep 'dose3d_nominal.fig']);
 
 %% Create target mask
 target_mask = zeros(size(resultGUI.physicalDose));
 target_mask(cst{ixCTV,4}{1,1}) = 1;
 
-%% Plot target dose distribution
+%% Plot dose distribution
 figure;
-matRad_geo3DWrapper(gca,ct,cst,resultGUI.physicalDose.*target_mask*pln.numOfFractions,[],[0.002 0.00005],colorcube,[],'Dose [Gy]');
+matRad_geo3DWrapper(gca,ct,cst,resultGUI.physicalDose.*target_mask*pln.numOfFractions,run_config.doseWindow,[0.002 0.00005],colorcube,[],'Dose [Gy]');
 savefig([folderPath filesep 'target_dose3d_nominal.fig']);
 
 %% Obtain dose statistics
-[dvh,dqi] = matRad_indicatorWrapper(cst,pln,resultGUI);
+[dvh,dqi] = matRad_indicatorWrapper(cst,pln,resultGUI.physicalDose*pln.numOfFractions,[],[],run_config.doseWindow_dvh);
 savefig([folderPath filesep 'dvh_nominal.fig']);
 
 %%
@@ -340,6 +348,7 @@ now1 = tic();
 dij_robust = matRad_calcPhotonDose(ct,stf,pln_robust,cst);
 DCTime_robust = toc(now1);
 time1=sprintf('DCTime_robust: %.2f\n',DCTime_robust); disp(time1);
+results.performance.DCTime_robust=DCTime_robust;
 
 %% Trigger robust optimization
 % Make the objective to a composite worst case objective
@@ -357,29 +366,30 @@ now2 = tic();
 resultGUI_robust = matRad_fluenceOptimization(dij_robust,cst,pln_robust);
 OPTTime_robust = toc(now2);
 time2=sprintf('OPTTime_robust: %.2f\n',OPTTime_robust); disp(time2);
+results.performance.OPTTime_robust=OPTTime_robust;
 
 %% Plot the Resulting Dose Slice
 % Let's plot the transversal iso-center dose slice
 
 plane      = 3;
 slice      = round(pln_robust.propStf.isoCenter(1,3)./ct.resolution.z);
-doseWindow = [0 max([resultGUI_robust.physicalDose(:)*pln_robust.numOfFractions])];
+doseWindow = [0 max([max([resultGUI_robust.physicalDose(:)*pln_robust.numOfFractions ]) run_config.doseWindow(2)])];
 figure
 matRad_plotSliceWrapper(gca,ct,cst,1,resultGUI_robust.physicalDose*pln_robust.numOfFractions,plane,slice,[],[],colorcube,[],doseWindow,[],[],'Dose [Gy]');
 savefig([folderPath filesep 'dose_robust.fig']);
 
 %% Plot dose distribution
 figure;
-matRad_geo3DWrapper(gca,ct,cst,resultGUI_robust.physicalDose*pln_robust.numOfFractions,[],[0.002 0.00005],colorcube,[],'Dose [Gy]');
+matRad_geo3DWrapper(gca,ct,cst,resultGUI_robust.physicalDose*pln_robust.numOfFractions,run_config.doseWindow,[0.002 0.00005],colorcube,[],'Dose [Gy]');
 savefig([folderPath filesep 'dose3d_robust.fig']);
 
 %% Plot target dose distribution
 figure;
-matRad_geo3DWrapper(gca,ct,cst,resultGUI_robust.physicalDose.*target_mask*pln_robust.numOfFractions,[],[0.002 0.00005],colorcube,[],'Dose [Gy]');
+matRad_geo3DWrapper(gca,ct,cst,resultGUI_robust.physicalDose.*target_mask*pln_robust.numOfFractions,run_config.doseWindow,[0.002 0.00005],colorcube,[],'Dose [Gy]');
 savefig([folderPath filesep 'target_dose3d_robust.fig']);
 
 %% Obtain dose statistics
-[dvh_robust,dqi_robust] = matRad_indicatorWrapper(cst,pln_robust,resultGUI_robust);
+[dvh_robust,dqi_robust] = matRad_indicatorWrapper(cst,pln_robust,resultGUI_robust.physicalDose*pln_robust.numOfFractions,[],[],run_config.doseWindow_dvh);
 savefig([folderPath filesep 'dvh_robust.fig']);
 
 %% Define sampling parameters
@@ -418,12 +428,12 @@ end
 [caSamp, mSampDose, plnSamp, resultGUInomScen] = matRad_sampling(ct,stf,cst,pln_robust,resultGUI_robust.w,structSel,multScen);
 
 %% Perform sampling analysis
-varargin.GammaCriterion = [3 3]; % [%  mm]
+varargin.GammaCriterion = run_config.GammaCriterion; % [%  mm]
 [cstStat, resultGUISamp, meta] = matRad_samplingAnalysis(ct,cst,plnSamp,caSamp, mSampDose, resultGUInomScen, varargin);
 
 %% Multi-scenario dose volume histogram (DVH)
 figure,set(gcf,'Color',[1 1 1],'position',[10,10,600,400]);
-matRad_showDVH_sampledScen(caSamp,dvh_robust,cst,plnSamp,[1:multScen.totNumShiftScen]);
+matRad_showDVH_sampledScen(caSamp,dvh_robust,cst,plnSamp,[1:multScen.totNumShiftScen],run_config.doseWindow_dvh);
 savefig([folderPath filesep 'dvh_robust_multiscen.fig']);
 
 %% Dose volume histogram (DVH)
@@ -431,98 +441,137 @@ resultGUISamp_ul=[];
 resultGUISamp_ul.physicalDose=resultGUI_robust.physicalDose;
 resultGUISamp_ul.physicalDose_lower=resultGUISamp.meanCube-resultGUISamp.stdCube;
 resultGUISamp_ul.physicalDose_upper=resultGUISamp.meanCube+resultGUISamp.stdCube;
-[dvh_sampled,dqi_sampled] = matRad_indicatorWrapper_sampled(cst,pln,resultGUISamp_ul,[20,50]/pln.numOfFractions,[2,5,10,20,30,40,50,60,70,80,90,95,98]);
+[dvh_sampled,dqi_sampled] = matRad_indicatorWrapper_sampled(cst,pln,resultGUISamp_ul,[20,50]/pln.numOfFractions,[2,5,10,20,30,40,50,60,70,80,90,95,98],run_config.doseWindow_dvh);
 savefig([folderPath filesep 'dvh_robust_trustband.fig']);
 
 %% STD dose based on sampling
 figure;
-matRad_plotSliceWrapper(gca,ct,cst,1,resultGUISamp.stdCube*pln.numOfFractions,plane,slice,[],[],colorcube,[],[0 max(resultGUISamp.stdCube(:)*pln.numOfFractions)],[],[],'Dose uncertainty [Gy]');
+doseWindow = [0 max([max(resultGUISamp.stdCube(:)*pln_robust.numOfFractions) run_config.doseWindow_uncertainty(2)])];
+matRad_plotSliceWrapper(gca,ct,cst,1,resultGUISamp.stdCube*pln.numOfFractions,plane,slice,[],[],colorcube,[],doseWindow,[],[],'Dose uncertainty [Gy]');
 savefig([folderPath filesep 'uncertainty.fig']);
 
 %% Plot uncertainty distribution
 figure;
-matRad_geo3DWrapper(gca,ct,cst,resultGUISamp.stdCube*pln.numOfFractions,[],[0.005 0.00005],colorcube,[],'Dose uncertainty [Gy]');
+matRad_geo3DWrapper(gca,ct,cst,resultGUISamp.stdCube*pln.numOfFractions,run_config.doseWindow_uncertainty,[0.005 0.00005],colorcube,[],'Dose uncertainty [Gy]');
 savefig([folderPath filesep 'uncertainty3d_robust.fig']);
 
 %% Plot target uncertainty distribution
 figure;
-matRad_geo3DWrapper(gca,ct,cst,resultGUISamp.stdCube.*target_mask*pln.numOfFractions,[],[0.005 0.00005],colorcube,[],'Dose uncertainty [Gy]');
+matRad_geo3DWrapper(gca,ct,cst,resultGUISamp.stdCube.*target_mask*pln.numOfFractions,run_config.doseWindow_uncertainty,[0.01 0.00005],colorcube,[],'Dose uncertainty [Gy]');
 savefig([folderPath filesep 'uncertainty3d_target_robust.fig']);
 
 %% Uncertainty volume histogram (UVH)
 resultGUISamp.physicalDose=resultGUISamp.stdCube;
-[uvh,uqi] = matRad_indicatorWrapper_UVH(cst,pln,resultGUI,resultGUISamp);
+[uvh,uqi] = matRad_indicatorWrapper_UVH(cst,pln,resultGUI,resultGUISamp,[],[],run_config.doseWindow_uvh);
 savefig([folderPath filesep 'uvh.fig']);
 
 %% Gamma index based on sampling
 figure;
-matRad_plotSliceWrapper(gca,ct,cst,1,resultGUISamp.gammaAnalysis.gammaCube,plane,slice,[],[],colorcube,[],[0 max(resultGUISamp.gammaAnalysis.gammaCube(:))],[],[],'Gamma index');
+gammaWindow = [0 max([max([resultGUISamp.gammaAnalysis.gammaCube(:)]) run_config.gammaWindow(2)])];
+matRad_plotSliceWrapper(gca,ct,cst,1,resultGUISamp.gammaAnalysis.gammaCube,plane,slice,[],[],colorcube,[],gammaWindow,[],[],'Gamma index');
 savefig([folderPath filesep 'gamma.fig']);
 
 %% Target gamma index based on sampling
 figure;
-matRad_plotSliceWrapper(gca,ct,cst,1,resultGUISamp.gammaAnalysis.gammaCube.*target_mask,plane,slice,[],[],colorcube,[],[0 max(resultGUISamp.gammaAnalysis.gammaCube(:))],[],[],'Gamma index');
+gammaWindow = [0 max([max([resultGUISamp.gammaAnalysis.gammaCube(:)]) run_config.gammaWindow(2)])];
+matRad_plotSliceWrapper(gca,ct,cst,1,resultGUISamp.gammaAnalysis.gammaCube.*target_mask,plane,slice,[],[],colorcube,[],gammaWindow,[],[],'Gamma index');
 savefig([folderPath filesep 'target_gamma.fig']);
 
 %% Plot gamma distribution
 figure;
-matRad_geo3DWrapper(gca,ct,cst,resultGUISamp.gammaAnalysis.gammaCube,[],[0.05 0.00005],colorcube,[],'gamma index');
+matRad_geo3DWrapper(gca,ct,cst,resultGUISamp.gammaAnalysis.gammaCube,run_config.gammaWindow,[0.05 0.00005],colorcube,[],'gamma index');
 savefig([folderPath filesep 'gamma3d.fig']);
 
 %% Plot target gamma distribution
 figure;
-matRad_geo3DWrapper(gca,ct,cst,resultGUISamp.gammaAnalysis.gammaCube.*target_mask,[],[0.05 0.00005],colorcube,[],'gamma index');
+matRad_geo3DWrapper(gca,ct,cst,resultGUISamp.gammaAnalysis.gammaCube.*target_mask,run_config.gammaWindow,[0.05 0.00005],colorcube,[],'gamma index');
 savefig([folderPath filesep 'gamma_target3d.fig']);
 
 %% Gamma index based on sampling
 figure;
 resultGUISamp.gammaAnalysis.robustnessViolationCube = (resultGUISamp.gammaAnalysis.gammaCube>1);
-matRad_plotSliceWrapper(gca,ct,cst,1,resultGUISamp.gammaAnalysis.robustnessViolationCube,plane,slice,[],[],colorcube,[],[0 max(resultGUISamp.gammaAnalysis.gammaCube(:))],[],[],'Gamma index');
+matRad_plotSliceWrapper(gca,ct,cst,1,resultGUISamp.gammaAnalysis.robustnessViolationCube,plane,slice,[],[],colorcube,[],[0 1],[],[],'Gamma index');
 savefig([folderPath filesep 'robustness_violation.fig']);
 
 %% Plot gamma index distribution
 figure;
-matRad_geo3DWrapper(gca,ct,cst,resultGUISamp.gammaAnalysis.robustnessViolationCube,[],[0.05 0.00005],colorcube,[],'gamma index violation');
+matRad_geo3DWrapper(gca,ct,cst,resultGUISamp.gammaAnalysis.robustnessViolationCube,[0 1],[0.05 0.00005],colorcube,[],'gamma index violation');
 savefig([folderPath filesep 'robustness_violation3d.fig']);
 
 %% Plot target gamma index distribution
 figure;
-matRad_geo3DWrapper(gca,ct,cst,resultGUISamp.gammaAnalysis.robustnessViolationCube.*target_mask,[],[0.05 0.00005],colorcube,[],'gamma index violation');
+matRad_geo3DWrapper(gca,ct,cst,resultGUISamp.gammaAnalysis.robustnessViolationCube.*target_mask,[0 1],[0.05 0.00005],colorcube,[],'gamma index violation');
 savefig([folderPath filesep 'robustness_target_violation3d.fig']);
 
 %% Print evaluation indexes
 % CTV
 disp('CTV evaluation');
+
+results.structures{ixCTV,1}=cst{ixCTV,2};
 DMean=sprintf('DMean: %.2f [%.2f - %.2f] Gy',dqi_sampled{1,1}(ixCTV).mean*pln.numOfFractions,dqi_sampled{1,2}(ixCTV).mean*pln.numOfFractions,dqi_sampled{1,3}(ixCTV).mean*pln.numOfFractions); disp(DMean);
+results.structures{ixCTV,2}.D_mean.nom=dqi_sampled{1,1}(ixCTV).mean*pln.numOfFractions;
+results.structures{ixCTV,2}.D_mean.min=dqi_sampled{1,2}(ixCTV).mean*pln.numOfFractions;
+results.structures{ixCTV,2}.D_mean.max=dqi_sampled{1,3}(ixCTV).mean*pln.numOfFractions;
+
 D98=sprintf('D98: %.2f [%.2f - %.2f] Gy',dqi_sampled{1,1}(ixCTV).D_98*pln.numOfFractions,dqi_sampled{1,2}(ixCTV).D_98*pln.numOfFractions,dqi_sampled{1,3}(ixCTV).D_98*pln.numOfFractions); disp(D98);
+results.structures{ixCTV,2}.D_98.nom=dqi_sampled{1,1}(ixCTV).D_98*pln.numOfFractions;
+results.structures{ixCTV,2}.D_98.min=dqi_sampled{1,2}(ixCTV).D_98*pln.numOfFractions;
+results.structures{ixCTV,2}.D_98.max=dqi_sampled{1,3}(ixCTV).D_98*pln.numOfFractions;
+
+D95=sprintf('D95: %.2f [%.2f - %.2f] Gy',dqi_sampled{1,1}(ixCTV).D_95*pln.numOfFractions,dqi_sampled{1,2}(ixCTV).D_95*pln.numOfFractions,dqi_sampled{1,3}(ixCTV).D_95*pln.numOfFractions); disp(D95);
+results.structures{ixCTV,2}.D_95.nom=dqi_sampled{1,1}(ixCTV).D_95*pln.numOfFractions;
+results.structures{ixCTV,2}.D_95.min=dqi_sampled{1,2}(ixCTV).D_95*pln.numOfFractions;
+results.structures{ixCTV,2}.D_95.max=dqi_sampled{1,3}(ixCTV).D_95*pln.numOfFractions;
+
 D50=sprintf('D50: %.2f [%.2f - %.2f] Gy',dqi_sampled{1,1}(ixCTV).D_50*pln.numOfFractions,dqi_sampled{1,2}(ixCTV).D_50*pln.numOfFractions,dqi_sampled{1,3}(ixCTV).D_50*pln.numOfFractions); disp(D50);
+results.structures{ixCTV,2}.D_50.nom=dqi_sampled{1,1}(ixCTV).D_50*pln.numOfFractions;
+results.structures{ixCTV,2}.D_50.min=dqi_sampled{1,2}(ixCTV).D_50*pln.numOfFractions;
+results.structures{ixCTV,2}.D_50.max=dqi_sampled{1,3}(ixCTV).D_50*pln.numOfFractions;
+
 D2=sprintf('D2: %.2f [%.2f - %.2f] Gy \n',dqi_sampled{1,1}(ixCTV).D_2*pln.numOfFractions,dqi_sampled{1,2}(ixCTV).D_2*pln.numOfFractions,dqi_sampled{1,3}(ixCTV).D_2*pln.numOfFractions); disp(D2);
+results.structures{ixCTV,2}.D_2.nom=dqi_sampled{1,1}(ixCTV).D_50*pln.numOfFractions;
+results.structures{ixCTV,2}.D_2.min=dqi_sampled{1,2}(ixCTV).D_50*pln.numOfFractions;
+results.structures{ixCTV,2}.D_2.max=dqi_sampled{1,3}(ixCTV).D_50*pln.numOfFractions;
 
 %%
 % robustness indexes
 
 disp('Robustness evaluation (Method 1)');
 
-UMean=sprintf('UMean: %.2f [%.2f - %.2f] Gy',uqi{1,1}(ixCTV).mean*pln.numOfFractions,uqi{1,2}(ixCTV).mean*pln.numOfFractions,uqi{1,3}(ixCTV).mean*pln.numOfFractions); disp(UMean);
-U98=sprintf('U98: %.2f Gy',uqi(ixCTV).D_95*pln.numOfFractions); disp(U98);
+UMean=sprintf('UMean: %.2f Gy',uqi(ixCTV).mean*pln.numOfFractions); disp(UMean);
+results.structures{ixCTV,2}.U_mean=uqi(ixCTV).mean*pln.numOfFractions;
+
+U98=sprintf('U98: %.2f Gy',uqi(ixCTV).D_98*pln.numOfFractions); disp(U98);
+results.structures{ixCTV,2}.U_98=uqi(ixCTV).D_98*pln.numOfFractions;
+
 U95=sprintf('U95: %.2f Gy',uqi(ixCTV).D_95*pln.numOfFractions); disp(U95);
+results.structures{ixCTV,2}.U_95=uqi(ixCTV).D_95*pln.numOfFractions;
+
 U50=sprintf('U50: %.2f Gy',uqi(ixCTV).D_50*pln.numOfFractions); disp(U50);
+results.structures{ixCTV,2}.U_50=uqi(ixCTV).D_50*pln.numOfFractions;
+
 U2=sprintf('U2: %.2f Gy',uqi(ixCTV).D_2*pln.numOfFractions); disp(U2);
+results.structures{ixCTV,2}.U_2=uqi(ixCTV).D_2*pln.numOfFractions;
+
 UI=sprintf('UI (>=0): %.2f \n',uqi(ixCTV).D_2.*pln.numOfFractions/p); disp(UI);
+results.robustness.UI1=uqi(ixCTV).D_2*pln.numOfFractions;
 
 disp('Robustness evaluation (Method 2)');
 
 UncertaintyIndex=nnz(resultGUISamp.gammaAnalysis.robustnessViolationCube(cst{ixCTV,4}{1,1}))/numel(cst{ixCTV,4}{1,1});
 
 UI2=sprintf('UI (0-1): %.2f',UncertaintyIndex); disp(UI2);
+results.robustness.UI2=UncertaintyIndex;
 
 RobustnessIndex=1-UncertaintyIndex;
 RI2=sprintf('RI (0-1): %.2f \n',RobustnessIndex); disp(RI2);
+results.robustness.RI2=RobustnessIndex;
 
 %% plot gamma index distribution
 
 figure;
-h1=histogram(resultGUISamp.gammaAnalysis.gammaCube);
+edges = [0:0.025:run_config.gammaWindow(2)];
+h1=histogram(resultGUISamp.gammaAnalysis.gammaCube,edges);
 xlabel('gamma index');
 ylabel('[counts]');
 savefig([folderPath filesep 'gamma_histo.fig']);
@@ -530,7 +579,8 @@ savefig([folderPath filesep 'gamma_histo.fig']);
 %% plot target gamma index distribution
 
 figure;
-h2=histogram(resultGUISamp.gammaAnalysis.gammaCube.*target_mask);
+edges = [0:0.025:run_config.gammaWindow(2)];
+h2=histogram(resultGUISamp.gammaAnalysis.gammaCube.*target_mask,edges);
 xlabel('gamma index');
 ylabel('[counts]');
 savefig([folderPath filesep 'target_gamma_histo.fig']);
@@ -556,36 +606,71 @@ BodyTotal_robust=dqi_sampled{1,1}(1).mean*numel(cst{1,4}{1,1});
 CTVTotal_robust=dqi_sampled{1,1}(ixCTV).mean*numel(cst{ixCTV,4}{1,1});
 OARMean_robust=(BodyTotal_robust-CTVTotal_robust)/(numel(cst{1,4}{1,1})-numel(cst{ixCTV,4}{1,1}))*pln.numOfFractions;
 
-RPI=sprintf('RPI: %.2f\n',(OARMean_robust-OARMean_nominal)/OARMean_nominal); disp(RPI);
+RPI1=sprintf('RPI: %.2f\n',(OARMean_robust-OARMean_nominal)/OARMean_nominal); disp(RPI1);
+results.robustness.RPI1=(OARMean_robust-OARMean_nominal)/OARMean_nominal;
 
 disp('Robustness price evaluation (Method 2)');
 
 F_nominal=sprintf('F(nominal): %.2f',f_nominal); disp(F_nominal); % 1.6149103490694448e+00
+results.robustness.f_nominal=f_nominal;
+
 F_robust=sprintf('F(robust): %.2f \n',f_robust); disp(F_robust);
+results.robustness.f_robust=f_robust;
 
 RPI2=sprintf('RPI: %.2f \n',(f_robust-f_nominal)/f_nominal); disp(RPI2);
+results.robustness.RPI2=(f_robust-f_nominal)/f_nominal;
 
 %% Print evaluation indexes
 % Contralateral Lung
 disp('Contralateral lung evaluation');
+results.structures{2,1}=cst{2,2};
 V50ConLung=sprintf('V50: %.2f [%.2f - %.2f] %%',dqi_sampled{1,1}(2).V_3_12Gy*100,dqi_sampled{1,2}(2).V_3_12Gy*100,dqi_sampled{1,3}(2).V_3_12Gy*100); disp(V50ConLung);
+results.structures{2,2}.V_50.nom=dqi_sampled{1,1}(2).V_3_12Gy*100;
+results.structures{2,2}.V_50.min=dqi_sampled{1,2}(2).V_3_12Gy*100;
+results.structures{2,2}.V_50.max=dqi_sampled{1,3}(2).V_3_12Gy*100;
+
 D5ConLung=sprintf('D5: %.2f [%.2f - %.2f] Gy\n',dqi_sampled{1,1}(2).D_5*pln.numOfFractions,dqi_sampled{1,2}(2).D_5*pln.numOfFractions,dqi_sampled{1,3}(2).D_5*pln.numOfFractions); disp(D5ConLung);
+results.structures{2,2}.D_5.nom=dqi_sampled{1,1}(2).D_5*pln.numOfFractions;
+results.structures{2,2}.D_5.min=dqi_sampled{1,2}(2).D_5*pln.numOfFractions;
+results.structures{2,2}.D_5.max=dqi_sampled{1,3}(2).D_5*pln.numOfFractions;
 
 %% Print evaluation indexes
 % Ipsilateral Lung
 disp('Ipsilateral lung evaluation');
+results.structures{3,1}=cst{3,2};
 V20IpsLung=sprintf('V20: %.2f [%.2f - %.2f] %%',dqi_sampled{1,1}(3).V_1_25Gy*100,dqi_sampled{1,2}(3).V_1_25Gy*100,dqi_sampled{1,3}(3).V_1_25Gy*100); disp(V20IpsLung);
+results.structures{3,2}.V_20.nom=dqi_sampled{1,1}(3).V_1_25Gy*100;
+results.structures{3,2}.V_20.min=dqi_sampled{1,2}(3).V_1_25Gy*100;
+results.structures{3,2}.V_20.max=dqi_sampled{1,3}(3).V_1_25Gy*100;
+
 D20IpsLung=sprintf('D20: %.2f [%.2f - %.2f] Gy\n',dqi_sampled{1,1}(3).D_20*pln.numOfFractions,dqi_sampled{1,2}(3).D_20*pln.numOfFractions,dqi_sampled{1,3}(3).D_20*pln.numOfFractions); disp(D20IpsLung);
+results.structures{3,2}.D_20.nom=dqi_sampled{1,1}(3).D_20*pln.numOfFractions;
+results.structures{3,2}.D_20.min=dqi_sampled{1,2}(3).D_20*pln.numOfFractions;
+results.structures{3,2}.D_20.max=dqi_sampled{1,3}(3).D_20*pln.numOfFractions;
 
 %% Print evaluation indexes
 % Heart
 disp('Heart evaluation');
+results.structures{4,1}=cst{4,2};
 DMeanHeart=sprintf('DMean: %.2f [%.2f - %.2f] Gy\n',dqi_sampled{1,1}(4).mean*pln.numOfFractions,dqi_sampled{1,2}(4).mean*pln.numOfFractions,dqi_sampled{1,3}(4).mean*pln.numOfFractions); disp(DMeanHeart);
+results.structures{4,2}.D_mean.nom=dqi_sampled{1,1}(4).mean*pln.numOfFractions;
+results.structures{4,2}.D_mean.min=dqi_sampled{1,2}(4).mean*pln.numOfFractions;
+results.structures{4,2}.D_mean.max=dqi_sampled{1,3}(4).mean*pln.numOfFractions;
 
 %% Print evaluation indexes
 % Contralateral Breast
 disp('Contralateral Breast evaluation');
+results.structures{5,1}=cst{5,2};
 DMaxConBreast=sprintf('DMax: %.2f [%.2f - %.2f] Gy\n',dqi_sampled{1,1}(5).max*pln.numOfFractions,dqi_sampled{1,2}(5).max*pln.numOfFractions,dqi_sampled{1,3}(5).max*pln.numOfFractions); disp(DMaxConBreast);
+results.structures{5,2}.D_mean.nom=dqi_sampled{1,1}(5).max*pln.numOfFractions;
+results.structures{5,2}.D_mean.min=dqi_sampled{1,2}(5).max*pln.numOfFractions;
+results.structures{5,2}.D_mean.max=dqi_sampled{1,3}(5).max*pln.numOfFractions;
+
+%% Save outputs
+save([folderPath filesep 'resultGUI.mat'],'resultGUI','resultGUI_robust');
+save([folderPath filesep 'plan.mat'],'pln','pln_robust','ct','cst','run_config');
+save([folderPath filesep 'sampling.mat'],'caSamp', 'mSampDose', 'plnSamp', 'resultGUInomScen','cstStat','resultGUISamp','meta','dvh','dvh_robust');
+save([folderPath filesep 'results.mat'],'results');
 
 %%
 diary off

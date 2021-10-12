@@ -1,4 +1,4 @@
-function matRad_showDVH_sampled(dvh,cst,pln,lineStyleIndicator)
+function matRad_showDVH_sampled(dvh,cst,pln,doseWindow,lineStyleIndicator)
 % matRad dvh visualizaion
 % 
 % call
@@ -92,8 +92,12 @@ myLegend = legend('show','location','NorthEast');
 set(myLegend,'FontSize',10,'Interpreter','none');
 legend boxoff
 
+if ~exist('doseWindow', 'var') 
+    doseWindow = [0 1.4*maxDVHdose];
+end
+
 ylim([0 1.05*maxDVHvol]);
-xlim([0 1.4*maxDVHdose]);
+xlim(doseWindow);
 
 grid on,grid minor
 box(gca,'on');

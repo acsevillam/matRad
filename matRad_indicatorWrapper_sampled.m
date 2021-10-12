@@ -1,4 +1,4 @@
-function [dvh,qi] = matRad_indicatorWrapper_sampled(cst,pln,resultGUI,refGy,refVol,param)
+function [dvh,qi] = matRad_indicatorWrapper_sampled(cst,pln,resultGUI,refGy,refVol,doseWindow,param)
 % matRad indictor wrapper
 % 
 % call
@@ -43,6 +43,10 @@ if ~exist('refGy', 'var')
 	refGy = [];
 end
 
+if ~exist('doseWindow', 'var') 
+    doseWindow = [];
+end
+
 if exist('param','var')
 	if ~isfield(param,'logLevel')
         param.logLevel = 1;
@@ -72,7 +76,7 @@ width=600;
 height=400;
 figure,set(gcf,'Color',[1 1 1],'position',[x0,y0,width,height]);
 %subplot(2,1,1)
-matRad_showDVH_sampled(dvh,cst,pln);
+matRad_showDVH_sampled(dvh,cst,pln,doseWindow);
 %subplot(2,1,2)
 %matRad_showQualityIndicators(qi{1,1});
 

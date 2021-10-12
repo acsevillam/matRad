@@ -1,4 +1,4 @@
-function matRad_showDVH_sampledScen(caSamp,dvh,cst,pln,scenarios,lineStyleIndicator)
+function matRad_showDVH_sampledScen(caSamp,dvh,cst,pln,scenarios,doseWindow,lineStyleIndicator)
 % matRad dvh visualizaion
 % 
 % call
@@ -64,7 +64,7 @@ for i = 1:numOfVois
     if cst{i,5}.Visible
 
         ix      = max([1 find(dvh(i).volumePoints>0,1,'last')]);
-        currDvh = [dvh(i).doseGrid(1:ix)*pln.numOfFractions;dvh(i).volumePoints(1:ix)];
+        currDvh = [dvh(i).doseGrid(1:ix);dvh(i).volumePoints(1:ix)];
 
         p=plot(currDvh(1,:),currDvh(2,:),'LineWidth',0.5,'Color',[colorMx(i,:) 0.5], ...
                         'LineStyle',lineStyles{lineStyleIndicator},'DisplayName',cst{i,2});
@@ -89,7 +89,7 @@ for k = scenarios
             ix{1,k}      = max([1 find(caSamp(k).dvh(i).volumePoints>0,1,'last')]);
             currDvh{1,k} = [caSamp(k).dvh(i).doseGrid(1:ix{1,k})*pln.numOfFractions;caSamp(k).dvh(i).volumePoints(1:ix{1,k})];
 
-            p=plot(currDvh{1,k}(1,:),currDvh{1,k}(2,:),'LineWidth',0.5,'Color',[colorMx(i,:) 0.2], ...
+            p=plot(currDvh{1,k}(1,:),currDvh{1,k}(2,:),'LineWidth',0.5,'Color',[colorMx(i,:) 0.4], ...
                 'LineStyle',lineStyles{lineStyleIndicator},'DisplayName',cst{i,2});
             
             p.Annotation.LegendInformation.IconDisplayStyle = 'off';
@@ -102,8 +102,12 @@ myLegend = legend('show','location','NorthEast');
 set(myLegend,'FontSize',10,'Interpreter','none');
 legend boxoff
 
+if ~exist('doseWindow', 'var') 
+    doseWindow = [0 1.4*maxDVHdose];
+end
+
 ylim([0 1.05*maxDVHvol]);
-xlim([0 1.4*maxDVHdose]);
+xlim(doseWindow);
 
 grid on,grid minor
 box(gca,'on');

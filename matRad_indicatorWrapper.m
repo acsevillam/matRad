@@ -1,4 +1,4 @@
-function [dvh,qi] = matRad_indicatorWrapper(cst,pln,resultGUI,refGy,refVol)
+function [dvh,qi] = matRad_indicatorWrapper(cst,pln,doseCube,refGy,refVol,doseWindow)
 % matRad indictor wrapper
 % 
 % call
@@ -36,18 +36,16 @@ function [dvh,qi] = matRad_indicatorWrapper(cst,pln,resultGUI,refGy,refVol)
 %
 % %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-if isfield(resultGUI,'RBExD')
-    doseCube = resultGUI.RBExD;
-else
-    doseCube = resultGUI.physicalDose;
-end
-
 if ~exist('refVol', 'var') 
     refVol = [];
 end
 
 if ~exist('refGy', 'var')
     refGy = [];
+end
+
+if ~exist('doseWindow', 'var') 
+    doseWindow = [];
 end
 
 dvh = matRad_calcDVH(cst,doseCube,'cum');
@@ -59,7 +57,7 @@ width=600;
 height=400;
 figure,set(gcf,'Color',[1 1 1],'position',[x0,y0,width,height]);
 %subplot(2,1,1)
-matRad_showDVH(dvh,cst,pln);
+matRad_showDVH(dvh,cst,pln,doseWindow);
 %subplot(2,1,2)
 %ixVoi = cellfun(@(c) c.Visible == 1,cst(:,5));
 %qi = qi(ixVoi);

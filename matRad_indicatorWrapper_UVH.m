@@ -1,4 +1,4 @@
-function [uvh,uqi] = matRad_indicatorWrapper_UVH(cst,pln,resultGUI,resultGUISamp,refGy,refVol)
+function [uvh,uqi] = matRad_indicatorWrapper_UVH(cst,pln,resultGUI,resultGUISamp,refGy,refVol,doseWindow)
 % matRad indictor wrapper
 % 
 % call
@@ -52,6 +52,10 @@ if ~exist('refGy', 'var')
     refGy = [];
 end
 
+if ~exist('doseWindow', 'var') 
+    doseWindow = [];
+end
+
 dvh = matRad_calcDVH(cst,doseCube,'cum');
 dqi  = matRad_calcQualityIndicators(cst,pln,doseCube,refGy,refVol);
 
@@ -64,7 +68,7 @@ width=600;
 height=400;
 figure,set(gcf,'Color',[1 1 1],'position',[x0,y0,width,height]);
 %subplot(2,1,1)
-matRad_showUVH(dvh,uvh,cst,pln);
+matRad_showUVH(dvh,uvh,cst,pln,doseWindow);
 %subplot(2,1,2)
 %ixVoi = cellfun(@(c) c.Visible == 1,cst(:,5));
 %uqi = uqi(ixVoi);

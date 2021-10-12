@@ -1,4 +1,4 @@
-function matRad_showUVH(dvh,uvh,cst,pln,lineStyleIndicator)
+function matRad_showUVH(dvh,uvh,cst,pln,doseWindow,lineStyleIndicator)
 % matRad uvh visualizaion
 % 
 % call
@@ -89,8 +89,12 @@ myLegend = legend('show','location','NorthEast');
 set(myLegend,'FontSize',10,'Interpreter','none');
 legend boxoff
 
+if ~exist('doseWindow', 'var') 
+    doseWindow = [0 1.4*maxUVHdose];
+end
+
 ylim([0 1.05*maxUVHvol]);
-xlim([0 1.4*maxUVHdose]);
+xlim(doseWindow);
 
 grid on,grid minor
 box(gca,'on');
