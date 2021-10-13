@@ -78,6 +78,9 @@ if(run_config.resolution=="5x5x5")
     load('patient3_5x5x5mm.mat');
 end
 
+%% Print run config
+display(run_config);
+
 %% plot CT slice
 if param.logLevel == 1
     
