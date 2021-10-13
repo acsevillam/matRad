@@ -1,4 +1,4 @@
-function matRad_breastPhotonRobust_cCOWC2(robustness,mode,beam_shaping_mode,rootPath,p1,p2)
+function matRad_breastPhotonRobust_cCOWC2(robustness,beam_shaping_mode,mode,rootPath,p1,p2)
 %% Example: Photon Treatment Plan
 %
 % %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
