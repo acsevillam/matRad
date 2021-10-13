@@ -54,7 +54,7 @@ run_config.sampling_mode = 'impScen';
 run_config.wcFactor = 1.5;
 run_config.GammaCriterion = [3 3];
 
-if run_config.robustness == 'c-COWC'
+if run_config.robustness == "c-COWC"
     
     run_config.numScens = 33;
     
