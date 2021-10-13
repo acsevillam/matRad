@@ -310,12 +310,12 @@ switch run_config.beam_shaping_mode
     case "nomScen"
         multScen = matRad_multScen(ct,'nomScen'); 
     case "wcScen"
-        multScen = matRad_multScen(ct,'wcScen'); 
+        multScen = matRad_multScen(ct,'wcScen');
         multScen.wcFactor=run_config.wcFactor;
         multScen.shiftSD = [4 6 8];
-        multScen.rangeRelSD=0;
-        multScen.rangeAbsSD=0;
-        multScen.scenCombType = 'combined';
+        %multScen.rangeRelSD=0;
+        %multScen.rangeAbsSD=0;
+        %multScen.scenCombType = 'combined';
     case "impScen"
         multScen = matRad_multScen(ct,'impScen'); 
         multScen.wcFactor=run_config.wcFactor;
@@ -323,10 +323,10 @@ switch run_config.beam_shaping_mode
         multScen.shiftSD = [4 6 8];
         multScen.shiftGenType = 'equidistant';
         multScen.shiftCombType='permuted_truncated';
-        multScen.numOfRangeShiftScen=32;
-        multScen.rangeRelSD=0;
-        multScen.rangeAbsSD=0;
-        multScen.scenCombType = 'combined';
+        %multScen.numOfRangeShiftScen=32;
+        %multScen.rangeRelSD=0;
+        %multScen.rangeAbsSD=0;
+        %multScen.scenCombType = 'combined';
         multScen.includeNomScen=true;
     otherwise
         multScen = matRad_multScen(ct,'nomScen');
