@@ -55,13 +55,16 @@ run_config.wcFactor = 1.5;
 run_config.GammaCriterion = [3 3];
 
 if run_config.robustness == 'c-COWC'
+    
+    run_config.numScens = 33;
+    
     if ~exist('p1','var') || isempty(p1)
         run_config.p1 = 1;
     else
         run_config.p1 = p1;
     end
 
-    run_config.beta1 = run_config.p1/87;
+    run_config.beta1 = run_config.p1/run_config.numScens;
 
     if ~exist('p2','var') || isempty(p2)
         run_config.p2 = 1;
@@ -69,7 +72,7 @@ if run_config.robustness == 'c-COWC'
         run_config.p2 = p2;
     end
 
-    run_config.beta2 = run_config.p2/87;
+    run_config.beta2 = run_config.p2/run_config.numScens;
 end
 
 if ~exist('rootPath','var') || isempty(rootPath)
@@ -306,15 +309,15 @@ switch run_config.beam_shaping_mode
     case "impScen"
         multScen = matRad_multScen(ct,'impScen'); 
         multScen.wcFactor=run_config.wcFactor;
-        multScen.numOfShiftScen = [5 5 5];
+        multScen.numOfShiftScen = [4 4 4];
         multScen.shiftSD = [4 6 8];
         multScen.shiftGenType = 'equidistant';
         multScen.shiftCombType='permuted_truncated';
-        multScen.numOfRangeShiftScen=87;
+        multScen.numOfRangeShiftScen=32;
         multScen.rangeRelSD=0;
         multScen.rangeAbsSD=0;
         multScen.scenCombType = 'combined';
-        %multScen.includeNomScen=true;
+        multScen.includeNomScen=true;
     otherwise
         multScen = matRad_multScen(ct,'nomScen');
 end
@@ -398,15 +401,15 @@ switch run_config.mode
     case "impScen"
         multScen = matRad_multScen(ct,'impScen'); 
         multScen.wcFactor=run_config.wcFactor;
-        multScen.numOfShiftScen = [5 5 5];
+        multScen.numOfShiftScen = [4 4 4];
         multScen.shiftSD = [4 6 8];
         multScen.shiftGenType = 'equidistant';
         multScen.shiftCombType='permuted_truncated';
-        multScen.numOfRangeShiftScen=87;
+        multScen.numOfRangeShiftScen=32;
         multScen.rangeRelSD=0;
         multScen.rangeAbsSD=0;
         multScen.scenCombType = 'combined';
-        %multScen.includeNomScen=true;
+        multScen.includeNomScen=true;
     otherwise
         multScen = matRad_multScen(ct,'nomScen');
 end
@@ -500,15 +503,15 @@ switch run_config.sampling_mode
     case "impScen"
         multScen = matRad_multScen(ct,'impScen'); 
         multScen.wcFactor=run_config.wcFactor;
-        multScen.numOfShiftScen = [5 5 5];
+        multScen.numOfShiftScen = [4 4 4];
         multScen.shiftSD = [4 6 8];
         multScen.shiftGenType = 'equidistant';
         multScen.shiftCombType='permuted_truncated';
-        multScen.numOfRangeShiftScen=87;
+        multScen.numOfRangeShiftScen=32;
         multScen.rangeRelSD=0;
         multScen.rangeAbsSD=0;
         multScen.scenCombType = 'combined';
-        %multScen.includeNomScen=true;
+        multScen.includeNomScen=true;
     otherwise
         multScen = matRad_multScen(ct,'rndScen'); % 'impSamp' or 'wcSamp'
         multScen.wcFactor=run_config.wcFactor;
