@@ -1,4 +1,4 @@
-function matRad_breastPhotonRobust_cCOWC2(p1,p2,rootPath)
+function matRad_breastPhotonRobust_cCOWC2(robustness,mode,beam_shaping_mode,rootPath,p1,p2)
 %% Example: Photon Treatment Plan
 %
 % %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -21,7 +21,7 @@ function matRad_breastPhotonRobust_cCOWC2(p1,p2,rootPath)
 % (iv) how to visually and quantitatively evaluate the result
 
 %%
-clearvars -except p1 p2 rootPath;
+clearvars -except robustness rootPath p1 p2 ;
 clc;
 
 %% set matRad runtime configuration
@@ -29,30 +29,48 @@ matRad_rc
 param.logLevel=1;
 
 %% Set examples parameters
-run_config.robustness = 'c-COWC';
+if ~exist('robustness','var') || isempty(robustness)
+    run_config.robustness = 'c-COWC';
+else
+    run_config.robustness = robustness;
+end
 run_config.description = 'breast';
 run_config.resolution = '5x5x5';
-run_config.mode = 'impScen';
+
+if ~exist('beam_shaping_mode','var') || isempty(beam_shaping_mode)
+    run_config.beam_shaping_mode = 'impScen';
+else
+    run_config.beam_shaping_mode = beam_shaping_mode;
+end
+
+if ~exist('mode','var') || isempty(mode)
+    run_config.mode = 'impScen';
+else
+    run_config.mode = mode;
+end
+
 run_config.sampling_mode = 'impScen';
 %run_config.sampling_size = 50;
 run_config.wcFactor = 1.5;
 run_config.GammaCriterion = [3 3];
 
-if ~exist('p1','var') || isempty(p1)
-    run_config.p1 = 1;
-else
-    run_config.p1 = p1;
+if run_config.robustness == 'c-COWC'
+    if ~exist('p1','var') || isempty(p1)
+        run_config.p1 = 1;
+    else
+        run_config.p1 = p1;
+    end
+
+    run_config.beta1 = run_config.p1/87;
+
+    if ~exist('p2','var') || isempty(p2)
+        run_config.p2 = 1;
+    else
+        run_config.p2 = p2;
+    end
+
+    run_config.beta2 = run_config.p2/87;
 end
-
-run_config.beta1 = run_config.p1/87;
-
-if ~exist('p2','var') || isempty(p2)
-    run_config.p2 = 1;
-else
-    run_config.p2 = p2;
-end
-
-run_config.beta2 = run_config.p2/87;
 
 if ~exist('rootPath','var') || isempty(rootPath)
     run_config.rootPath = matRad_cfg.matRadRoot;
@@ -274,8 +292,35 @@ pln.propOpt.runDAO        = 0;
 % retrieve bio model parameters
 pln.bioParam = matRad_bioModel(pln.radiationMode,quantityOpt, modelName);
 
-%% retrieve scenarios for dose calculation and optimziation
-pln.multScen = matRad_multScen(ct,'nomScen');
+%% Generate dummy scenarios for beam shaping
+switch run_config.beam_shaping_mode
+    case "nomScen"
+        multScen = matRad_multScen(ct,'nomScen'); 
+    case "wcScen"
+        multScen = matRad_multScen(ct,'wcScen'); 
+        multScen.wcFactor=run_config.wcFactor;
+        multScen.shiftSD = [4 6 8];
+        multScen.rangeRelSD=0;
+        multScen.rangeAbsSD=0;
+        multScen.scenCombType = 'combined';
+    case "impScen"
+        multScen = matRad_multScen(ct,'impScen'); 
+        multScen.wcFactor=run_config.wcFactor;
+        multScen.numOfShiftScen = [5 5 5];
+        multScen.shiftSD = [4 6 8];
+        multScen.shiftGenType = 'equidistant';
+        multScen.shiftCombType='permuted_truncated';
+        multScen.numOfRangeShiftScen=87;
+        multScen.rangeRelSD=0;
+        multScen.rangeAbsSD=0;
+        multScen.scenCombType = 'combined';
+        %multScen.includeNomScen=true;
+    otherwise
+        multScen = matRad_multScen(ct,'nomScen');
+end
+
+%% save multi scenarios to plan
+pln.multScen=multScen;
 
 %%
 % and et voila our treatment plan structure is ready. Lets have a look:
@@ -289,6 +334,9 @@ stf = matRad_generateStf(ct,cst,pln);
 %%
 % Let's display the beam geometry information of the 6th beam
 display(stf(6));
+
+%% retrieve scenarios for dose calculation and optimziation
+pln.multScen = matRad_multScen(ct,'nomScen');
 
 %% Dose Calculation
 % Let's generate dosimetric information by pre-computing dose influence
@@ -333,35 +381,37 @@ savefig([folderPath filesep 'OAR_dose3d_nominal.fig']);
 [dvh,dqi] = matRad_indicatorWrapper(cst,pln,resultGUI.physicalDose*pln.numOfFractions,[],[],run_config.doseWindow_dvh);
 savefig([folderPath filesep 'dvh_nominal.fig']);
 
-%%
-% retrieve 13 scenarios for dose calculation and optimziation
- pln_robust=pln;
-if(run_config.mode=="wcScen")
-    multScen = matRad_multScen(ct,'wcScen'); 
-    multScen.wcFactor=run_config.wcFactor;
-    multScen.shiftSD = [4 6 8];
-    multScen.rangeRelSD=0;
-    multScen.rangeAbsSD=0;
-    multScen.scenCombType = 'combined';
+%% Copy reference plan
+pln_robust=pln;
+
+%% retrieve scenarios for dose calculation and optimziation
+switch run_config.mode
+    case "nomScen"
+        multScen = matRad_multScen(ct,'nomScen'); 
+    case "wcScen"
+        multScen = matRad_multScen(ct,'wcScen'); 
+        multScen.wcFactor=run_config.wcFactor;
+        multScen.shiftSD = [4 6 8];
+        multScen.rangeRelSD=0;
+        multScen.rangeAbsSD=0;
+        multScen.scenCombType = 'combined';
+    case "impScen"
+        multScen = matRad_multScen(ct,'impScen'); 
+        multScen.wcFactor=run_config.wcFactor;
+        multScen.numOfShiftScen = [5 5 5];
+        multScen.shiftSD = [4 6 8];
+        multScen.shiftGenType = 'equidistant';
+        multScen.shiftCombType='permuted_truncated';
+        multScen.numOfRangeShiftScen=87;
+        multScen.rangeRelSD=0;
+        multScen.rangeAbsSD=0;
+        multScen.scenCombType = 'combined';
+        %multScen.includeNomScen=true;
+    otherwise
+        multScen = matRad_multScen(ct,'nomScen');
 end
 
-%%
-% retrieve 87 scenarios for dose calculation and optimziation
-if(run_config.mode=="impScen")
-    multScen = matRad_multScen(ct,'impScen'); 
-    multScen.wcFactor=run_config.wcFactor;
-    multScen.numOfShiftScen = [5 5 5];
-    multScen.shiftSD = [4 6 8];
-    multScen.shiftGenType = 'equidistant';
-    multScen.shiftCombType='permuted_truncated';
-    multScen.numOfRangeShiftScen=87;
-    multScen.rangeRelSD=0;
-    multScen.rangeAbsSD=0;
-    multScen.scenCombType = 'combined';
-    %multScen.includeNomScen=true;
-end
-
-%%
+%% save multi scenarios to plan
 pln_robust.multScen=multScen;
 
 %% Dose calculation
@@ -378,11 +428,16 @@ results.performance.DCTime_robust=DCTime_robust;
 % Make the objective to a composite worst case objective
 
 % CTV
-cst{ixCTV,6}{1}.robustness  = run_config.robustness;
-cst{ixCTV,8}{1}.beta1 = run_config.beta1;
-cst{ixCTV,8}{1}.p1 = run_config.p1;
-cst{ixCTV,8}{1}.beta2 = run_config.beta2;
-cst{ixCTV,8}{1}.p2 = run_config.p2;
+switch run_config.robustness
+    case 'c-COWC'
+        cst{ixCTV,6}{1}.robustness  = run_config.robustness;
+        cst{ixCTV,8}{1}.beta1 = run_config.beta1;
+        cst{ixCTV,8}{1}.p1 = run_config.p1;
+        cst{ixCTV,8}{1}.beta2 = run_config.beta2;
+        cst{ixCTV,8}{1}.p2 = run_config.p2;
+    otherwise
+        cst{ixCTV,6}{1}.robustness  = run_config.robustness;
+end
 
 %% Inverse Optimization for IMRT
 % The goal of the fluence optimization is to find a set of beamlet/pencil
@@ -430,31 +485,41 @@ savefig([folderPath filesep 'dvh_robust.fig']);
 % sampling does not know on which scenario sampling should be performed
 structSel = {}; % structSel = {'PTV','OAR1'};
 
-if(run_config.sampling_mode=="rndScen")
-    multScen = matRad_multScen(ct,'rndScen'); % 'impSamp' or 'wcSamp'
-    multScen.wcFactor=run_config.wcFactor;
-    multScen.shiftSD = [4 6 8];
-    multScen.shiftGenType = 'sampled_truncated';
-    multScen.shiftCombType = 'combined';
-    multScen.numOfShiftScen = run_config.sampling_size * ones(3,1);
-    multScen.numOfRangeShiftScen = run_config.sampling_size;
-    multScen.rangeRelSD=0;
-    multScen.rangeAbsSD=0;
-    multScen.scenCombType = 'combined';
-end
-
-if(run_config.sampling_mode=="impScen")
-    multScen = matRad_multScen(ct,'impScen'); 
-    multScen.wcFactor=run_config.wcFactor;
-    multScen.numOfShiftScen = [5 5 5];
-    multScen.shiftSD = [4 6 8];
-    multScen.shiftGenType = 'equidistant';
-    multScen.shiftCombType='permuted_truncated';
-    multScen.numOfRangeShiftScen=87;
-    multScen.rangeRelSD=0;
-    multScen.rangeAbsSD=0;
-    multScen.scenCombType = 'combined';
-    %multScen.includeNomScen=true;
+switch run_config.sampling_mode
+    case "rndScen"
+        multScen = matRad_multScen(ct,'rndScen'); % 'impSamp' or 'wcSamp'
+        multScen.wcFactor=run_config.wcFactor;
+        multScen.shiftSD = [4 6 8];
+        multScen.shiftGenType = 'sampled_truncated';
+        multScen.shiftCombType = 'combined';
+        multScen.numOfShiftScen = run_config.sampling_size * ones(3,1);
+        multScen.numOfRangeShiftScen = run_config.sampling_size;
+        multScen.rangeRelSD=0;
+        multScen.rangeAbsSD=0;
+        multScen.scenCombType = 'combined';
+    case "impScen"
+        multScen = matRad_multScen(ct,'impScen'); 
+        multScen.wcFactor=run_config.wcFactor;
+        multScen.numOfShiftScen = [5 5 5];
+        multScen.shiftSD = [4 6 8];
+        multScen.shiftGenType = 'equidistant';
+        multScen.shiftCombType='permuted_truncated';
+        multScen.numOfRangeShiftScen=87;
+        multScen.rangeRelSD=0;
+        multScen.rangeAbsSD=0;
+        multScen.scenCombType = 'combined';
+        %multScen.includeNomScen=true;
+    otherwise
+        multScen = matRad_multScen(ct,'rndScen'); % 'impSamp' or 'wcSamp'
+        multScen.wcFactor=run_config.wcFactor;
+        multScen.shiftSD = [4 6 8];
+        multScen.shiftGenType = 'sampled_truncated';
+        multScen.shiftCombType = 'combined';
+        multScen.numOfShiftScen = run_config.sampling_size * ones(3,1);
+        multScen.numOfRangeShiftScen = run_config.sampling_size;
+        multScen.rangeRelSD=0;
+        multScen.rangeAbsSD=0;
+        multScen.scenCombType = 'combined';
 end
 
 %% Perform sampling
@@ -698,7 +763,7 @@ results.structures{5,2}.D_mean.max=dqi_sampled{1,3}(5).max*pln.numOfFractions;
 
 %% Save outputs
 save([folderPath filesep 'resultGUI.mat'],'resultGUI','resultGUI_robust');
-save([folderPath filesep 'plan.mat'],'pln','pln_robust','ct','cst','run_config');
+save([folderPath filesep 'plan.mat'],'pln','pln_robust','ct','cst','stf','run_config');
 save([folderPath filesep 'sampling.mat'],'caSamp', 'mSampDose', 'plnSamp', 'resultGUInomScen','cstStat','resultGUISamp','meta','dvh','dvh_robust');
 save([folderPath filesep 'results.mat'],'results');
 
