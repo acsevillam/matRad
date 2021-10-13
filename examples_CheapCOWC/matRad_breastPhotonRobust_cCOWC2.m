@@ -1,4 +1,4 @@
-function matRad_breastPhotonRobust_cCOWC2(robustness,beam_shaping_mode,mode,rootPath,p1,p2)
+function matRad_breastPhotonRobust_cCOWC2(robustness,beam_shaping_mode,mode, wcFactor,rootPath,p1,p2)
 %% Example: Photon Treatment Plan
 %
 % %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -21,7 +21,7 @@ function matRad_breastPhotonRobust_cCOWC2(robustness,beam_shaping_mode,mode,root
 % (iv) how to visually and quantitatively evaluate the result
 
 %%
-clearvars -except robustness rootPath p1 p2 ;
+clearvars -except robustness beam_shaping_mode mode wcFactor rootPath p1 p2 ;
 clc;
 
 %% set matRad runtime configuration
@@ -49,10 +49,11 @@ else
     run_config.mode = mode;
 end
 
-run_config.sampling_mode = 'impScen';
-%run_config.sampling_size = 50;
-run_config.wcFactor = 1.5;
-run_config.GammaCriterion = [3 3];
+if ~exist('mode','var') || isempty(mode)
+    run_config.wcFactor = 1.5;
+else
+    run_config.wcFactor = wcFactor;
+end
 
 if run_config.robustness == "c-COWC"
     
@@ -74,6 +75,11 @@ if run_config.robustness == "c-COWC"
 
     run_config.beta2 = run_config.p2/run_config.numScens;
 end
+
+run_config.sampling_mode = 'impScen';
+run_config.GammaCriterion = [3 3];
+%run_config.sampling_size = 50;
+run_config.sampling_wcFactor = 2.0;
 
 if ~exist('rootPath','var') || isempty(rootPath)
     run_config.rootPath = matRad_cfg.matRadRoot;
@@ -495,7 +501,7 @@ structSel = {}; % structSel = {'PTV','OAR1'};
 switch run_config.sampling_mode
     case "rndScen"
         multScen = matRad_multScen(ct,'rndScen'); % 'impSamp' or 'wcSamp'
-        multScen.wcFactor=run_config.wcFactor;
+        multScen.wcFactor=run_config.sampling_wcFactor;
         multScen.shiftSD = [4 6 8];
         multScen.shiftGenType = 'sampled_truncated';
         multScen.shiftCombType = 'combined';
@@ -506,7 +512,7 @@ switch run_config.sampling_mode
         multScen.scenCombType = 'combined';
     case "impScen"
         multScen = matRad_multScen(ct,'impScen'); 
-        multScen.wcFactor=run_config.wcFactor;
+        multScen.wcFactor=run_config.sampling_wcFactor;
         multScen.numOfShiftScen = [4 4 4];
         multScen.shiftSD = [4 6 8];
         multScen.shiftGenType = 'equidistant';
@@ -518,7 +524,7 @@ switch run_config.sampling_mode
         multScen.includeNomScen=true;
     otherwise
         multScen = matRad_multScen(ct,'rndScen'); % 'impSamp' or 'wcSamp'
-        multScen.wcFactor=run_config.wcFactor;
+        multScen.wcFactor=run_config.sampling_wcFactor;
         multScen.shiftSD = [4 6 8];
         multScen.shiftGenType = 'sampled_truncated';
         multScen.shiftCombType = 'combined';
