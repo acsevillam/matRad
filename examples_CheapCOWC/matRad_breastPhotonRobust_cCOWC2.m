@@ -1,4 +1,4 @@
-function matRad_breastPhotonRobust_cCOWC2(robustness,beam_shaping_mode,mode, wcFactor,rootPath,sampling,p1,p2)
+function matRad_breastPhotonRobust_cCOWC2(robustness,beam_shapping_mode,mode, wcFactor,rootPath,sampling,p1,p2)
 %% Example: Photon Treatment Plan
 %
 % %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -21,7 +21,7 @@ function matRad_breastPhotonRobust_cCOWC2(robustness,beam_shaping_mode,mode, wcF
 % (iv) how to visually and quantitatively evaluate the result
 
 %%
-clearvars -except robustness beam_shaping_mode mode wcFactor rootPath sampling p1 p2 ;
+clearvars -except robustness beam_shapping_mode mode wcFactor rootPath sampling p1 p2 ;
 clc;
 
 %% set matRad runtime configuration
@@ -37,10 +37,10 @@ end
 run_config.description = 'breast';
 run_config.resolution = '5x5x5';
 
-if ~exist('beam_shaping_mode','var') || isempty(beam_shaping_mode)
-    run_config.beam_shaping_mode = 'impScen';
+if ~exist('beam_shapping_mode','var') || isempty(beam_shapping_mode)
+    run_config.beam_shapping_mode = 'impScen';
 else
-    run_config.beam_shaping_mode = beam_shaping_mode;
+    run_config.beam_shapping_mode = beam_shapping_mode;
 end
 
 if ~exist('mode','var') || isempty(mode)
@@ -86,7 +86,7 @@ if ~exist('sampling','var') || isempty(sampling)
 else
     run_config.sampling = sampling;
 end
-run_config.sampling_mode = 'impScen';
+run_config.sampling_mode = 'impScen_permuted_truncated';
 run_config.GammaCriterion = [3 3];
 %run_config.sampling_size = 50;
 run_config.sampling_wcFactor = 2.0;
@@ -316,7 +316,7 @@ pln.propOpt.runDAO        = 0;
 pln.bioParam = matRad_bioModel(pln.radiationMode,quantityOpt, modelName);
 
 %% Generate dummy scenarios for beam shaping
-switch run_config.beam_shaping_mode
+switch run_config.beam_shapping_mode
     case "nomScen"
         multScen = matRad_multScen(ct,'nomScen'); 
     case "wcScen"
