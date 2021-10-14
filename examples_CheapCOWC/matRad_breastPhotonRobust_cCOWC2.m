@@ -391,7 +391,7 @@ resultGUI = matRad_fluenceOptimization(dij,cst,pln);
 
 %%
 matRad_visSpotWeights(stf,resultGUI.w);
-savefig([folderPath filesep 'fluence2.fig']);
+savefig([folderPath filesep 'fluence_nominal.fig']);
 
 %% Plot dose distribution
 figure;
@@ -503,6 +503,10 @@ resultGUI_robust = matRad_fluenceOptimization(dij_robust,cst,pln_robust);
 OPTTime_robust = toc(now2);
 time2=sprintf('OPTTime_robust: %.2f\n',OPTTime_robust); disp(time2);
 results.performance.OPTTime_robust=OPTTime_robust;
+
+%%
+matRad_visSpotWeights(stf,resultGUI_robust.w);
+savefig([folderPath filesep 'fluence_robust.fig']);
 
 %% Plot the Resulting Dose Slice
 % Let's plot the transversal iso-center dose slice
