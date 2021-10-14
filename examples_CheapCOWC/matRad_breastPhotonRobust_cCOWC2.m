@@ -57,7 +57,12 @@ end
 
 if run_config.robustness == "c-COWC"
     
-    run_config.numScens = 13;
+    switch run_config.mode
+        case "impScen"
+            run_config.numScens = 13;
+        case "impScen_permuted_truncated"
+            run_config.numScens = 33;
+    end
     
     if ~exist('p1','var') || isempty(p1)
         run_config.p1 = 1;
