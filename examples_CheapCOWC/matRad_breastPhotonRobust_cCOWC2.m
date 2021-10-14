@@ -334,7 +334,7 @@ switch run_config.beam_shaping_mode
         multScen.rangeAbsSD=0;
         multScen.scenCombType = 'combined';
         multScen.includeNomScen=true;
-    case "impScen_permuted_truncated"
+    case "impScen_permuted"
         multScen = matRad_multScen(ct,'impScen'); 
         multScen.wcFactor=run_config.wcFactor*1.5;
         multScen.numOfShiftScen = [4 4 4];
