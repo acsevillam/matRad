@@ -318,7 +318,7 @@ if exist('delta_COWC','var')
         end
     end
     
-    fprintf('\t  WC scenario ID: %d\n',find(fGrad==1));
+    fprintf('  WC scenario ID: %d\n',find(fGrad==1));
     
 end
 
@@ -357,7 +357,7 @@ if exist('delta_CheapCOWC','var')
         end
     end
     
-    fprintf('\t  WC scenario ID: %d\n',find(fGrad==1));
+    fprintf('  WC scenario ID: %d\n',find(fGrad==1));
     
 end
 

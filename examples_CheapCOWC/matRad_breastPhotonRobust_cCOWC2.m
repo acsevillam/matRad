@@ -58,6 +58,8 @@ end
 if run_config.robustness == "c-COWC"
     
     switch run_config.mode
+        case "wcScen"
+            run_config.numScens = 7;
         case "impScen"
             run_config.numScens = 13;
         case "impScen_permuted_truncated"
