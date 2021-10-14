@@ -325,6 +325,18 @@ switch run_config.beam_shaping_mode
     case "impScen"
         multScen = matRad_multScen(ct,'impScen'); 
         multScen.wcFactor=run_config.wcFactor;
+        multScen.numOfShiftScen = [8 8 8];
+        multScen.shiftSD = [4 6 8];
+        multScen.shiftGenType = 'equidistant';
+        multScen.shiftCombType='individual';
+        multScen.numOfRangeShiftScen=24;
+        multScen.rangeRelSD=0;
+        multScen.rangeAbsSD=0;
+        multScen.scenCombType = 'combined';
+        multScen.includeNomScen=true;
+    case "impScen_permuted_truncated"
+        multScen = matRad_multScen(ct,'impScen'); 
+        multScen.wcFactor=run_config.wcFactor;
         multScen.numOfShiftScen = [4 4 4];
         multScen.shiftSD = [4 6 8];
         multScen.shiftGenType = 'equidistant';
@@ -355,7 +367,7 @@ stf = matRad_generateStf(ct,cst,pln);
 display(stf(6));
 
 %% retrieve scenarios for dose calculation and optimziation
-%pln.multScen = matRad_multScen(ct,'nomScen');
+pln.multScen = matRad_multScen(ct,'nomScen');
 
 %% Dose Calculation
 % Let's generate dosimetric information by pre-computing dose influence
@@ -420,6 +432,18 @@ switch run_config.mode
         multScen.rangeAbsSD=0;
         multScen.scenCombType = 'combined';
     case "impScen"
+        multScen = matRad_multScen(ct,'impScen'); 
+        multScen.wcFactor=run_config.wcFactor;
+        multScen.numOfShiftScen = [8 8 8];
+        multScen.shiftSD = [4 6 8];
+        multScen.shiftGenType = 'equidistant';
+        multScen.shiftCombType='individual';
+        multScen.numOfRangeShiftScen=24;
+        multScen.rangeRelSD=0;
+        multScen.rangeAbsSD=0;
+        multScen.scenCombType = 'combined';
+        multScen.includeNomScen=true;
+    case "impScen_permuted_truncated"
         multScen = matRad_multScen(ct,'impScen'); 
         multScen.wcFactor=run_config.wcFactor;
         multScen.numOfShiftScen = [4 4 4];
@@ -526,7 +550,19 @@ switch run_config.sampling_mode
         multScen.rangeRelSD=0;
         multScen.rangeAbsSD=0;
         multScen.scenCombType = 'combined';
-    case "impScen"
+     case "impScen"
+        multScen = matRad_multScen(ct,'impScen'); 
+        multScen.wcFactor=run_config.sampling_wcFactor;
+        multScen.numOfShiftScen = [8 8 8];
+        multScen.shiftSD = [4 6 8];
+        multScen.shiftGenType = 'equidistant';
+        multScen.shiftCombType='individual';
+        multScen.numOfRangeShiftScen=24;
+        multScen.rangeRelSD=0;
+        multScen.rangeAbsSD=0;
+        multScen.scenCombType = 'combined';
+        multScen.includeNomScen=true;
+    case "impScen_permuted_truncated"
         multScen = matRad_multScen(ct,'impScen'); 
         multScen.wcFactor=run_config.sampling_wcFactor;
         multScen.numOfShiftScen = [4 4 4];
