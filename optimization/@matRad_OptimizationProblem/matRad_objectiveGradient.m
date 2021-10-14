@@ -317,6 +317,9 @@ if exist('delta_COWC','var')
             doseGradient{ixScen} = doseGradient{ixScen} + fGrad(ixScen)*delta_COWC{ixScen};
         end
     end
+    
+    fprintf('WC scenario ID: %d\n',find(fGrad==1));
+    
 end
 
 if exist('delta_CheapCOWC','var')
@@ -353,6 +356,8 @@ if exist('delta_CheapCOWC','var')
             doseGradient{ixScen} = doseGradient{ixScen} + scenProb(s)/probSum * fGrad(ixScen) * delta_CheapCOWC{ixScen};
         end
     end
+    
+    fprintf('WC scenario ID: %d\n',find(fGrad==1));
     
 end
 

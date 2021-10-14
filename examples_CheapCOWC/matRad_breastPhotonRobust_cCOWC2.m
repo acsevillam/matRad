@@ -325,11 +325,11 @@ switch run_config.beam_shaping_mode
     case "impScen"
         multScen = matRad_multScen(ct,'impScen'); 
         multScen.wcFactor=run_config.wcFactor;
-        multScen.numOfShiftScen = [8 8 8];
+        multScen.numOfShiftScen = [4 4 4];
         multScen.shiftSD = [4 6 8];
         multScen.shiftGenType = 'equidistant';
         multScen.shiftCombType='individual';
-        multScen.numOfRangeShiftScen=24;
+        multScen.numOfRangeShiftScen=12;
         multScen.rangeRelSD=0;
         multScen.rangeAbsSD=0;
         multScen.scenCombType = 'combined';
@@ -434,11 +434,11 @@ switch run_config.mode
     case "impScen"
         multScen = matRad_multScen(ct,'impScen'); 
         multScen.wcFactor=run_config.wcFactor;
-        multScen.numOfShiftScen = [8 8 8];
+        multScen.numOfShiftScen = [4 4 4];
         multScen.shiftSD = [4 6 8];
         multScen.shiftGenType = 'equidistant';
         multScen.shiftCombType='individual';
-        multScen.numOfRangeShiftScen=24;
+        multScen.numOfRangeShiftScen=12;
         multScen.rangeRelSD=0;
         multScen.rangeAbsSD=0;
         multScen.scenCombType = 'combined';
@@ -553,11 +553,11 @@ switch run_config.sampling_mode
      case "impScen"
         multScen = matRad_multScen(ct,'impScen'); 
         multScen.wcFactor=run_config.sampling_wcFactor;
-        multScen.numOfShiftScen = [8 8 8];
+        multScen.numOfShiftScen = [4 4 4];
         multScen.shiftSD = [4 6 8];
         multScen.shiftGenType = 'equidistant';
         multScen.shiftCombType='individual';
-        multScen.numOfRangeShiftScen=24;
+        multScen.numOfRangeShiftScen=12;
         multScen.rangeRelSD=0;
         multScen.rangeAbsSD=0;
         multScen.scenCombType = 'combined';
