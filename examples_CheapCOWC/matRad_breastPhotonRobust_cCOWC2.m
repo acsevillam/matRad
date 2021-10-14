@@ -332,7 +332,7 @@ switch run_config.beam_shapping_mode
     case "impScen"
         multScen = matRad_multScen(ct,'impScen'); 
         multScen.wcFactor=run_config.wcFactor;
-        multScen.numOfShiftScen = [4 4 4];
+        multScen.numOfShiftScen = [5 5 5];
         multScen.shiftSD = [4 6 8];
         multScen.shiftGenType = 'equidistant';
         multScen.shiftCombType='individual';
@@ -343,8 +343,8 @@ switch run_config.beam_shapping_mode
         multScen.includeNomScen=true;
     case "impScen_permuted"
         multScen = matRad_multScen(ct,'impScen'); 
-        multScen.wcFactor=run_config.wcFactor*1.5;
-        multScen.numOfShiftScen = [4 4 4];
+        multScen.wcFactor=run_config.wcFactor;
+        multScen.numOfShiftScen = [5 5 5];
         multScen.shiftSD = [4 6 8];
         multScen.shiftGenType = 'equidistant';
         multScen.shiftCombType='permuted';
@@ -441,7 +441,7 @@ switch run_config.mode
     case "impScen"
         multScen = matRad_multScen(ct,'impScen'); 
         multScen.wcFactor=run_config.wcFactor;
-        multScen.numOfShiftScen = [4 4 4];
+        multScen.numOfShiftScen = [5 5 5];
         multScen.shiftSD = [4 6 8];
         multScen.shiftGenType = 'equidistant';
         multScen.shiftCombType='individual';
@@ -451,9 +451,9 @@ switch run_config.mode
         multScen.scenCombType = 'combined';
         multScen.includeNomScen=true;
     case "impScen_permuted_truncated"
-        multScen = matRad_multScen(ct,'impScen'); 
+        multScen = matRad_multScen(ct,'impScen');
         multScen.wcFactor=run_config.wcFactor;
-        multScen.numOfShiftScen = [4 4 4];
+        multScen.numOfShiftScen = [5 5 5];
         multScen.shiftSD = [4 6 8];
         multScen.shiftGenType = 'equidistant';
         multScen.shiftCombType='permuted_truncated';
@@ -564,7 +564,7 @@ switch run_config.sampling_mode
      case "impScen"
         multScen = matRad_multScen(ct,'impScen'); 
         multScen.wcFactor=run_config.sampling_wcFactor;
-        multScen.numOfShiftScen = [4 4 4];
+        multScen.numOfShiftScen = [5 5 5];
         multScen.shiftSD = [4 6 8];
         multScen.shiftGenType = 'equidistant';
         multScen.shiftCombType='individual';
@@ -576,7 +576,7 @@ switch run_config.sampling_mode
     case "impScen_permuted_truncated"
         multScen = matRad_multScen(ct,'impScen'); 
         multScen.wcFactor=run_config.sampling_wcFactor;
-        multScen.numOfShiftScen = [4 4 4];
+        multScen.numOfShiftScen = [5 5 5];
         multScen.shiftSD = [4 6 8];
         multScen.shiftGenType = 'equidistant';
         multScen.shiftCombType='permuted_truncated';

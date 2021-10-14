@@ -444,9 +444,27 @@ classdef matRad_multScen
             switch this.shiftGenType
                 case 'equidistant'
                     % create grid vectors
-                    isoShiftVec{1} = [0 linspace(-this.shiftSize(1), this.shiftSize(1), this.numOfShiftScen(1))];
-                    isoShiftVec{2} = [0 linspace(-this.shiftSize(2), this.shiftSize(2), this.numOfShiftScen(2))];
-                    isoShiftVec{3} = [0 linspace(-this.shiftSize(3), this.shiftSize(3), this.numOfShiftScen(3))];
+                    if(this.numOfShiftScen(1)>0)
+                        xVec = linspace(0, this.shiftSize(1), (this.numOfShiftScen(1)+1)/2);
+                        xVec(1)=[];
+                        isoShiftVec{1} = [0 -xVec xVec];
+                    else
+                      isoShiftVec{1}=0;  
+                    end
+                    if(this.numOfShiftScen(2)>0)
+                        yVec = linspace(0, this.shiftSize(2), (this.numOfShiftScen(2)+1)/2);
+                        yVec(1)=[];
+                        isoShiftVec{2} = [0 -yVec yVec];
+                    else
+                      isoShiftVec{2}=0;  
+                    end
+                    if(this.numOfShiftScen(3)>0)
+                        zVec = linspace(0, this.shiftSize(3), (this.numOfShiftScen(3)+1)/2);
+                        zVec(1)=[];
+                        isoShiftVec{3} = [0 -zVec zVec];
+                    else
+                      isoShiftVec{3}=0;  
+                    end
                 case 'sampled'
                     meanP = zeros(1,3); % mean (parameter)
                     if matRad_getEnvironment == 'MATLAB' rng('shuffle'), end;
