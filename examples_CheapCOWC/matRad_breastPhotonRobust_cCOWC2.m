@@ -57,7 +57,7 @@ end
 
 if run_config.robustness == "c-COWC"
     
-    run_config.numScens = 25;
+    run_config.numScens = 13;
     
     if ~exist('p1','var') || isempty(p1)
         run_config.p1 = 1;
