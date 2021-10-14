@@ -1,4 +1,4 @@
-function matRad_breastPhotonRobust_cCOWC2(robustness,beam_shaping_mode,mode, wcFactor,rootPath,p1,p2)
+function matRad_breastPhotonRobust_cCOWC2(robustness,beam_shaping_mode,mode, wcFactor,rootPath,sampling,p1,p2)
 %% Example: Photon Treatment Plan
 %
 % %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -21,7 +21,7 @@ function matRad_breastPhotonRobust_cCOWC2(robustness,beam_shaping_mode,mode, wcF
 % (iv) how to visually and quantitatively evaluate the result
 
 %%
-clearvars -except robustness beam_shaping_mode mode wcFactor rootPath p1 p2 ;
+clearvars -except robustness beam_shaping_mode mode wcFactor rootPath sampling p1 p2 ;
 clc;
 
 %% set matRad runtime configuration
@@ -76,6 +76,11 @@ if run_config.robustness == "c-COWC"
     run_config.beta2 = run_config.p2/run_config.numScens;
 end
 
+if ~exist('sampling','var') || isempty(sampling)
+    run_config.sampling = false;
+else
+    run_config.sampling = sampling;
+end
 run_config.sampling_mode = 'impScen';
 run_config.GammaCriterion = [3 3];
 %run_config.sampling_size = 50;
@@ -313,9 +318,9 @@ switch run_config.beam_shaping_mode
         multScen = matRad_multScen(ct,'wcScen');
         multScen.wcFactor=run_config.wcFactor;
         multScen.shiftSD = [4 6 8];
-        %multScen.rangeRelSD=0;
-        %multScen.rangeAbsSD=0;
-        %multScen.scenCombType = 'combined';
+        multScen.rangeRelSD=0;
+        multScen.rangeAbsSD=0;
+        multScen.scenCombType = 'combined';
     case "impScen"
         multScen = matRad_multScen(ct,'impScen'); 
         multScen.wcFactor=run_config.wcFactor;
@@ -323,10 +328,10 @@ switch run_config.beam_shaping_mode
         multScen.shiftSD = [4 6 8];
         multScen.shiftGenType = 'equidistant';
         multScen.shiftCombType='permuted_truncated';
-        %multScen.numOfRangeShiftScen=32;
-        %multScen.rangeRelSD=0;
-        %multScen.rangeAbsSD=0;
-        %multScen.scenCombType = 'combined';
+        multScen.numOfRangeShiftScen=32;
+        multScen.rangeRelSD=0;
+        multScen.rangeAbsSD=0;
+        multScen.scenCombType = 'combined';
         multScen.includeNomScen=true;
     otherwise
         multScen = matRad_multScen(ct,'nomScen');
@@ -349,7 +354,7 @@ stf = matRad_generateStf(ct,cst,pln);
 display(stf(6));
 
 %% retrieve scenarios for dose calculation and optimziation
-pln.multScen = matRad_multScen(ct,'nomScen');
+%pln.multScen = matRad_multScen(ct,'nomScen');
 
 %% Dose Calculation
 % Let's generate dosimetric information by pre-computing dose influence
@@ -365,6 +370,10 @@ dij = matRad_calcPhotonDose(ct,stf,pln,cst);
 % visualize the optimized dose cubes.
 resultGUI = matRad_fluenceOptimization(dij,cst,pln);
 %matRadGUI;
+
+%%
+matRad_visSpotWeights(stf,resultGUI.w);
+savefig([folderPath filesep 'fluence2.fig']);
 
 %% Plot dose distribution
 figure;
@@ -492,6 +501,11 @@ savefig([folderPath filesep 'OAR_dose3d_robust.fig']);
 %% Obtain dose statistics
 [dvh_robust,dqi_robust] = matRad_indicatorWrapper(cst,pln_robust,resultGUI_robust.physicalDose*pln_robust.numOfFractions,[],[],run_config.doseWindow_dvh);
 savefig([folderPath filesep 'dvh_robust.fig']);
+
+%% check sampling option is activated
+if run_config.sampling
+    return
+end
 
 %% Define sampling parameters
 % select structures to include in sampling; leave empty to sample dose for all structures
