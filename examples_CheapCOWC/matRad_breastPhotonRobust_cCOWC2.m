@@ -503,8 +503,8 @@ savefig([folderPath filesep 'OAR_dose3d_robust.fig']);
 savefig([folderPath filesep 'dvh_robust.fig']);
 
 %% check sampling option is activated
-if run_config.sampling
-    return
+if ~run_config.sampling
+    return;
 end
 
 %% Define sampling parameters
