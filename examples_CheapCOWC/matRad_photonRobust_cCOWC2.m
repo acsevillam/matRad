@@ -1,4 +1,4 @@
-function matRad_photonRobust_cCOWC2(description,plan_objectives,plan_target,plan_beams,shiftSD,robustness,beam_shapping_mode,scen_mode, wcFactor,rootPath,sampling,p1,p2)
+function matRad_photonRobust_cCOWC2(description,plan_objectives,plan_target,plan_beams,shiftSD,robustness,beam_shapping_mode,scen_mode,wcFactor,rootPath,sampling,p1,p2)
 %% Example: Photon Treatment Plan
 %
 % %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
