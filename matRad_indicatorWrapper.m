@@ -49,7 +49,7 @@ if ~exist('doseWindow', 'var')
 end
 
 dvh = matRad_calcDVH(cst,doseCube,'cum');
-qi  = matRad_calcQualityIndicators(cst,pln,doseCube,refGy,refVol);
+qi  = matRad_calcQualityIndicators(cst,pln,doseCube/pln.numOfFractions,refGy,refVol);
 
 x0=10;
 y0=10;
