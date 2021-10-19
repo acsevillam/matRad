@@ -20,7 +20,7 @@ function matRad_photonRobust_cCOWC2(description,plan_objectives,plan_beams,shift
 % (iii) how to inversely optimize beamlet intensities
 % (iv) how to visually and quantitatively evaluate the result
 
-%%
+%% Clear variables
 clearvars -except description plan_objectives plan_beams shiftSD robustness beam_shapping_mode scen_mode wcFactor rootPath sampling p1 p2 ;
 clc;
 
@@ -29,7 +29,6 @@ matRad_rc
 param.logLevel=1;
 
 %% Set examples parameters
-
 if ~exist('description','var') || isempty(description)
     run_config.description = 'prostate';
 else
@@ -112,8 +111,8 @@ if ~exist('sampling','var') || isempty(sampling)
 else
     run_config.sampling = sampling;
 end
-run_config.sampling_mode = 'impScen'; %'impScen_permuted_truncated';
-run_config.UncertaintyCriterion = 0.05;
+run_config.sampling_mode = 'impScen_permuted_truncated';
+run_config.UncertaintyCriterion = 0.03;
 run_config.GammaCriterion = [3 3];
 %run_config.sampling_size = 50;
 run_config.sampling_wcFactor = 2.0;
@@ -149,7 +148,7 @@ diary on
 % search path.
 [ct,cst] = matRad_loadGeometry(run_config);
 
-%% print run config
+%% Print run config
 display(run_config);
 
 %% Create the VOI data for the phantom
@@ -158,7 +157,7 @@ display(run_config);
 [cst,ixTarget,p,ixBody,ixCTV] = matRad_loadObjectives(run_config,'CTV',cst);
 display(cst{ixTarget,6});
 
-%% plot CT slice
+%% Plot CT slice
 if param.logLevel == 1
     
     figure('Renderer', 'painters', 'Position', [10 10 300*ct.numOfCtScen 400]);
@@ -196,7 +195,7 @@ clear  numScen plane slice ans f b;
 
 savefig([folderPath filesep 'ct.fig']);
 
-%% set plot and histograms window
+%% Set plot and histograms window
 run_config.doseWindow = [0 p*1.25];
 run_config.doseWindow_dvh = [0 p*1.6];
 run_config.doseWindow_uncertainty = [0 p*0.5];
@@ -260,7 +259,7 @@ modelName      = 'none';
 %% Load beams and couch setup
 [pln] = matRad_loadBeams(run_config,pln,ct,cst);
 
-%% dose calculation settings
+%% Dose calculation settings
 % set resolution of dose calculation and optimization
 switch run_config.resolution
     case '3x3x3'
@@ -284,7 +283,7 @@ pln.bioParam = matRad_bioModel(pln.radiationMode,quantityOpt, modelName);
 %% Generate dummy scenarios for beam shaping
 [multScen] = matRad_multiScenGenerator(run_config.beam_shapping_mode,run_config,'optimization',ct);
 
-%% save multi scenarios to plan
+%% Save multi-scenarios to plan
 pln.multScen=multScen;
 
 %%
@@ -300,7 +299,7 @@ stf = matRad_generateStf(ct,cst,pln);
 % Let's display the beam geometry information of the 6th beam
 display(stf(1));
 
-%% retrieve scenarios for dose calculation and optimziation
+%% Retrieve nominal scenario for dose calculation and optimziation reference
 pln.multScen = matRad_multScen(ct,'nomScen');
 
 %% Dose Calculation
@@ -322,7 +321,7 @@ resultGUI = matRad_fluenceOptimization(dij,cst,pln);
 w_nominal=resultGUI.w;
 f_nominal = matRad_calcObjectiveFunction(w_nominal,dij,cst,pln);
 
-%%
+%% Plot nominal fluence
 matRad_visSpotWeights(stf,resultGUI.w);
 savefig([folderPath filesep 'fluence_nominal.fig']);
 
@@ -414,7 +413,7 @@ results.performance.OPTTime_robust=OPTTime_robust;
 w_robust=resultGUI_robust.w;
 f_robust = matRad_calcObjectiveFunction(w_robust,dij,cst,pln);
 
-%%
+%% Plot robust fluence
 matRad_visSpotWeights(stf,resultGUI_robust.w);
 savefig([folderPath filesep 'fluence_robust.fig']);
 
@@ -496,15 +495,15 @@ savefig([folderPath filesep 'uncertainty.fig']);
 %% Plot uncertainty distribution
 figure;
 matRad_geo3DWrapper(gca,ct,cst,resultGUISamp.stdCube*pln.numOfFractions,run_config.doseWindow_uncertainty,[0.005 0.00005],colorcube,[],'Dose uncertainty [Gy]');
-savefig([folderPath filesep 'uncertainty3d_robust.fig']);
+savefig([folderPath filesep 'uncertainty3d.fig']);
 
 %% Plot target uncertainty distribution
 figure;
 matRad_geo3DWrapper(gca,ct,cst,resultGUISamp.stdCube.*target_mask*pln.numOfFractions,run_config.doseWindow_uncertainty,[0.01 0.00005],colorcube,[],'Dose uncertainty [Gy]');
-savefig([folderPath filesep 'uncertainty3d_target_robust.fig']);
-%%
+savefig([folderPath filesep 'target_uncertainty3d_robust.fig']);
+%% calc
 resultGUISamp.uncertaintyAnalysis.relativeUncertaintyCube = (resultGUISamp.stdCube./resultGUISamp.meanCube);
-resultGUISamp.uncertaintyAnalysis.robustnessViolationCube(isnan(resultGUISamp.uncertaintyAnalysis.robustnessViolationCube))=max(resultGUISamp.uncertaintyAnalysis.relativeUncertaintyCube(:));
+resultGUISamp.uncertaintyAnalysis.relativeUncertaintyCube(isnan(resultGUISamp.uncertaintyAnalysis.relativeUncertaintyCube))=max(resultGUISamp.uncertaintyAnalysis.relativeUncertaintyCube(:));
 
 %% STD dose based on sampling
 figure;
@@ -520,7 +519,7 @@ savefig([folderPath filesep 'relative_uncertainty3d.fig']);
 %%
 resultGUISamp.uncertaintyAnalysis.robustnessViolationCube = resultGUISamp.uncertaintyAnalysis.relativeUncertaintyCube>run_config.UncertaintyCriterion;
 
-%% uncertainty index based on sampling
+%% Plot robustness violation based on sampling
 figure;
 matRad_plotSliceWrapper(gca,ct,cst,1,resultGUISamp.uncertaintyAnalysis.relativeUncertaintyCube>0.5,plane,slice,[],[],colorcube,[],[0 2],[],[],'Relative uncertainty violation');
 savefig([folderPath filesep 'robustness_violation.fig']);
@@ -528,12 +527,12 @@ savefig([folderPath filesep 'robustness_violation.fig']);
 %% uncertainty index distribution
 figure;
 matRad_geo3DWrapper(gca,ct,cst,resultGUISamp.uncertaintyAnalysis.robustnessViolationCube,[0 1],[0.05 0.00005],colorcube,[],'Relative uncertainty violation');
-savefig([folderPath filesep 'relative_uncertainty3d.fig']);
+savefig([folderPath filesep 'robustness_violation3d.fig']);
 
 %% Plot target uncertainty index distribution
 figure;
 matRad_geo3DWrapper(gca,ct,cst,resultGUISamp.uncertaintyAnalysis.robustnessViolationCube.*target_mask,[0 1],[0.05 0.00005],colorcube,[],'Relative uncertainty violation');
-savefig([folderPath filesep 'robustness_target_violation3d.fig']);
+savefig([folderPath filesep 'target_robustness_violation3d.fig']);
 
 %% Uncertainty volume histogram (UVH)
 resultGUISamp.physicalDose=resultGUISamp.stdCube;
