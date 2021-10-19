@@ -173,6 +173,7 @@ display(run_config);
 % Now we define structures a contour for the phantom and a target
 % define optimization parameter for both VOIs
 [cst,ixTarget,p,ixBody,ixCTV] = matRad_loadObjectives(run_config,'CTV',cst);
+cst_nominal=cst;
 
 %% Print target objectives
 display(cst{ixTarget,2});
@@ -342,7 +343,7 @@ resultGUI = matRad_fluenceOptimization(dij,cst,pln);
 
 %% Evaluating nominal solution
 w_nominal=resultGUI.w;
-f_nominal = matRad_calcObjectiveFunction(w_nominal,dij,cst,pln);
+f_nominal = matRad_calcObjectiveFunction(w_nominal,dij,cst_nominal,pln);
 
 %% Plot nominal fluence
 matRad_visSpotWeights(stf,resultGUI.w);
@@ -439,7 +440,7 @@ results.performance.OPTTime_robust=OPTTime_robust;
 
 %% Evaluating robust solution
 w_robust=resultGUI_robust.w;
-f_robust = matRad_calcObjectiveFunction(w_robust,dij,cst,pln);
+f_robust = matRad_calcObjectiveFunction(w_robust,dij,cst_nominal,pln);
 
 %% Plot robust fluence
 matRad_visSpotWeights(stf,resultGUI_robust.w);
