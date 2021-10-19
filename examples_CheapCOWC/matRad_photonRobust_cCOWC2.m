@@ -161,7 +161,12 @@ display(run_config);
 % Now we define structures a contour for the phantom and a target
 % define optimization parameter for both VOIs
 [cst,ixTarget,p,ixBody,ixCTV] = matRad_loadObjectives(run_config,'CTV',cst);
-display(cst{ixTarget,6});
+
+%% Print target objectives
+display(cst{ixTarget,2});
+for i=1:length(cst{ixTarget,6})
+    display(cst{ixTarget,6}{i});
+end
 
 %% Plot CT slice
 if param.logLevel == 1
@@ -382,7 +387,12 @@ results.performance.DCTime_robust=DCTime_robust;
 % Now we define structures a contour for the phantom and a target
 % define optimization parameter for both VOIs
 [cst,ixTarget,p,ixBody,ixCTV] = matRad_loadObjectives(run_config,run_config.plan_target,cst);
-display(cst{ixTarget,6});
+
+%% Print target objectives
+display(cst{ixTarget,2});
+for i=1:length(cst{ixTarget,6})
+    display(cst{ixTarget,6}{i});
+end
 
 %% Trigger robust optimization
 % Make the objective to a composite worst case objective
@@ -507,9 +517,10 @@ savefig([folderPath filesep 'uncertainty3d.fig']);
 figure;
 matRad_geo3DWrapper(gca,ct,cst,resultGUISamp.stdCube.*target_mask*pln.numOfFractions,run_config.doseWindow_uncertainty,[0.01 0.00005],colorcube,[],'Dose uncertainty [Gy]');
 savefig([folderPath filesep 'target_uncertainty3d_robust.fig']);
+
 %% calc
 resultGUISamp.uncertaintyAnalysis.relativeUncertaintyCube = (resultGUISamp.stdCube./resultGUISamp.meanCube);
-resultGUISamp.uncertaintyAnalysis.relativeUncertaintyCube(isnan(resultGUISamp.uncertaintyAnalysis.relativeUncertaintyCube))=max(resultGUISamp.uncertaintyAnalysis.relativeUncertaintyCube(:));
+%resultGUISamp.uncertaintyAnalysis.relativeUncertaintyCube(isnan(resultGUISamp.uncertaintyAnalysis.relativeUncertaintyCube))=max(resultGUISamp.uncertaintyAnalysis.relativeUncertaintyCube(:));
 
 %% STD dose based on sampling
 figure;
