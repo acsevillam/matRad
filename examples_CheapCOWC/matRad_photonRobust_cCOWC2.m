@@ -1,4 +1,4 @@
-function matRad_photonRobust_cCOWC2(description,plan_objectives,plan_beams,shiftSD,robustness,beam_shapping_mode,scen_mode, wcFactor,rootPath,sampling,p1,p2)
+function matRad_photonRobust_cCOWC2(description,plan_objectives,plan_target,plan_beams,shiftSD,robustness,beam_shapping_mode,scen_mode, wcFactor,rootPath,sampling,p1,p2)
 %% Example: Photon Treatment Plan
 %
 % %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -21,7 +21,7 @@ function matRad_photonRobust_cCOWC2(description,plan_objectives,plan_beams,shift
 % (iv) how to visually and quantitatively evaluate the result
 
 %% Clear variables
-clearvars -except description plan_objectives plan_beams shiftSD robustness beam_shapping_mode scen_mode wcFactor rootPath sampling p1 p2 ;
+clearvars -except description plan_objectives plan_target plan_beams shiftSD robustness beam_shapping_mode scen_mode wcFactor rootPath sampling p1 p2 ;
 clc;
 
 %% set matRad runtime configuration
@@ -40,6 +40,12 @@ if ~exist('plan_objectives','var') || isempty(plan_objectives)
     run_config.plan_objectives = '1';
 else
     run_config.plan_objectives = plan_objectives;
+end
+
+if ~exist('plan_target','var') || isempty(plan_target)
+    run_config.plan_target = 'CTV';
+else
+    run_config.plan_target = plan_target;
 end
 
 if ~exist('plan_beams','var') || isempty(plan_beams)
@@ -375,7 +381,7 @@ results.performance.DCTime_robust=DCTime_robust;
 %% Create the VOI data for the phantom
 % Now we define structures a contour for the phantom and a target
 % define optimization parameter for both VOIs
-[cst,ixTarget,p,ixBody,ixCTV] = matRad_loadObjectives(run_config,'PTV',cst);
+[cst,ixTarget,p,ixBody,ixCTV] = matRad_loadObjectives(run_config,run_config.plan_target,cst);
 display(cst{ixTarget,6});
 
 %% Trigger robust optimization
