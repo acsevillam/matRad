@@ -1,4 +1,4 @@
-function matRad_photonRobust_cCOWC2(description,plan_objectives,plan_target,plan_beams,shiftSD,robustness,beam_shapping_mode,scen_mode,wcFactor,rootPath,sampling,p1,p2)
+function matRad_photonRobust_cCOWC2(description,plan_objectives,plan_target,plan_beams,shiftSD,robustness,beam_shapping_mode,scen_mode,wcFactor,rootPath,sampling,sampling_mode,sampling_wcFactor,p1,p2)
 %% Example: Photon Treatment Plan
 %
 % %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -21,7 +21,7 @@ function matRad_photonRobust_cCOWC2(description,plan_objectives,plan_target,plan
 % (iv) how to visually and quantitatively evaluate the result
 
 %% Clear variables
-clearvars -except description plan_objectives plan_target plan_beams shiftSD robustness beam_shapping_mode scen_mode wcFactor rootPath sampling p1 p2 ;
+clearvars -except description plan_objectives plan_target plan_beams shiftSD robustness beam_shapping_mode scen_mode wcFactor rootPath sampling sampling_mode sampling_wcFactor p1 p2 ;
 clc;
 
 %% set matRad runtime configuration
@@ -117,11 +117,23 @@ if ~exist('sampling','var') || isempty(sampling)
 else
     run_config.sampling = sampling;
 end
-run_config.sampling_mode = 'impScen_permuted_truncated';
+
+if ~exist('sampling_mode','var') || isempty(sampling_mode)
+    run_config.sampling_mode = 'impScen_permuted_truncated';
+else
+    run_config.sampling_mode = sampling_mode;
+end
+
+if ~exist('sampling_wcFactor','var') || isempty(sampling_wcFactor)
+    run_config.sampling_wcFactor = 2.0;
+else
+    run_config.sampling_wcFactor = sampling_wcFactor;
+end
+
 run_config.UncertaintyCriterion = 0.03;
 run_config.GammaCriterion = [3 3];
-%run_config.sampling_size = 50;
-run_config.sampling_wcFactor = 2.0;
+run_config.sampling_size = 50;
+
 
 if ~exist('rootPath','var') || isempty(rootPath)
     run_config.rootPath = matRad_cfg.matRadRoot;
