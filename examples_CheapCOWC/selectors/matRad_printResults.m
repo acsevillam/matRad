@@ -15,15 +15,15 @@ switch patient
         % Rectum
         disp('Rectum evaluation');
         results.structures{3,1}=cst{3,2};
-        V40Bladder=sprintf('V40: %.2f [%.2f - %.2f] %%',dqi_sampled{1,1}(2).V_1_03Gy*100,dqi_sampled{1,2}(2).V_1_03Gy*100,dqi_sampled{1,3}(2).V_1_03Gy*100); disp(V40Bladder);
-        results.structures{2,2}.V_40.nom=dqi_sampled{1,1}(2).V_1_03Gy*100;
-        results.structures{2,2}.V_40.min=dqi_sampled{1,2}(2).V_1_03Gy*100;
-        results.structures{2,2}.V_40.max=dqi_sampled{1,3}(2).V_1_03Gy*100;
+        V40Rectum=sprintf('V40: %.2f [%.2f - %.2f] %%',dqi_sampled{1,1}(3).V_1_03Gy*100,dqi_sampled{1,2}(3).V_1_03Gy*100,dqi_sampled{1,3}(3).V_1_03Gy*100); disp(V40Rectum);
+        results.structures{3,2}.V_40.nom=dqi_sampled{1,1}(3).V_1_03Gy*100;
+        results.structures{3,2}.V_40.min=dqi_sampled{1,2}(3).V_1_03Gy*100;
+        results.structures{3,2}.V_40.max=dqi_sampled{1,3}(3).V_1_03Gy*100;
 
-        V50Bladder=sprintf('V50: %.2f [%.2f - %.2f] %%\n',dqi_sampled{1,1}(2).V_1_28Gy*pln.numOfFractions,dqi_sampled{1,2}(2).V_1_28Gy*pln.numOfFractions,dqi_sampled{1,3}(2).V_1_28Gy*pln.numOfFractions); disp(V50Bladder);
-        results.structures{2,2}.V_50.nom=dqi_sampled{1,1}(2).V_1_28Gy*pln.numOfFractions;
-        results.structures{2,2}.V_50.min=dqi_sampled{1,2}(2).V_1_28Gy*pln.numOfFractions;
-        results.structures{2,2}.V_50.max=dqi_sampled{1,3}(2).V_1_28Gy*pln.numOfFractions;
+        V50Rectum=sprintf('V50: %.2f [%.2f - %.2f] %%\n',dqi_sampled{1,1}(3).V_1_28Gy*100,dqi_sampled{1,2}(3).V_1_28Gy*100,dqi_sampled{1,3}(3).V_1_28Gy*100); disp(V50Rectum);
+        results.structures{3,2}.V_50.nom=dqi_sampled{1,1}(3).V_1_28Gy*100;
+        results.structures{3,2}.V_50.min=dqi_sampled{1,2}(3).V_1_28Gy*100;
+        results.structures{3,2}.V_50.max=dqi_sampled{1,3}(3).V_1_28Gy*100;
         
 	case 'breast'
         % Contralateral Lung
