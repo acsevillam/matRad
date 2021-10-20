@@ -39,10 +39,8 @@ end
 % specified
 hold on;
 
-%reduce cst
-visibleIx = cellfun(@(c) c.Visible == 1,cst(:,5));
-cstNames = cst(visibleIx,2);
-cstInfo = cst(visibleIx,5);
+cstNames = cst(:,2);
+cstInfo = cst(:,5);
 
 numOfVois = numel(cstNames);
         
