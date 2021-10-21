@@ -124,7 +124,7 @@ else
     run_config.sampling_wcFactor = sampling_wcFactor;
 end
 
-run_config.UncertaintyCriterion = 0.03;
+run_config.UncertaintyCriterion = 0.05;
 run_config.GammaCriterion = [3 3];
 run_config.sampling_size = 50;
 
