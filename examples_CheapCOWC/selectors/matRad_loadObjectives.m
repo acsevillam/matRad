@@ -16,6 +16,7 @@ switch patient
             % CTV
             p=78;
             ixCTV = 7;
+            cst{ixCTV,3}  = 'TARGET';
             cst{ixCTV,5}.Priority = 1; % overlap priority for optimization - a lower number corresponds to a higher priority
             cst{ixCTV,6}{1} = struct(DoseObjectives.matRad_MinDVH(200,78,99));
             cst{ixCTV,6}{1}.robustness  = 'none';
@@ -24,25 +25,35 @@ switch patient
 
             % PTV
             ixTarget = 8;
-            cst{ixTarget,5}.Priority = 2; % overlap priority for optimization - a lower number corresponds to a higher priority
-            cst{ixTarget,6}{1} = struct(DoseObjectives.matRad_MinDVH(200,78,95));
-            cst{ixTarget,6}{1}.robustness  = 'none';
-            cst{ixTarget,6}{2} = struct(DoseObjectives.matRad_MaxDVH(200,81,5));
-            cst{ixTarget,6}{2}.robustness  = 'none';
-            cst{ixTarget,6}{3} = struct(DoseObjectives.matRad_MaxDVH(200,83.5,0));
-            cst{ixTarget,6}{3}.robustness  = 'none'; 
-            %cst{ixTarget,6}{4} = struct(DoseConstraints.matRad_MinMaxDVH(p,95,100));
+            if exist('cst{ixTarget,3}','var') && ~isempty(cst{ixTarget,3})
+                cst{ixTarget,3}  = 'TARGET';
+                cst{ixTarget,5}.Priority = 2; % overlap priority for optimization - a lower number corresponds to a higher priority
+                cst{ixTarget,6}{1} = struct(DoseObjectives.matRad_MinDVH(200,78,95));
+                cst{ixTarget,6}{1}.robustness  = 'none';
+                cst{ixTarget,6}{2} = struct(DoseObjectives.matRad_MaxDVH(200,81,5));
+                cst{ixTarget,6}{2}.robustness  = 'none';
+                cst{ixTarget,6}{3} = struct(DoseObjectives.matRad_MaxDVH(200,83.5,0));
+                cst{ixTarget,6}{3}.robustness  = 'none'; 
+                %cst{ixTarget,6}{4} = struct(DoseConstraints.matRad_MinMaxDVH(p,95,100));
+            end
         else
             % CTV
             p=78;
             ixCTV = 7;
             ixTarget = 7;
+            cst{ixTarget,3}  = 'TARGET';
             cst{ixTarget,5}.Priority = 1; % overlap priority for optimization - a lower number corresponds to a higher priority
             cst{ixTarget,6}{1} = struct(DoseObjectives.matRad_MinDVH(200,78,99));
             cst{ixTarget,6}{1}.robustness  = 'none';
             cst{ixTarget,6}{2} = struct(DoseObjectives.matRad_SquaredDeviation(800,p));
             cst{ixTarget,6}{2}.robustness  = 'none';
             %cst{ixTarget,6}{3} = struct(DoseConstraints.matRad_MinMaxDVH(p,95,100));
+            
+            %PTV
+            ixPTV = 8;
+            if exist('cst{ixTarget,3}','var') && ~isempty(cst{ixTarget,3})
+                cst{ixPTV,3}  = 'OAR';
+            end
         end
         
         switch plan_objectives
