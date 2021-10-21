@@ -64,6 +64,8 @@ f_COWC = zeros(size(dij.physicalDose));
 %For CheapCOWC
 f_CheapCOWC = zeros(size(dij.physicalDose));
 
+ixCTV=0;
+
 % compute objective function for every VOI.
 for  i = 1:size(cst,1)
    
@@ -268,6 +270,8 @@ for  i = 1:size(cst,1)
 
                     case 'c-COWC' % composite worst case consideres ovarall the worst objective function value
                         
+                        ixCTV = i;
+                        
                         %First check the speficic cache for CheapCOWC
                         if ~exist('delta_CheapCOWC','var')
                             delta_CheapCOWC             = cell(size(doseGradient));
@@ -324,16 +328,16 @@ end
 
 if exist('delta_CheapCOWC','var')
     
-    beta2=cst{6,8}{1}.beta2;
-    p2 = cst{6,8}{1}.p2;
+    beta2=cst{ixCTV,8}{1}.beta2;
+    p2 = cst{ixCTV,8}{1}.p2;
     %p2=ceil(beta*numel(useScen));
     
     [~,ixKp2] = maxk(f_CheapCOWC(:),p2);
     fGrad = zeros(size(f_CheapCOWC));
     fGrad(ixKp2) = 1;
     
-    beta1 = cst{6,8}{1}.beta1;
-    p1 = cst{6,8}{1}.p1;
+    beta1 = cst{ixCTV,8}{1}.beta1;
+    p1 = cst{ixCTV,8}{1}.p1;
     %p1=ceil(beta1*numel(useScen));
     
     if (p1 > 1)

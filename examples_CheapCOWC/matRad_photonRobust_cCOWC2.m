@@ -373,6 +373,12 @@ savefig([folderPath filesep 'dvh_nominal.fig']);
 cst_robust=cst;
 [cst_robust,ixTarget,p,ixBody,ixCTV] = matRad_loadObjectives(run_config,run_config.plan_target,cst_robust);
 
+%% Print target objectives
+display(cst_robust{ixTarget,2});
+for i=1:length(cst_robust{ixTarget,6})
+    display(cst_robust{ixTarget,6}{i});
+end
+
 %% Copy reference plan
 pln_robust=pln;
 
@@ -400,12 +406,6 @@ dij_robust = matRad_calcPhotonDose(ct,stf_robust,pln_robust,cst_robust);
 DCTime_robust = toc(now1);
 time1=sprintf('DCTime_robust: %.2f\n',DCTime_robust); disp(time1);
 results.performance.DCTime_robust=DCTime_robust;
-
-%% Print target objectives
-display(cst_robust{ixTarget,2});
-for i=1:length(cst_robust{ixTarget,6})
-    display(cst_robust{ixTarget,6}{i});
-end
 
 %% Trigger robust optimization
 % Make the objective to a composite worst case objective
