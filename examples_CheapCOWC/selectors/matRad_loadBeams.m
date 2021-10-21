@@ -11,6 +11,11 @@ switch patient
                 pln.propStf.gantryAngles   = [0:72:359];
                 pln.propStf.couchAngles    = zeros(1,numel(pln.propStf.gantryAngles));
                 pln.propStf.bixelWidth     = 5;
+            case '7F'
+                pln.numOfFractions         = 39;
+                pln.propStf.gantryAngles   = [0 60 100 140 220 260 300];
+                pln.propStf.couchAngles    = zeros(1,numel(pln.propStf.gantryAngles));
+                pln.propStf.bixelWidth     = 5;
             case '9F'
                 pln.numOfFractions         = 39;
                 pln.propStf.gantryAngles   = [0:40:359];

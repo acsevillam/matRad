@@ -172,7 +172,7 @@ display(run_config);
 %% Create the VOI data for the phantom
 % Now we define structures a contour for the phantom and a target
 % define optimization parameter for both VOIs
-[cst,ixTarget,p,ixBody,ixCTV] = matRad_loadObjectives(run_config,run_config.plan_target,cst);
+[cst,ixTarget,p,ixBody,ixCTV] = matRad_loadObjectives(run_config,'CTV',cst);
 cst_nominal=cst;
 
 %% Print target objectives
