@@ -14,11 +14,11 @@ function [ct,cst] = matRad_loadGeometry(run_config)
             end  
         case 'breast'
             if(resolution=="3x3x3")
-                load('patient3_3x3x3mm.mat');
+                load('patient2_3x3x3mm.mat');
             end
 
             if(resolution=="5x5x5")
-                load('patient3_5x5x5mm.mat');
+                load('patient2_5x5x5mm.mat');
             end    
     end
 

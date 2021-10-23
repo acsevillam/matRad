@@ -136,9 +136,9 @@ else
 end
 
 if run_config.robustness == "c-COWC"
-    output_folder = ['output' filesep run_config.description filesep run_config.robustness filesep num2str(run_config.beta1) '_to_' num2str(run_config.beta2) filesep run_config.scen_mode filesep datestr(datetime,'yyyy-mm-dd HH-MM-SS')];
+    output_folder = ['output' filesep run_config.description filesep run_config.robustness filesep run_config.plan_beams filesep run_config.plan_objectives filesep run_config.scen_mode filesep num2str(run_config.beta1) '_to_' num2str(run_config.beta2) filesep datestr(datetime,'yyyy-mm-dd HH-MM-SS')];
 else
-    output_folder = ['output' filesep run_config.description filesep run_config.robustness filesep run_config.scen_mode filesep datestr(datetime,'yyyy-mm-dd HH-MM-SS')];
+    output_folder = ['output' filesep run_config.description filesep run_config.robustness filesep run_config.plan_beams filesep run_config.plan_objectives filesep run_config.scen_mode filesep datestr(datetime,'yyyy-mm-dd HH-MM-SS')];
 end
 
 %Set up parent export folder and full file path
@@ -216,7 +216,7 @@ savefig([folderPath filesep 'ct.fig']);
 run_config.doseWindow = [0 p*1.25];
 run_config.doseWindow_dvh = [0 p*1.6];
 run_config.doseWindow_uncertainty = [0 p*0.5];
-run_config.doseWindow_relative_uncertainty1 = [0 100];
+run_config.doseWindow_relative_uncertainty1 = [0 1];
 run_config.doseWindow_relative_uncertainty2 = [0 0.5];
 run_config.doseWindow_uvh = [0 p*0.5];
 run_config.gammaWindow = [0 1];
@@ -525,15 +525,15 @@ savefig([folderPath filesep 'dvh_robust_multiscen.fig']);
 %% Dose volume histogram (DVH)
 resultGUISamp_ul=[];
 resultGUISamp_ul.physicalDose=resultGUI_robust.physicalDose;
-resultGUISamp_ul.physicalDose_lower=resultGUISamp.meanCube-resultGUISamp.stdCube;
-resultGUISamp_ul.physicalDose_upper=resultGUISamp.meanCube+resultGUISamp.stdCube;
+resultGUISamp_ul.physicalDose_lower=resultGUISamp.meanCubeW-resultGUISamp.stdCubeW;
+resultGUISamp_ul.physicalDose_upper=resultGUISamp.meanCubeW+resultGUISamp.stdCubeW;
 [dvh_sampled,dqi_sampled] = matRad_indicatorWrapper_sampled(cst_robust,pln_robust,resultGUISamp_ul,[10,20,30,40,50,60,70,80]/pln_robust.numOfFractions,[2,5,10,20,30,40,50,60,70,80,90,95,98],run_config.doseWindow_dvh);
 savefig([folderPath filesep 'dvh_robust_trustband.fig']);
 
 %% Create an interactive plot to slide through axial slices
-quantityMap='stdCube';
+quantityMap='stdCubeW';
 plane      = 3;
-doseWindow = [0 max([max(resultGUISamp.stdCube(:)*pln_robust.numOfFractions) run_config.doseWindow_uncertainty(2)])];
+doseWindow = [0 max([max(resultGUISamp.stdCubeW(:)*pln_robust.numOfFractions) run_config.doseWindow_uncertainty(2)])];
 doseIsoLevels = 0; %linspace(0.1 * maxDose,maxDose,10);
 f = figure;
 title([quantityMap]);
@@ -549,47 +549,75 @@ savefig([folderPath filesep 'uncertainty.fig']);
 
 %% Plot uncertainty distribution
 figure;
-matRad_geo3DWrapper(gca,ct,cst_robust,resultGUISamp.stdCube*pln.numOfFractions,run_config.doseWindow_uncertainty,[0.005 0.00005],colorcube,[],'Dose uncertainty [Gy]');
+matRad_geo3DWrapper(gca,ct,cst_robust,resultGUISamp.stdCubeW*pln_robust.numOfFractions,run_config.doseWindow_uncertainty,[0.2/run_config.doseWindow_uncertainty(2) 0.05/2000],colorcube,[],'Dose uncertainty [Gy]');
 savefig([folderPath filesep 'uncertainty3d.fig']);
 
 %% Plot target uncertainty distribution
 figure;
-matRad_geo3DWrapper(gca,ct,cst_robust,resultGUISamp.stdCube.*target_mask*pln.numOfFractions,run_config.doseWindow_uncertainty,[0.1 0.00005],colorcube,[],'Dose uncertainty [Gy]');
+matRad_geo3DWrapper(gca,ct,cst_robust,resultGUISamp.stdCubeW.*target_mask*pln_robust.numOfFractions,run_config.doseWindow_uncertainty,[0.1 0.00005],colorcube,[],'Dose uncertainty [Gy]');
 savefig([folderPath filesep 'target_uncertainty3d_robust.fig']);
 
 %% Calculate relative uncertainty
-resultGUISamp.uncertaintyAnalysis.relativeUncertaintyCube = (resultGUISamp.stdCube./resultGUISamp.meanCube);
+%resultGUISamp.uncertaintyAnalysis.relativeUncertaintyCube = (resultGUISamp.stdCubeW./resultGUISamp.meanCubeW);
+resultGUISamp.uncertaintyAnalysis.relativeUncertaintyCube = (resultGUISamp.stdCubeW*pln_robust.numOfFractions/p);
 
 %% Create an interactive plot to slide through axial slices
 analysis='uncertaintyAnalysis';
 quantityMap='relativeUncertaintyCube';
 plane      = 3;
-doseWindow = [0 max([max(resultGUISamp.(analysis).(quantityMap)(:)*pln_robust.numOfFractions) run_config.doseWindow_relative_uncertainty1(2)])];
+doseWindow = [0 max([max(resultGUISamp.(analysis).(quantityMap)(:)) run_config.doseWindow_relative_uncertainty1(2)])];
 doseIsoLevels = 0; %linspace(0.1 * maxDose,maxDose,10);
 f = figure;
 title([quantityMap]);
 set(gcf,'position',[10,10,550,400]);
 numSlices = ct.cubeDim(3);
 slice = round(pln_robust.propStf.isoCenter(1,3)./ct.resolution.z);
-matRad_plotSliceWrapper(gca,ct,cst_robust,1,resultGUISamp.(analysis).(quantityMap)*pln_robust.numOfFractions,plane,slice,[],[],colorcube,[],doseWindow,doseIsoLevels,[],'Relative uncertainty');
+matRad_plotSliceWrapper(gca,ct,cst_robust,1,resultGUISamp.(analysis).(quantityMap),plane,slice,[],[],colorcube,[],doseWindow,doseIsoLevels,[],'Relative uncertainty');
 b = uicontrol('Parent',f,'Style','slider','Position',[50,5,420,23],...
       'value',slice, 'min',1, 'max',numSlices,'SliderStep', [1/(numSlices-1) , 1/(numSlices-1)]);
-b.Callback = @(es,ed)  matRad_plotSliceWrapper(gca,ct,cst_robust,1,resultGUISamp.(analysis).(quantityMap)*pln_robust.numOfFractions,plane,round(es.Value),[],[],colorcube,[],doseWindow,doseIsoLevels,[],'Relative uncertainty');
+b.Callback = @(es,ed)  matRad_plotSliceWrapper(gca,ct,cst_robust,1,resultGUISamp.(analysis).(quantityMap),plane,round(es.Value),[],[],colorcube,[],doseWindow,doseIsoLevels,[],'Relative uncertainty');
 
 savefig([folderPath filesep 'relative_uncertainty.fig']);   
 
 %% Plot uncertainty distribution
 figure;
-matRad_geo3DWrapper(gca,ct,cst_robust,resultGUISamp.uncertaintyAnalysis.relativeUncertaintyCube*pln.numOfFractions,run_config.doseWindow_relative_uncertainty1,[0.005 0.00005],colorcube,[],'Relative uncertainty');
+matRad_geo3DWrapper(gca,ct,cst_robust,resultGUISamp.uncertaintyAnalysis.relativeUncertaintyCube,run_config.doseWindow_relative_uncertainty1,[0.2/run_config.doseWindow_relative_uncertainty1(2) 0.05/2000],colorcube,[],'Relative uncertainty');
 savefig([folderPath filesep 'relative_uncertainty3d.fig']);
 
+%% Calculate relative deviation mean to nominal
+%resultGUISamp.uncertaintyAnalysis.relativeMeanDeviationCube = ((resultGUISamp.meanCubeW*pln_robust.numOfFractions-resultGUInomScen.physicalDose).^2).^0.5./(resultGUISamp.meanCubeW*pln_robust.numOfFractions);
+resultGUISamp.uncertaintyAnalysis.relativeMeanDeviationCube = ((resultGUISamp.meanCubeW*pln_robust.numOfFractions-p*(resultGUISamp.meanCubeW>0)).^2).^0.5/p;
+
+%% Create an interactive plot to slide through axial slices
+analysis='uncertaintyAnalysis';
+quantityMap='relativeMeanDeviationCube';
+plane      = 3;
+doseWindow = [0 max([max(resultGUISamp.(analysis).(quantityMap)(:)) run_config.doseWindow_relative_uncertainty1(2)])];
+doseIsoLevels = 0; %linspace(0.1 * maxDose,maxDose,10);
+f = figure;
+title([quantityMap]);
+set(gcf,'position',[10,10,550,400]);
+numSlices = ct.cubeDim(3);
+slice = round(pln_robust.propStf.isoCenter(1,3)./ct.resolution.z);
+matRad_plotSliceWrapper(gca,ct,cst_robust,1,resultGUISamp.(analysis).(quantityMap),plane,slice,[],[],colorcube,[],doseWindow,doseIsoLevels,[],'Relative mean deviation');
+b = uicontrol('Parent',f,'Style','slider','Position',[50,5,420,23],...
+      'value',slice, 'min',1, 'max',numSlices,'SliderStep', [1/(numSlices-1) , 1/(numSlices-1)]);
+b.Callback = @(es,ed)  matRad_plotSliceWrapper(gca,ct,cst_robust,1,resultGUISamp.(analysis).(quantityMap),plane,round(es.Value),[],[],colorcube,[],doseWindow,doseIsoLevels,[],'Relative mean deviation');
+
+savefig([folderPath filesep 'relative_mean_deviation.fig']);   
+
+%% Plot uncertainty distribution
+figure;
+matRad_geo3DWrapper(gca,ct,cst_robust,resultGUISamp.uncertaintyAnalysis.relativeMeanDeviationCube,run_config.doseWindow_relative_uncertainty1,[0.2/run_config.doseWindow_relative_uncertainty1(2) 0.05/2000],colorcube,[],'Relative mean deviation');
+savefig([folderPath filesep 'relative_mean_deviation3d.fig']);
+
 %% Calculate robustness violation cube
-resultGUISamp.uncertaintyAnalysis.robustnessViolationCube = resultGUISamp.uncertaintyAnalysis.relativeUncertaintyCube>run_config.UncertaintyCriterion;
-resultGUISamp.uncertaintyAnalysis.robustnessViolationCube(isnan(resultGUISamp.uncertaintyAnalysis.robustnessViolationCube))=max(resultGUISamp.uncertaintyAnalysis.robustnessViolationCube(:));
+resultGUISamp.uncertaintyAnalysis.robustnessViolationCube = logical(resultGUISamp.meanCubeW>0) & (logical(resultGUISamp.uncertaintyAnalysis.relativeUncertaintyCube>run_config.UncertaintyCriterion) | logical(resultGUISamp.uncertaintyAnalysis.relativeMeanDeviationCube>run_config.UncertaintyCriterion));
+resultGUISamp.uncertaintyAnalysis.robustnessViolationCube=resultGUISamp.uncertaintyAnalysis.robustnessViolationCube.*(target_mask+OAR_mask);
 
 %% Calculate robustness compliance cube
-resultGUISamp.uncertaintyAnalysis.robustnessComplianceCube = resultGUISamp.uncertaintyAnalysis.relativeUncertaintyCube<=run_config.UncertaintyCriterion;
-resultGUISamp.uncertaintyAnalysis.robustnessComplianceCube(isnan(resultGUISamp.uncertaintyAnalysis.robustnessComplianceCube))=max(resultGUISamp.uncertaintyAnalysis.robustnessComplianceCube(:));
+resultGUISamp.uncertaintyAnalysis.robustnessComplianceCube = logical(resultGUISamp.meanCubeW>0) & (logical(resultGUISamp.uncertaintyAnalysis.relativeUncertaintyCube<=run_config.UncertaintyCriterion) & logical(resultGUISamp.uncertaintyAnalysis.relativeMeanDeviationCube<=run_config.UncertaintyCriterion));
+resultGUISamp.uncertaintyAnalysis.robustnessComplianceCube=resultGUISamp.uncertaintyAnalysis.robustnessComplianceCube.*(target_mask+OAR_mask);
 
 %% Create an interactive plot to slide through axial slices
 analysis='uncertaintyAnalysis';
@@ -610,7 +638,7 @@ savefig([folderPath filesep 'robustness_violation.fig']);
 
 %% uncertainty index distribution
 figure;
-matRad_geo3DWrapper(gca,ct,cst_robust,resultGUISamp.uncertaintyAnalysis.robustnessViolationCube,[0 1],[0.05 0.00005],colorcube,[],'Relative uncertainty violation');
+matRad_geo3DWrapper(gca,ct,cst_robust,resultGUISamp.uncertaintyAnalysis.robustnessViolationCube,[0 1],[0.05 0.05/2000],colorcube,[],'Relative uncertainty violation');
 savefig([folderPath filesep 'robustness_violation3d.fig']);
 
 %% Create an interactive plot to slide through axial slices
@@ -632,7 +660,7 @@ savefig([folderPath filesep 'target_robustness_violation.fig']);
 
 %% Plot target uncertainty index distribution
 figure;
-matRad_geo3DWrapper(gca,ct,cst_robust,resultGUISamp.uncertaintyAnalysis.robustnessViolationCube.*target_mask,[0 1],[0.5 0.00005],colorcube,[],'Relative uncertainty violation');
+matRad_geo3DWrapper(gca,ct,cst_robust,resultGUISamp.uncertaintyAnalysis.robustnessViolationCube.*target_mask,[0 1],[0.5 0.05/2000],colorcube,[],'Relative uncertainty violation');
 savefig([folderPath filesep 'target_robustness_violation3d.fig']);
 
 %% Create an interactive plot to slide through axial slices
@@ -654,7 +682,7 @@ savefig([folderPath filesep 'robustness_compliance.fig']);
 
 %% uncertainty index distribution
 figure;
-matRad_geo3DWrapper(gca,ct,cst_robust,resultGUISamp.uncertaintyAnalysis.robustnessComplianceCube,[0 2],[0.05 0.00005],colorcube,[],'Relative uncertainty violation');
+matRad_geo3DWrapper(gca,ct,cst_robust,resultGUISamp.uncertaintyAnalysis.robustnessComplianceCube,[0 2],[0.05 0.05/2000],colorcube,[],'Relative uncertainty compliance');
 savefig([folderPath filesep 'robustness_compliance3d.fig']);
 
 %% Create an interactive plot to slide through axial slices
@@ -675,7 +703,7 @@ b.Callback = @(es,ed)  matRad_plotSliceWrapper(gca,ct,cst_robust,1,resultGUISamp
 savefig([folderPath filesep 'target_robustness_compliance.fig']);  
 
 %% Uncertainty volume histogram (UVH)
-resultGUISamp.physicalDose=resultGUISamp.stdCube;
+resultGUISamp.physicalDose=resultGUISamp.stdCubeW;
 [uvh,uqi] = matRad_indicatorWrapper_UVH(cst_robust,pln,resultGUI,resultGUISamp,[],[],run_config.doseWindow_uvh);
 savefig([folderPath filesep 'uvh.fig']);
 
