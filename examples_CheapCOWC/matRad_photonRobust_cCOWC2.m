@@ -673,10 +673,10 @@ title([quantityMap]);
 set(gcf,'position',[10,10,550,400]);
 numSlices = ct.cubeDim(3);
 slice = round(pln_robust.propStf.isoCenter(1,3)./ct.resolution.z);
-matRad_plotSliceWrapper(gca,ct,cst_robust,1,resultGUISamp.(analysis).(quantityMap),plane,slice,[],[],colorcube,[],doseWindow,[],[],'Relative uncertainty');
+matRad_plotSliceWrapper(gca,ct,cst_robust,1,resultGUISamp.(analysis).(quantityMap),plane,slice,[],[],colorcube,[],doseWindow,[],[],'Relative uncertainty compliance');
 b = uicontrol('Parent',f,'Style','slider','Position',[50,5,420,23],...
       'value',slice, 'min',1, 'max',numSlices,'SliderStep', [1/(numSlices-1) , 1/(numSlices-1)]);
-b.Callback = @(es,ed)  matRad_plotSliceWrapper(gca,ct,cst_robust,1,resultGUISamp.(analysis).(quantityMap),plane,round(es.Value),[],[],colorcube,[],doseWindow,[],[],'Relative uncertainty');
+b.Callback = @(es,ed)  matRad_plotSliceWrapper(gca,ct,cst_robust,1,resultGUISamp.(analysis).(quantityMap),plane,round(es.Value),[],[],colorcube,[],doseWindow,[],[],'Relative uncertainty compliance');
 
 savefig([folderPath filesep 'robustness_compliance.fig']);
 
