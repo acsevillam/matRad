@@ -136,9 +136,9 @@ else
 end
 
 if run_config.robustness == "c-COWC"
-    output_folder = ['output' filesep run_config.description filesep run_config.robustness filesep run_config.plan_target filesep run_config.plan_beams filesep run_config.plan_objectives filesep run_config.scen_mode filesep num2str(run_config.beta1) '_to_' num2str(run_config.beta2) filesep datestr(datetime,'yyyy-mm-dd HH-MM-SS')];
+    output_folder = ['output' filesep run_config.description filesep run_config.robustness filesep run_config.plan_target filesep run_config.plan_beams filesep run_config.plan_objectives filesep run_config.scen_mode filesep run_config.wcFactor filesep num2str(run_config.beta1) '_to_' num2str(run_config.beta2) filesep datestr(datetime,'yyyy-mm-dd HH-MM-SS')];
 else
-    output_folder = ['output' filesep run_config.description filesep run_config.robustness filesep run_config.plan_target filesep run_config.plan_beams filesep run_config.plan_objectives filesep run_config.scen_mode filesep datestr(datetime,'yyyy-mm-dd HH-MM-SS')];
+    output_folder = ['output' filesep run_config.description filesep run_config.robustness filesep run_config.plan_target filesep run_config.plan_beams filesep run_config.plan_objectives filesep run_config.scen_mode filesep run_config.wcFactor filesep datestr(datetime,'yyyy-mm-dd HH-MM-SS')];
 end
 
 %Set up parent export folder and full file path
