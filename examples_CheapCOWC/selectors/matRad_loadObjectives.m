@@ -11,16 +11,16 @@ switch patient
         cst{ixBody,5}.Priority = 4; % overlap priority for optimization - a lower number corresponds to a higher priority
         cst{ixBody,6}{1} = struct(DoseObjectives.matRad_SquaredOverdosing(300,76));
         cst{ixBody,6}{1}.robustness  = 'none';
-        cst{ixBody,6}{2} = struct(DoseObjectives.matRad_MaxDVH(600,70,0));
-        cst{ixBody,6}{2}.robustness  = 'none';
+        %cst{ixBody,6}{2} = struct(DoseObjectives.matRad_MaxDVH(600,70,0));
+        %cst{ixBody,6}{2}.robustness  = 'none';
         
         % Bladder
-        cst{2,6}{2} = struct(DoseObjectives.matRad_MaxDVH(600,78,0));
-        cst{2,6}{2}.robustness  = 'none';
+        %cst{2,6}{2} = struct(DoseObjectives.matRad_MaxDVH(600,78,0));
+        %cst{2,6}{2}.robustness  = 'none';
         
         % Rectum
-        cst{3,6}{2} = struct(DoseObjectives.matRad_MaxDVH(600,78,0));
-        cst{3,6}{2}.robustness  = 'none';
+        %cst{3,6}{2} = struct(DoseObjectives.matRad_MaxDVH(600,78,0));
+        %cst{3,6}{2}.robustness  = 'none';
 
         if(target=="PTV")
             % CTV
@@ -144,16 +144,16 @@ switch patient
         cst{ixBody,5}.Priority = 3; % overlap priority for optimization - a lower number corresponds to a higher priority
         cst{ixBody,6}{1} = struct(DoseObjectives.matRad_SquaredOverdosing(300,40));
         cst{ixBody,6}{1}.robustness  = 'none';
-        cst{ixBody,6}{2} = struct(DoseObjectives.matRad_MaxDVH(600,70,0));
-        cst{ixBody,6}{2}.robustness  = 'none';
+        %cst{ixBody,6}{2} = struct(DoseObjectives.matRad_MaxDVH(600,70,0));
+        %cst{ixBody,6}{2}.robustness  = 'none';
         
         % Ipsilateral Lung
-        cst{3,6}{2} = struct(DoseObjectives.matRad_MaxDVH(600,42.56,0));
-        cst{3,6}{2}.robustness  = 'none';
+        %cst{3,6}{2} = struct(DoseObjectives.matRad_MaxDVH(600,42.56,0));
+        %cst{3,6}{2}.robustness  = 'none';
         
         % Heart
-        cst{4,6}{2} = struct(DoseObjectives.matRad_MaxDVH(600,42.56,0));
-        cst{4,6}{2}.robustness  = 'none';
+        %cst{4,6}{2} = struct(DoseObjectives.matRad_MaxDVH(600,42.56,0));
+        %cst{4,6}{2}.robustness  = 'none';
         
         if(target=="PTV")
             % CTV
