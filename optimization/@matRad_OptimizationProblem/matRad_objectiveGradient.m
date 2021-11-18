@@ -361,7 +361,11 @@ if exist('delta_CheapCOWC','var')
         end
     end
     
-    fprintf('  WC scenario ID: %d\n',find(fGrad==1));
+    WCScen = find(fGrad==1);
+    
+    for i=1:numel(WCScen)
+        fprintf('  WC scenario ID: %d  \t F(x): %d \n',WCScen(i),f_CheapCOWC(WCScen(i)));
+    end
     
 end
 

@@ -174,6 +174,29 @@ for i=1:length(cst{ixTarget,6})
     display(cst{ixTarget,6}{i});
 end
 
+%% Add margin to CTV
+% find all target voxels from cst cell array
+if false
+
+    ixPTV = 8;
+    V = [];
+    V = [V;vertcat(cst{ixCTV,4}{:})];
+
+    % Remove double voxels
+    V = unique(V);
+    % generate voi cube for targets
+    voiTarget    = zeros(ct.cubeDim);
+    voiTarget(V) = 1;
+
+    % add margin
+    margin.x=0;
+    margin.y=0;
+    margin.z=0;
+    voiTarget = matRad_addMargin(voiTarget,cst,ct.resolution,margin,true);
+    V   = find(voiTarget>0);
+    cst{ixPTV,4}{1,1}=V;
+end
+
 %% Plot CT slice
 if param.logLevel == 1
     
@@ -566,7 +589,7 @@ analysis='uncertaintyAnalysis';
 quantityMap='relativeUncertaintyCube';
 plane      = 3;
 doseWindow = [0 max([max(resultGUISamp.(analysis).(quantityMap)(:)) run_config.doseWindow_relative_uncertainty1(2)])];
-doseIsoLevels = 0; %linspace(0.1 * maxDose,maxDose,10);
+doseIsoLevels = run_config.UncertaintyCriterion; %linspace(0.1 * maxDose,maxDose,10);
 f = figure;
 title([quantityMap]);
 set(gcf,'position',[10,10,550,400]);
@@ -593,16 +616,16 @@ analysis='uncertaintyAnalysis';
 quantityMap='relativeMeanDeviationCube';
 plane      = 3;
 doseWindow = [0 max([max(resultGUISamp.(analysis).(quantityMap)(:)) run_config.doseWindow_relative_uncertainty1(2)])];
-doseIsoLevels = 0; %linspace(0.1 * maxDose,maxDose,10);
+doseIsoLevels = [0.05]; %run_config.UncertaintyCriterion; %linspace(0.1 * maxDose,maxDose,10);
 f = figure;
 title([quantityMap]);
 set(gcf,'position',[10,10,550,400]);
 numSlices = ct.cubeDim(3);
 slice = round(pln_robust.propStf.isoCenter(1,3)./ct.resolution.z);
-matRad_plotSliceWrapper(gca,ct,cst_robust,1,resultGUISamp.(analysis).(quantityMap),plane,slice,[],[],colorcube,[],doseWindow,doseIsoLevels,[],'Relative mean deviation');
+matRad_plotSliceWrapper(gca,ct,cst_robust,1,resultGUISamp.(analysis).(quantityMap),plane,slice,[],[],[],[],doseWindow,doseIsoLevels,[],'Relative mean deviation');
 b = uicontrol('Parent',f,'Style','slider','Position',[50,5,420,23],...
       'value',slice, 'min',1, 'max',numSlices,'SliderStep', [1/(numSlices-1) , 1/(numSlices-1)]);
-b.Callback = @(es,ed)  matRad_plotSliceWrapper(gca,ct,cst_robust,1,resultGUISamp.(analysis).(quantityMap),plane,round(es.Value),[],[],colorcube,[],doseWindow,doseIsoLevels,[],'Relative mean deviation');
+b.Callback = @(es,ed)  matRad_plotSliceWrapper(gca,ct,cst_robust,1,resultGUISamp.(analysis).(quantityMap),plane,round(es.Value),[],[],[],[],doseWindow,doseIsoLevels,[],'Relative mean deviation');
 
 savefig([folderPath filesep 'relative_mean_deviation.fig']);   
 

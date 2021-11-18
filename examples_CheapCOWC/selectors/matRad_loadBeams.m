@@ -36,7 +36,15 @@ switch patient
                 pln.propStf.couchAngles    = zeros(1,numel(pln.propStf.gantryAngles));
                 pln.propStf.bixelWidth     = 5;
         end
-
+        
+    case 'H&N'
+        switch setup_type
+            case '9F'
+                pln.numOfFractions         = 39;
+                pln.propStf.gantryAngles   = [0:40:359];
+                pln.propStf.couchAngles    = zeros(1,numel(pln.propStf.gantryAngles));
+                pln.propStf.bixelWidth     = 5;
+        end
 end
 
 % Obtain the number of beams and voxels from the existing variables and

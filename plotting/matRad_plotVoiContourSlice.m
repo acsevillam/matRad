@@ -108,7 +108,7 @@ for s = 1:size(cst,1)
                 steps = C(2,lower); % number of elements of current line section
                 tmpLineHandle(end+1) = line(C(1,lower+1:lower+steps),...
                     C(2,lower+1:lower+steps),...
-                    'Color',colors(s,:),'Parent',axesHandle,varargin{:});
+                    'Color',colors(s,:),'Parent',axesHandle,varargin{:},'LineWidth',1);
 
                 lower = lower+steps+1;
             end

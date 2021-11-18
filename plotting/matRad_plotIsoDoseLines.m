@@ -98,7 +98,7 @@ if any(isoContours{slice,plane}(:))
         if numel(unique(isoLevels)) > 1
             color = colors(isoLevels(:) == isoContours{slice,plane}(1,lower),:);
         else
-            color = unique(colors,'rows'); 
+            color = 'white'; %unique(colors,'rows'); 
         end
         isoLineHandles(end+1) = line(isoContours{slice,plane}(1,lower+1:lower+steps),...
             isoContours{slice,plane}(2,lower+1:lower+steps),...
