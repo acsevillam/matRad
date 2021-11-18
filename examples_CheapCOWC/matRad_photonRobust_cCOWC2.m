@@ -1,4 +1,4 @@
-function matRad_photonRobust_cCOWC2(description,plan_objectives,plan_target,plan_beams,shiftSD,robustness,scen_mode,wcFactor,rootPath,sampling,sampling_mode,sampling_wcFactor,p1,p2)
+function matRad_photonRobust_cCOWC2(radiationMode,description,plan_objectives,plan_target,plan_beams,shiftSD,robustness,scen_mode,wcFactor,rootPath,sampling,sampling_mode,sampling_wcFactor,p1,p2)
 %% Example: Photon Treatment Plan
 %
 % %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -21,7 +21,7 @@ function matRad_photonRobust_cCOWC2(description,plan_objectives,plan_target,plan
 % (iv) how to visually and quantitatively evaluate the result
 
 %% Clear variables
-clearvars -except description plan_objectives plan_target plan_beams shiftSD robustness scen_mode wcFactor rootPath sampling sampling_mode sampling_wcFactor p1 p2 ;
+clearvars -except radiationMode description plan_objectives plan_target plan_beams shiftSD robustness scen_mode wcFactor rootPath sampling sampling_mode sampling_wcFactor p1 p2 ;
 clc;
 
 %% set matRad runtime configuration
@@ -29,6 +29,7 @@ matRad_rc
 param.logLevel=1;
 
 %% Set examples parameters
+run_config.radiationMode = radiationMode;
 if ~exist('description','var') || isempty(description)
     run_config.description = 'prostate';
 else
@@ -136,9 +137,9 @@ else
 end
 
 if run_config.robustness == "c-COWC"
-    output_folder = ['output' filesep run_config.description filesep run_config.robustness filesep run_config.plan_target filesep run_config.plan_beams filesep run_config.plan_objectives filesep run_config.scen_mode filesep num2str(run_config.wcFactor) filesep num2str(run_config.beta1) '_to_' num2str(run_config.beta2) filesep datestr(datetime,'yyyy-mm-dd HH-MM-SS')];
+    output_folder = ['output' filesep run_config.radiationMode filesep run_config.description filesep run_config.robustness filesep run_config.plan_target filesep run_config.plan_beams filesep run_config.plan_objectives filesep run_config.scen_mode filesep num2str(run_config.wcFactor) filesep num2str(run_config.beta1) '_to_' num2str(run_config.beta2) filesep datestr(datetime,'yyyy-mm-dd HH-MM-SS')];
 else
-    output_folder = ['output' filesep run_config.description filesep run_config.robustness filesep run_config.plan_target filesep run_config.plan_beams filesep run_config.plan_objectives filesep run_config.scen_mode filesep num2str(run_config.wcFactor) filesep datestr(datetime,'yyyy-mm-dd HH-MM-SS')];
+    output_folder = ['output' filesep run_config.radiationMode filesep run_config.description filesep run_config.robustness filesep run_config.plan_target filesep run_config.plan_beams filesep run_config.plan_objectives filesep run_config.scen_mode filesep num2str(run_config.wcFactor) filesep datestr(datetime,'yyyy-mm-dd HH-MM-SS')];
 end
 
 %Set up parent export folder and full file path
@@ -276,25 +277,24 @@ display(cst);
 % will look for 'photons_Generic.mat' in our root directory and will use
 % the data provided in there for dose calculation
 
-pln.radiationMode = 'photons';
-pln.machine       = 'Generic';
+if run_config.radiationMode == "photons"
+    pln.radiationMode = 'photons';
+    pln.machine       = 'Generic';
+    quantityOpt    = 'physicalDose';
+    modelName      = 'none';
+    
+end
 
-%%
-% Define the flavor of optimization along with the quantity that should be
-% used for optimization. Possible quantities used for optimization are:
-% physicalDose: physical dose based optimization;
-% effect: biological effect based optimization;
-% RBExD: RBE weighted dose based optimzation;
-% Possible biological models are:
-% none:        use no specific biological model
-% constRBE:    use a constant RBE
-% MCN:         use the variable RBE McNamara model for protons
-% WED:         use the variable RBE Wedenberg model for protons
-% LEM:         use the biophysical variable RBE Local Effect model for carbons
-% As we are  using photons, we simply set the parameter to 'physicalDose' and
-% and 'none'
-quantityOpt    = 'physicalDose';
-modelName      = 'none';
+if run_config.radiationMode == "protons"
+    pln.radiationMode = 'protons';        
+    pln.machine       = 'Generic';
+    quantityOpt   = 'RBExD';            % either  physicalDose / effect / RBExD
+    modelName     = 'constRBE';         % none: for photons, protons, carbon                                    constRBE: constant RBE model
+                                        % MCN: McNamara-variable RBE model for protons                          WED: Wedenberg-variable RBE model for protons 
+                                        % LEM: Local Effect Model for carbon ions
+    % calculate LET distribution
+    pln.propDoseCalc.calcLET = 0;
+end
 
 %% Load beams and couch setup
 [pln] = matRad_loadBeams(run_config,pln,ct,cst);
@@ -312,12 +312,13 @@ switch run_config.resolution
         pln.propDoseCalc.doseGrid.resolution.z = 5; % [mm]
 end
 
+
 %% Enable sequencing and disable direct aperture optimization (DAO) for now.
 % A DAO optimization is shown in a seperate example.
 pln.propOpt.runSequencing = 0;
 pln.propOpt.runDAO        = 0;
 
-% retrieve bio model parameters
+%% retrieve bio model parameters
 pln.bioParam = matRad_bioModel(pln.radiationMode,quantityOpt, modelName);
 
 %% Retrieve nominal scenario for dose calculation and optimziation reference
@@ -343,7 +344,13 @@ display(stf(1));
 % Let's generate dosimetric information by pre-computing dose influence
 % matrices for unit beamlet intensities. Having dose influences available
 % allows subsequent inverse optimization.
-dij = matRad_calcPhotonDose(ct,stf,pln,cst);
+if run_config.radiationMode == "photons"  
+    dij = matRad_calcPhotonDose(ct,stf,pln,cst);
+end
+
+if run_config.radiationMode == "protons"
+    dij = matRad_calcParticleDose(ct,stf,pln,cst);
+end
 
 %% Inverse Optimization for IMRT
 % The goal of the fluence optimization is to find a set of beamlet/pencil
@@ -425,7 +432,13 @@ display(stf_robust(1));
 % matrices for unit beamlet intensities. Having dose influences available
 % allows subsequent inverse optimization.
 now1 = tic();
-dij_robust = matRad_calcPhotonDose(ct,stf_robust,pln_robust,cst_robust);
+if run_config.radiationMode == "photons"  
+    dij_robust = matRad_calcPhotonDose(ct,stf_robust,pln_robust,cst_robust);
+end
+
+if run_config.radiationMode == "protons"
+    dij_robust = matRad_calcParticleDose(ct,stf_robust,pln_robust,cst_robust);
+end
 DCTime_robust = toc(now1);
 time1=sprintf('DCTime_robust: %.2f\n',DCTime_robust); disp(time1);
 results.performance.DCTime_robust=DCTime_robust;
@@ -470,13 +483,36 @@ matRad_visSpotWeights(stf_robust,resultGUI_robust.w);
 savefig([folderPath filesep 'fluence_robust.fig']);
 
 %% Create an interactive plot to slide through axial slices
-for numScen=1:pln_robust.multScen.totNumScen
-    
-    if(pln_robust.multScen.totNumScen>1)
-        quantityMap=[quantityOpt '_' num2str(round(numScen))];
-    else
-        quantityMap=quantityOpt;
+
+if run_config.radiationMode == "photons" 
+    for numScen=1:pln_robust.multScen.totNumScen
+
+        if(pln_robust.multScen.totNumScen>1)
+            quantityMap=[quantityOpt '_' num2str(round(numScen))];
+        else
+            quantityMap=quantityOpt;
+        end
+
+        plane      = 3;
+        doseWindow = [0 max([max([resultGUI_robust.physicalDose(:)*pln_robust.numOfFractions]) run_config.doseWindow(2)])];
+        doseIsoLevels = 0; %linspace(0.1 * maxDose,maxDose,10);
+        f = figure;
+        title([quantityMap]);
+        set(gcf,'position',[10,10,550,400]);
+        numSlices = ct.cubeDim(3);
+        slice = round(pln_robust.propStf.isoCenter(1,3)./ct.resolution.z);
+        matRad_plotSliceWrapper(gca,ct,cst_robust,1,resultGUI_robust.(quantityMap)*pln_robust.numOfFractions,plane,slice,[],[],colorcube,[],doseWindow,doseIsoLevels,[],'Dose [Gy]');
+        b = uicontrol('Parent',f,'Style','slider','Position',[50,5,420,23],...
+              'value',slice, 'min',1, 'max',numSlices,'SliderStep', [1/(numSlices-1) , 1/(numSlices-1)]);
+        b.Callback = @(es,ed)  matRad_plotSliceWrapper(gca,ct,cst_robust,1,resultGUI_robust.(quantityMap)*pln_robust.numOfFractions,plane,round(es.Value),[],[],colorcube,[],doseWindow,doseIsoLevels,[],'Dose [Gy]');
+
+        savefig([folderPath filesep 'dose_robust_' quantityMap '.fig']);   
     end
+end
+
+if run_config.radiationMode == "protons" 
+    
+    quantityMap=quantityOpt;
     
     plane      = 3;
     doseWindow = [0 max([max([resultGUI_robust.physicalDose(:)*pln_robust.numOfFractions]) run_config.doseWindow(2)])];
@@ -490,8 +526,9 @@ for numScen=1:pln_robust.multScen.totNumScen
     b = uicontrol('Parent',f,'Style','slider','Position',[50,5,420,23],...
           'value',slice, 'min',1, 'max',numSlices,'SliderStep', [1/(numSlices-1) , 1/(numSlices-1)]);
     b.Callback = @(es,ed)  matRad_plotSliceWrapper(gca,ct,cst_robust,1,resultGUI_robust.(quantityMap)*pln_robust.numOfFractions,plane,round(es.Value),[],[],colorcube,[],doseWindow,doseIsoLevels,[],'Dose [Gy]');
+
+    savefig([folderPath filesep 'dose_robust_' quantityMap '.fig']); 
     
-    savefig([folderPath filesep 'dose_robust_' quantityMap '.fig']);   
 end
 
 %% Plot dose distribution
