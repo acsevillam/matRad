@@ -584,9 +584,9 @@ savefig([folderPath filesep 'dvh_robust_multiscen.fig']);
 
 %% Dose volume histogram (DVH)
 resultGUISamp_ul=[];
-resultGUISamp_ul.physicalDose=resultGUI_robust.physicalDose;
-resultGUISamp_ul.physicalDose_lower=resultGUISamp.meanCubeW-resultGUISamp.stdCubeW;
-resultGUISamp_ul.physicalDose_upper=resultGUISamp.meanCubeW+resultGUISamp.stdCubeW;
+resultGUISamp_ul.([pln.bioParam.quantityVis])=resultGUI_robust.([pln.bioParam.quantityVis]);
+resultGUISamp_ul.([pln.bioParam.quantityVis '_lower'])=resultGUISamp.meanCubeW-resultGUISamp.stdCubeW;
+resultGUISamp_ul.([pln.bioParam.quantityVis '_upper'])=resultGUISamp.meanCubeW+resultGUISamp.stdCubeW;
 [dvh_sampled,dqi_sampled] = matRad_indicatorWrapper_sampled(cst_robust,pln_robust,resultGUISamp_ul,[10,20,30,40,50,60,70,80]/pln_robust.numOfFractions,[2,5,10,20,30,40,50,60,70,80,90,95,98],run_config.doseWindow_dvh);
 savefig([folderPath filesep 'dvh_robust_trustband.fig']);
 

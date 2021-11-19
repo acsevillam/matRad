@@ -10,7 +10,7 @@ switch radiationMode
             case 'prostate'
                 switch setup_type
                     case '2F'
-                        pln.numOfFractions         = 30;
+                        pln.numOfFractions         = 39;
                         pln.propStf.gantryAngles  = [90 270];
                         pln.propStf.couchAngles    = zeros(1,numel(pln.propStf.gantryAngles));
                         pln.propStf.bixelWidth     = 5;
