@@ -443,169 +443,169 @@ switch radiationMode
 
                         % ParotidGland  Left
                         cst{3,5}.Priority = 2; % overlap priority for optimization - a lower number corresponds to a higher priority
-                        cst{3,6}{1} = struct(DoseObjectives.matRad_MeanDose(600,8));
+                        cst{3,6}{1} = struct(DoseObjectives.matRad_MeanDose(300,8));
                         cst{3,6}{1}.robustness  = 'none';
 
                         % ParotidGland  Right 
                         cst{4,5}.Priority = 2; % overlap priority for optimization - a lower number corresponds to a higher priority
-                        cst{4,6}{1} = struct(DoseObjectives.matRad_MeanDose(600,8));
+                        cst{4,6}{1} = struct(DoseObjectives.matRad_MeanDose(300,8));
                         cst{4,6}{1}.robustness  = 'none';
 
                         % SpinalCord
                         cst{5,5}.Priority = 2; % overlap priority for optimization - a lower number corresponds to a higher priority
-                        cst{5,6}{1} = struct(DoseObjectives.matRad_MaxDVH(600,20,0));
+                        cst{5,6}{1} = struct(DoseObjectives.matRad_MaxDVH(300,20,2));
                         cst{5,6}{1}.robustness  = 'none';
 
                         % Brainstem 
                         cst{6,5}.Priority = 2; % overlap priority for optimization - a lower number corresponds to a higher priority
-                        cst{6,6}{1} = struct(DoseObjectives.matRad_MaxDVH(600,33,0));
+                        cst{6,6}{1} = struct(DoseObjectives.matRad_MaxDVH(600,33,2));
                         cst{6,6}{1}.robustness  = 'none';
                         
                         % Aux 
                         cst{7,5}.Priority = 2; % overlap priority for optimization - a lower number corresponds to a higher priority
-                        cst{7,6}{1} = struct(DoseObjectives.matRad_MaxDVH(600,20,0));
+                        cst{7,6}{1} = struct(DoseObjectives.matRad_MaxDVH(300,20,2));
                         cst{7,6}{1}.robustness  = 'none';
-                        cst{7,6}{2} = struct(DoseObjectives.matRad_MeanDose(600,12));
+                        cst{7,6}{2} = struct(DoseObjectives.matRad_MeanDose(300,12));
                         cst{7,6}{2}.robustness  = 'none';
 
                   case '2'
                         % ParotidGland  Left
                         cst{3,5}.Priority = 2; % overlap priority for optimization - a lower number corresponds to a higher priority
-                        cst{3,6}{1} = struct(DoseObjectives.matRad_MeanDose(600,9));
+                        cst{3,6}{1} = struct(DoseObjectives.matRad_MeanDose(300,9));
                         cst{3,6}{1}.robustness  = 'none';
 
                         % ParotidGland  Right 
                         cst{4,5}.Priority = 2; % overlap priority for optimization - a lower number corresponds to a higher priority
-                        cst{4,6}{1} = struct(DoseObjectives.matRad_MeanDose(600,9));
+                        cst{4,6}{1} = struct(DoseObjectives.matRad_MeanDose(300,9));
                         cst{4,6}{1}.robustness  = 'none';
 
                         % SpinalCord
                         cst{5,5}.Priority = 2; % overlap priority for optimization - a lower number corresponds to a higher priority
-                        cst{5,6}{1} = struct(DoseObjectives.matRad_MaxDVH(600,24,0));
+                        cst{5,6}{1} = struct(DoseObjectives.matRad_MaxDVH(300,24,2));
                         cst{5,6}{1}.robustness  = 'none';
 
                         % Brainstem 
                         cst{6,5}.Priority = 2; % overlap priority for optimization - a lower number corresponds to a higher priority
-                        cst{6,6}{1} = struct(DoseObjectives.matRad_MaxDVH(600,35,0));
+                        cst{6,6}{1} = struct(DoseObjectives.matRad_MaxDVH(300,35,2));
                         cst{6,6}{1}.robustness  = 'none';
 
                         % Aux 
                         cst{7,5}.Priority = 2; % overlap priority for optimization - a lower number corresponds to a higher priority
-                        cst{7,6}{1} = struct(DoseObjectives.matRad_MaxDVH(600,24,0));
+                        cst{7,6}{1} = struct(DoseObjectives.matRad_MaxDVH(300,24,2));
                         cst{7,6}{1}.robustness  = 'none';
-                        cst{7,6}{2} = struct(DoseObjectives.matRad_MeanDose(600,14));
+                        cst{7,6}{2} = struct(DoseObjectives.matRad_MeanDose(300,14));
                         cst{7,6}{2}.robustness  = 'none';
                         
                     case '3'
                         % ParotidGland  Left
                         cst{3,5}.Priority = 2; % overlap priority for optimization - a lower number corresponds to a higher priority
-                        cst{3,6}{1} = struct(DoseObjectives.matRad_MeanDose(600,10));
+                        cst{3,6}{1} = struct(DoseObjectives.matRad_MeanDose(300,10));
                         cst{3,6}{1}.robustness  = 'none';
 
                         % ParotidGland  Right 
                         cst{4,5}.Priority = 2; % overlap priority for optimization - a lower number corresponds to a higher priority
-                        cst{4,6}{1} = struct(DoseObjectives.matRad_MeanDose(600,10));
+                        cst{4,6}{1} = struct(DoseObjectives.matRad_MeanDose(300,10));
                         cst{4,6}{1}.robustness  = 'none';
 
                         % SpinalCord
                         cst{5,5}.Priority = 2; % overlap priority for optimization - a lower number corresponds to a higher priority
-                        cst{5,6}{1} = struct(DoseObjectives.matRad_MaxDVH(600,28,0));
+                        cst{5,6}{1} = struct(DoseObjectives.matRad_MaxDVH(300,28,2));
                         cst{5,6}{1}.robustness  = 'none';
 
                         % Brainstem 
                         cst{6,5}.Priority = 2; % overlap priority for optimization - a lower number corresponds to a higher priority
-                        cst{6,6}{1} = struct(DoseObjectives.matRad_MaxDVH(600,37,0));
+                        cst{6,6}{1} = struct(DoseObjectives.matRad_MaxDVH(300,37,2));
                         cst{6,6}{1}.robustness  = 'none';
                         
                         % Aux 
                         cst{7,5}.Priority = 2; % overlap priority for optimization - a lower number corresponds to a higher priority
-                        cst{7,6}{1} = struct(DoseObjectives.matRad_MaxDVH(600,28,0));
+                        cst{7,6}{1} = struct(DoseObjectives.matRad_MaxDVH(300,28,2));
                         cst{7,6}{1}.robustness  = 'none';
-                        cst{7,6}{2} = struct(DoseObjectives.matRad_MeanDose(600,16));
+                        cst{7,6}{2} = struct(DoseObjectives.matRad_MeanDose(300,16));
                         cst{7,6}{2}.robustness  = 'none';
 
                     case '4'
                         % ParotidGland  Left
                         cst{3,5}.Priority = 2; % overlap priority for optimization - a lower number corresponds to a higher priority
-                        cst{3,6}{1} = struct(DoseObjectives.matRad_MeanDose(600,11));
+                        cst{3,6}{1} = struct(DoseObjectives.matRad_MeanDose(300,11));
                         cst{3,6}{1}.robustness  = 'none';
 
                         % ParotidGland  Right 
                         cst{4,5}.Priority = 2; % overlap priority for optimization - a lower number corresponds to a higher priority
-                        cst{4,6}{1} = struct(DoseObjectives.matRad_MeanDose(600,11));
+                        cst{4,6}{1} = struct(DoseObjectives.matRad_MeanDose(300,11));
                         cst{4,6}{1}.robustness  = 'none';
 
                         % SpinalCord
                         cst{5,5}.Priority = 2; % overlap priority for optimization - a lower number corresponds to a higher priority
-                        cst{5,6}{1} = struct(DoseObjectives.matRad_MaxDVH(600,32,0));
+                        cst{5,6}{1} = struct(DoseObjectives.matRad_MaxDVH(300,32,2));
                         cst{5,6}{1}.robustness  = 'none';
 
                         % Brainstem 
                         cst{6,5}.Priority = 2; % overlap priority for optimization - a lower number corresponds to a higher priority
-                        cst{6,6}{1} = struct(DoseObjectives.matRad_MaxDVH(600,39,0));
+                        cst{6,6}{1} = struct(DoseObjectives.matRad_MaxDVH(300,39,2));
                         cst{6,6}{1}.robustness  = 'none';
                         
                         % Aux 
                         cst{7,5}.Priority = 2; % overlap priority for optimization - a lower number corresponds to a higher priority
-                        cst{7,6}{1} = struct(DoseObjectives.matRad_MaxDVH(600,32,0));
+                        cst{7,6}{1} = struct(DoseObjectives.matRad_MaxDVH(300,32,2));
                         cst{7,6}{1}.robustness  = 'none';
-                        cst{7,6}{2} = struct(DoseObjectives.matRad_MeanDose(600,18));
+                        cst{7,6}{2} = struct(DoseObjectives.matRad_MeanDose(300,18));
                         cst{7,6}{2}.robustness  = 'none';
 
                     case '5'
                         % ParotidGland  Left
                         cst{3,5}.Priority = 2; % overlap priority for optimization - a lower number corresponds to a higher priority
-                        cst{3,6}{1} = struct(DoseObjectives.matRad_MeanDose(600,13));
+                        cst{3,6}{1} = struct(DoseObjectives.matRad_MeanDose(300,13));
                         cst{3,6}{1}.robustness  = 'none';
 
                         % ParotidGland  Right 
                         cst{4,5}.Priority = 2; % overlap priority for optimization - a lower number corresponds to a higher priority
-                        cst{4,6}{1} = struct(DoseObjectives.matRad_MeanDose(600,13));
+                        cst{4,6}{1} = struct(DoseObjectives.matRad_MeanDose(300,13));
                         cst{4,6}{1}.robustness  = 'none';
 
                         % SpinalCord
                         cst{5,5}.Priority = 2; % overlap priority for optimization - a lower number corresponds to a higher priority
-                        cst{5,6}{1} = struct(DoseObjectives.matRad_MaxDVH(600,36,0));
+                        cst{5,6}{1} = struct(DoseObjectives.matRad_MaxDVH(300,36,2));
                         cst{5,6}{1}.robustness  = 'none';
 
                         % Brainstem 
                         cst{6,5}.Priority = 2; % overlap priority for optimization - a lower number corresponds to a higher priority
-                        cst{6,6}{1} = struct(DoseObjectives.matRad_MaxDVH(600,41,0));
+                        cst{6,6}{1} = struct(DoseObjectives.matRad_MaxDVH(300,41,2));
                         cst{6,6}{1}.robustness  = 'none';
                         
                         % Aux 
                         cst{7,5}.Priority = 2; % overlap priority for optimization - a lower number corresponds to a higher priority
-                        cst{7,6}{1} = struct(DoseObjectives.matRad_MaxDVH(600,36,0));
+                        cst{7,6}{1} = struct(DoseObjectives.matRad_MaxDVH(300,36,2));
                         cst{7,6}{1}.robustness  = 'none';
-                        cst{7,6}{2} = struct(DoseObjectives.matRad_MeanDose(600,20));
+                        cst{7,6}{2} = struct(DoseObjectives.matRad_MeanDose(300,20));
                         cst{7,6}{2}.robustness  = 'none';
                         
                     case '6'
                         % ParotidGland  Left
                         cst{3,5}.Priority = 2; % overlap priority for optimization - a lower number corresponds to a higher priority
-                        cst{3,6}{1} = struct(DoseObjectives.matRad_MeanDose(600,100));
+                        cst{3,6}{1} = struct(DoseObjectives.matRad_MeanDose(300,100));
                         cst{3,6}{1}.robustness  = 'none';
 
                         % ParotidGland  Right 
                         cst{4,5}.Priority = 2; % overlap priority for optimization - a lower number corresponds to a higher priority
-                        cst{4,6}{1} = struct(DoseObjectives.matRad_MeanDose(600,100));
+                        cst{4,6}{1} = struct(DoseObjectives.matRad_MeanDose(300,100));
                         cst{4,6}{1}.robustness  = 'none';
 
                         % SpinalCord
                         cst{5,5}.Priority = 2; % overlap priority for optimization - a lower number corresponds to a higher priority
-                        cst{5,6}{1} = struct(DoseObjectives.matRad_MaxDVH(600,100,0));
+                        cst{5,6}{1} = struct(DoseObjectives.matRad_MaxDVH(300,100,2));
                         cst{5,6}{1}.robustness  = 'none';
 
                         % Brainstem 
                         cst{6,5}.Priority = 2; % overlap priority for optimization - a lower number corresponds to a higher priority
-                        cst{6,6}{1} = struct(DoseObjectives.matRad_MaxDVH(600,100,0));
+                        cst{6,6}{1} = struct(DoseObjectives.matRad_MaxDVH(300,100,2));
                         cst{6,6}{1}.robustness  = 'none';
                         
                         % Aux 
                         cst{7,5}.Priority = 2; % overlap priority for optimization - a lower number corresponds to a higher priority
-                        cst{7,6}{1} = struct(DoseObjectives.matRad_MaxDVH(600,100,0));
+                        cst{7,6}{1} = struct(DoseObjectives.matRad_MaxDVH(300,100,2));
                         cst{7,6}{1}.robustness  = 'none';
-                        cst{7,6}{2} = struct(DoseObjectives.matRad_MeanDose(600,100));
+                        cst{7,6}{2} = struct(DoseObjectives.matRad_MeanDose(300,100));
                         cst{7,6}{2}.robustness  = 'none';
 
 

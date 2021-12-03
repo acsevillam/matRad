@@ -29,9 +29,10 @@ matRad_rc
 param.logLevel=1;
 
 %% Set examples parameters
+%radiationMode='photons';
 run_config.radiationMode = radiationMode;
 if ~exist('description','var') || isempty(description)
-    run_config.description = 'prostate';
+    run_config.description = 'H&N';
 else
     run_config.description = description;
 end
