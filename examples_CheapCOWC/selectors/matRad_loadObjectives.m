@@ -458,7 +458,7 @@ switch radiationMode
 
                         % Brainstem 
                         cst{6,5}.Priority = 2; % overlap priority for optimization - a lower number corresponds to a higher priority
-                        cst{6,6}{1} = struct(DoseObjectives.matRad_MaxDVH(600,33,2));
+                        cst{6,6}{1} = struct(DoseObjectives.matRad_MaxDVH(300,33,2));
                         cst{6,6}{1}.robustness  = 'none';
                         
                         % Aux 

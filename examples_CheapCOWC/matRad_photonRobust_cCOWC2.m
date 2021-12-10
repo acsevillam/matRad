@@ -32,7 +32,7 @@ param.logLevel=1;
 %radiationMode='photons';
 run_config.radiationMode = radiationMode;
 if ~exist('description','var') || isempty(description)
-    run_config.description = 'H&N';
+    run_config.description = 'prostate';
 else
     run_config.description = description;
 end
@@ -485,7 +485,7 @@ savefig([folderPath filesep 'fluence_robust.fig']);
 
 %% Create an interactive plot to slide through axial slices
 
-if run_config.radiationMode == "photons" 
+if run_config.radiationMode == "photons" && false
     for numScen=1:pln_robust.multScen.totNumScen
 
         if(pln_robust.multScen.totNumScen>1)
@@ -511,7 +511,7 @@ if run_config.radiationMode == "photons"
     end
 end
 
-if run_config.radiationMode == "protons" 
+if run_config.radiationMode == "protons" || true
     
     quantityMap=quantityOpt;
     
