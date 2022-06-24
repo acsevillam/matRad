@@ -372,10 +372,9 @@ figure;
 matRad_geo3DWrapper(gca,ct,cst,resultGUI.physicalDose.*OAR_mask*pln.numOfFractions,run_config.doseWindow,[0.002 0.00005],colorcube,[],'Dose [Gy]');
 savefig([folderPath filesep 'OAR_dose3d_nominal.fig']);
 
-
 %% Indicator calculation and show DVH and QI
 [dvh,qi] = matRad_indicatorWrapper(cst,pln,resultGUI_nominal,pln.numOfFractions,[],[],run_config.doseWindow_dvh);
-savefig([folderPath filesep 'dvh.fig']);
+savefig([folderPath filesep 'dvh_nominal.fig']);
 
 %% Create the VOI data for the phantom
 % Now we define structures a contour for the phantom and a target
@@ -532,6 +531,7 @@ savefig([folderPath filesep 'OAR_dose3d_robust.fig']);
 
 %% Indicator calculation and show DVH and QI
 [dvh_robust,dqi_robust] = matRad_indicatorWrapper(cst,pln,resultGUI_robust,pln_robust.numOfFractions,[],[],run_config.doseWindow_dvh);
+savefig([folderPath filesep 'dvh_robust.fig']);
 
 %% check sampling option is activated
 if ~run_config.sampling
@@ -655,7 +655,8 @@ b.Callback = @(es,ed)  matRad_plotSliceWrapper(gca,ct,cst,1,resultGUISampRob.(qu
 savefig([folderPath filesep 'std_dose_robust.fig']);
 
 %% Multi-scenario dose volume histogram (DVH)
-figure,set(gcf,'Color',[1 1 1],'position',[10,10,600,400]);
+f = figure;
+set(gcf,'Color',[1 1 1],'position',[10,10,600,400]);
 matRad_showDVHFromSampling(caSampRob,pln_robust.numOfFractions,cst,plnSampRob,[1:plnSampRob.multScen.totNumScen],run_config.doseWindow_dvh,'trustband',1);
 title('Multi-scenario DVH for robust optimization results');
 
