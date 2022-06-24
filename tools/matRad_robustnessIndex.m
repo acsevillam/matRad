@@ -101,9 +101,10 @@ if exist('slice','var') && ~isempty(slice)
     matRad_plotSliceWrapper(gca,ct,cst,refScen,abs(meanCube-refDose*(meanCube>0))/refDose,plane,slice,[],[],colorcube,[],[0 1.01]);
     title('Relative mean and prescription dose difference');
     
-    maxRob = max(robCube,[],'all');
+    %maxRob = max(robCube,[],'all');
     %doseWindow = [0 maxRob+0.1];
-    doseWindow = [0 10.01];
+    maxRob = 10.01;
+    doseWindow = [0 maxRob];
     
     mMap1=round(1/(maxRob)*256);
     mMap2=(256-mMap1);
@@ -126,9 +127,10 @@ if exist('slice','var') && ~isempty(slice)
         'pass robustness criterion (' num2str(meanDoseThreshold) '% / ' ...
         num2str(stdThreshold) '%)']});
     
-    maxRob = max(robCube.*targetMask,[],'all');
+    %maxRob = max(robCube.*targetMask,[],'all');
     %doseWindow = [0 maxRob+0.1];
-    doseWindow = [0 5.01];
+    maxRob = 5.01;
+    doseWindow = [0 maxRob];
     
     mMap1=round(1/(maxRob)*256);
     mMap2=(256-mMap1);
