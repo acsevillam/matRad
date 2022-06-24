@@ -553,14 +553,15 @@ varargin.robustnessCriterion = run_config.robustnessCriterion;
 varargin.GammaCriterion = run_config.GammaCriterion;
 varargin.slice = round(isocenter(3)./ct.resolution.z);
 [cstStat, resultGUISamp, meta] = matRad_samplingAnalysis(ct,cst,plnSamp,caSamp, mSampDose, resultGUInomScen,phaseProb,varargin);
+results.robustnessAnalysis_nominal=resultGUISamp.robustnessAnalysis;
 
 savefig([folderPath filesep 'sampling_analysis_nominal.fig']);
 
 %% Create an mean dose interactive plot to slide through axial slices
 quantityMap='meanCubeW';
 plane      = 3;
-doseWindow = [0 max([max(resultGUISamp.(quantityMap)(:)) p/pln.numOfFractions*0.1])];
-maxDose       = max([max(resultGUISamp.(quantityMap)(:)) p/pln.numOfFractions*0.1]);
+doseWindow = [0 max([max(resultGUISamp.(quantityMap)(:)) p*1.25])];
+maxDose       = max(resultGUISamp.(quantityMap)(:));
 doseIsoLevels = linspace(0.1 * maxDose,maxDose,10);
 f = figure;
 title([quantityMap 'for nominal optimization results']);
@@ -568,18 +569,18 @@ set(gcf,'position',[10,10,550,400]);
 numSlices = ct.cubeDim(3);
 
 slice = round(pln.propStf.isoCenter(1,3)./ct.resolution.z);
-matRad_plotSliceWrapper(gca,ct,cst,1,resultGUISamp.(quantityMap),plane,slice,[],[],colorcube,[],doseWindow,doseIsoLevels,[],'Dose uncertainty [Gy]',[],'LineWidth',1.2);
+matRad_plotSliceWrapper(gca,ct,cst,1,resultGUISamp.(quantityMap)*pln_robust.numOfFractions,plane,slice,[],[],colorcube,[],doseWindow,doseIsoLevels,[],'Dose uncertainty [Gy]',[],'LineWidth',1.2);
 b = uicontrol('Parent',f,'Style','slider','Position',[50,5,420,23],...
     'value',slice, 'min',1, 'max',numSlices,'SliderStep', [1/(numSlices-1) , 1/(numSlices-1)]);
-b.Callback = @(es,ed)  matRad_plotSliceWrapper(gca,ct,cst,1,resultGUISamp.(quantityMap),plane,round(es.Value),[],[],colorcube,[],doseWindow,doseIsoLevels,[],'Dose uncertainty [Gy]',[],'LineWidth',1.2);
+b.Callback = @(es,ed)  matRad_plotSliceWrapper(gca,ct,cst,1,resultGUISamp.(quantityMap)*pln_robust.numOfFractions,plane,round(es.Value),[],[],colorcube,[],doseWindow,doseIsoLevels,[],'Dose uncertainty [Gy]',[],'LineWidth',1.2);
 
 savefig([folderPath filesep 'mean_dose_nominal.fig']);
 
 %% Create an std dose interactive plot to slide through axial slices
 quantityMap='stdCubeW';
 plane      = 3;
-doseWindow = [0 max([max(resultGUISamp.(quantityMap)(:)) p/pln.numOfFractions*0.1])];
-maxDose       = max([max(resultGUISamp.(quantityMap)(:)) p/pln.numOfFractions*0.1]);
+doseWindow = [0 max([max(resultGUISamp.(quantityMap)(:)) p*0.5])];
+maxDose       = max(resultGUISamp.(quantityMap)(:));
 doseIsoLevels = linspace(0.1 * maxDose,maxDose,10);
 f = figure;
 title([quantityMap 'for nominal optimization results']);
@@ -587,10 +588,10 @@ set(gcf,'position',[10,10,550,400]);
 numSlices = ct.cubeDim(3);
 
 slice = round(pln.propStf.isoCenter(1,3)./ct.resolution.z);
-matRad_plotSliceWrapper(gca,ct,cst,1,resultGUISamp.(quantityMap),plane,slice,[],[],colorcube,[],doseWindow,doseIsoLevels,[],'Dose uncertainty [Gy]',[],'LineWidth',1.2);
+matRad_plotSliceWrapper(gca,ct,cst,1,resultGUISamp.(quantityMap)*pln_robust.numOfFractions,plane,slice,[],[],colorcube,[],doseWindow,doseIsoLevels,[],'Dose uncertainty [Gy]',[],'LineWidth',1.2);
 b = uicontrol('Parent',f,'Style','slider','Position',[50,5,420,23],...
     'value',slice, 'min',1, 'max',numSlices,'SliderStep', [1/(numSlices-1) , 1/(numSlices-1)]);
-b.Callback = @(es,ed)  matRad_plotSliceWrapper(gca,ct,cst,1,resultGUISamp.(quantityMap),plane,round(es.Value),[],[],colorcube,[],doseWindow,doseIsoLevels,[],'Dose uncertainty [Gy]',[],'LineWidth',1.2);
+b.Callback = @(es,ed)  matRad_plotSliceWrapper(gca,ct,cst,1,resultGUISamp.(quantityMap)*pln_robust.numOfFractions,plane,round(es.Value),[],[],colorcube,[],doseWindow,doseIsoLevels,[],'Dose uncertainty [Gy]',[],'LineWidth',1.2);
 
 savefig([folderPath filesep 'std_dose_nominal.fig']);
 
@@ -611,12 +612,15 @@ varargin.robustnessCriterion = run_config.robustnessCriterion;
 varargin.GammaCriterion = run_config.GammaCriterion;
 varargin.slice = round(isocenter(3)./ct.resolution.z);
 [cstStatRob, resultGUISampRob, metaRob] = matRad_samplingAnalysis(ct,cst,plnSampRob,caSampRob, mSampDoseRob, resultGUIRobNomScen,phaseProb,varargin);
+results.robustnessAnalysis_robust=resultGUISampRob.robustnessAnalysis;
+
+savefig([folderPath filesep 'sampling_analysis_robust.fig']);
 
 %% Create an mean dose interactive plot to slide through axial slices
 quantityMap='meanCubeW';
 plane      = 3;
-doseWindow = [0 max([max(resultGUISampRob.(quantityMap)(:)) p/pln.numOfFractions*0.1])];
-maxDose       = max([max(resultGUISampRob.(quantityMap)(:)) p/pln.numOfFractions*0.1]);
+doseWindow = [0 max([max(resultGUISampRob.(quantityMap)(:)) p*1.25])];
+maxDose       = max(resultGUISampRob.(quantityMap)(:));
 doseIsoLevels = linspace(0.1 * maxDose,maxDose,10);
 f = figure;
 title([quantityMap 'for robust optimization results']);
@@ -624,18 +628,18 @@ set(gcf,'position',[10,10,550,400]);
 numSlices = ct.cubeDim(3);
 
 slice = round(pln.propStf.isoCenter(1,3)./ct.resolution.z);
-matRad_plotSliceWrapper(gca,ct,cst,1,resultGUISampRob.(quantityMap),plane,slice,[],[],colorcube,[],doseWindow,doseIsoLevels,[],'Dose uncertainty [Gy]',[],'LineWidth',1.2);
+matRad_plotSliceWrapper(gca,ct,cst,1,resultGUISampRob.(quantityMap)*pln_robust.numOfFractions,plane,slice,[],[],colorcube,[],doseWindow,doseIsoLevels,[],'Dose uncertainty [Gy]',[],'LineWidth',1.2);
 b = uicontrol('Parent',f,'Style','slider','Position',[50,5,420,23],...
     'value',slice, 'min',1, 'max',numSlices,'SliderStep', [1/(numSlices-1) , 1/(numSlices-1)]);
-b.Callback = @(es,ed)  matRad_plotSliceWrapper(gca,ct,cst,1,resultGUISampRob.(quantityMap),plane,round(es.Value),[],[],colorcube,[],doseWindow,doseIsoLevels,[],'Dose uncertainty [Gy]',[],'LineWidth',1.2);
+b.Callback = @(es,ed)  matRad_plotSliceWrapper(gca,ct,cst,1,resultGUISampRob.(quantityMap)*pln_robust.numOfFractions,plane,round(es.Value),[],[],colorcube,[],doseWindow,doseIsoLevels,[],'Dose uncertainty [Gy]',[],'LineWidth',1.2);
 
 savefig([folderPath filesep 'mean_dose_robust.fig']);
 
 %% Create an std dose interactive plot to slide through axial slices
 quantityMap='stdCubeW';
 plane      = 3;
-doseWindow = [0 max([max(resultGUISampRob.(quantityMap)(:)) p/pln.numOfFractions*0.1])];
-maxDose       = max([max(resultGUISampRob.(quantityMap)(:)) p/pln.numOfFractions*0.1]);
+doseWindow = [0 max([max(resultGUISampRob.(quantityMap)(:)) p*0.5])];
+maxDose       = max(resultGUISampRob.(quantityMap)(:));
 doseIsoLevels = linspace(0.1 * maxDose,maxDose,10);
 f = figure;
 title([quantityMap 'for robust optimization results']);
@@ -643,10 +647,10 @@ set(gcf,'position',[10,10,550,400]);
 numSlices = ct.cubeDim(3);
 
 slice = round(pln.propStf.isoCenter(1,3)./ct.resolution.z);
-matRad_plotSliceWrapper(gca,ct,cst,1,resultGUISampRob.(quantityMap),plane,slice,[],[],colorcube,[],doseWindow,doseIsoLevels,[],'Dose uncertainty [Gy]',[],'LineWidth',1.2);
+matRad_plotSliceWrapper(gca,ct,cst,1,resultGUISampRob.(quantityMap)*pln_robust.numOfFractions,plane,slice,[],[],colorcube,[],doseWindow,doseIsoLevels,[],'Dose uncertainty [Gy]',[],'LineWidth',1.2);
 b = uicontrol('Parent',f,'Style','slider','Position',[50,5,420,23],...
     'value',slice, 'min',1, 'max',numSlices,'SliderStep', [1/(numSlices-1) , 1/(numSlices-1)]);
-b.Callback = @(es,ed)  matRad_plotSliceWrapper(gca,ct,cst,1,resultGUISampRob.(quantityMap),plane,round(es.Value),[],[],colorcube,[],doseWindow,doseIsoLevels,[],'Dose uncertainty [Gy]',[],'LineWidth',1.2);
+b.Callback = @(es,ed)  matRad_plotSliceWrapper(gca,ct,cst,1,resultGUISampRob.(quantityMap)*pln_robust.numOfFractions,plane,round(es.Value),[],[],colorcube,[],doseWindow,doseIsoLevels,[],'Dose uncertainty [Gy]',[],'LineWidth',1.2);
 
 savefig([folderPath filesep 'std_dose_robust.fig']);
 
@@ -666,11 +670,19 @@ savefig([folderPath filesep 'price_in_nominal.fig']);
 %% Perform price of robustness analysis using mean dose
 slice = round(pln.propStf.isoCenter(1,3)./ct.resolution.z);
 [resultGUISampRob] = matRad_priceOfRobustnessIndex(resultGUISampRob,resultGUISamp.meanCubeW,resultGUISampRob.meanCubeW,ct,cst,[],[],[],[-5 5],'relative',slice);
+results.priceOfRobustnesAnalysis=resultGUISampRob.priceOfRobustnesAnalysis;
 
 savefig([folderPath filesep 'price_in_mean.fig']);
 
 %% print results
-%[results] = matRad_printResults(run_config,results,cst_robust,pln,dqi_robust);
+disp('Performance:');
+disp(results.performance);
+disp('Robustness analysis (nominal plan):');
+disp(results.robustnessAnalysis_nominal);
+disp('Robustness analysis (robust plan):');
+disp(results.robustnessAnalysis_robust);
+disp('Price of Robustness analysis (robust plan):');
+disp(results.priceOfRobustnesAnalysis.priceOfRobustness);
 
 %% Save outputs
 save([folderPath filesep 'resultGUI.mat'],'resultGUI','resultGUI_robust');

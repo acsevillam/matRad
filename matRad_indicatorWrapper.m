@@ -1,4 +1,4 @@
-function [dvh,qi] = matRad_indicatorWrapper(cst,pln,resultGUI,refGy,refVol)
+function [dvh,qi] = matRad_indicatorWrapper(cst,pln,resultGUI,scale,refGy,refVol,doseWindow)
 % matRad indictor wrapper
 % 
 % call
@@ -36,10 +36,14 @@ function [dvh,qi] = matRad_indicatorWrapper(cst,pln,resultGUI,refGy,refVol)
 %
 % %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+if ~exist('scale', 'var') 
+    scale = 1.0;
+end
+
 if isfield(resultGUI,'RBExD')
-    doseCube = resultGUI.RBExD;
+    doseCube = resultGUI.RBExD*scale;
 else
-    doseCube = resultGUI.physicalDose;
+    doseCube = resultGUI.physicalDose*scale;
 end
 
 if ~exist('refVol', 'var') 
@@ -50,12 +54,16 @@ if ~exist('refGy', 'var')
     refGy = [];
 end
 
+if ~exist('doseWindow', 'var') 
+    doseWindow = [];
+end
+
 dvh = matRad_calcDVH(cst,doseCube,'cum');
 qi  = matRad_calcQualityIndicators(cst,pln,doseCube,refGy,refVol);
 
 figure,set(gcf,'Color',[1 1 1]);
 subplot(2,1,1)
-matRad_showDVH(dvh,cst,pln);
+matRad_showDVH(dvh,cst,pln,doseWindow);
 subplot(2,1,2)
 ixVoi = cellfun(@(c) c.Visible == 1,cst(:,5));
 qi = qi(ixVoi);
