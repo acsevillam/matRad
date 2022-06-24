@@ -555,7 +555,7 @@ varargin.slice = round(isocenter(3)./ct.resolution.z);
 [cstStat, resultGUISamp, meta] = matRad_samplingAnalysis(ct,cst,plnSamp,caSamp, mSampDose, resultGUInomScen,phaseProb,varargin);
 results.robustnessAnalysis_nominal=resultGUISamp.robustnessAnalysis;
 
-savefig([folderPath filesep 'sampling_analysis_nominal.fig']);
+savefig(f2,[folderPath filesep 'sampling_analysis_nominal.fig']);
 
 %% Create an mean dose interactive plot to slide through axial slices
 quantityMap='meanCubeW';
@@ -614,7 +614,7 @@ varargin.slice = round(isocenter(3)./ct.resolution.z);
 [cstStatRob, resultGUISampRob, metaRob] = matRad_samplingAnalysis(ct,cst,plnSampRob,caSampRob, mSampDoseRob, resultGUIRobNomScen,phaseProb,varargin);
 results.robustnessAnalysis_robust=resultGUISampRob.robustnessAnalysis;
 
-savefig([folderPath filesep 'sampling_analysis_robust.fig']);
+savefig(f2,[folderPath filesep 'sampling_analysis_robust.fig']);
 
 %% Create an mean dose interactive plot to slide through axial slices
 quantityMap='meanCubeW';
