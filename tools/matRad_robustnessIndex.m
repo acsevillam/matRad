@@ -102,7 +102,8 @@ if exist('slice','var') && ~isempty(slice)
     title('Relative mean and prescription dose difference');
     
     maxRob = max(robCube,[],'all');
-    doseWindow = [0 maxRob+0.1];
+    %doseWindow = [0 maxRob+0.1];
+    doseWindow = [0 10.01];
     
     mMap1=round(1/(maxRob)*256);
     mMap2=(256-mMap1);
@@ -126,7 +127,8 @@ if exist('slice','var') && ~isempty(slice)
         num2str(stdThreshold) '%)']});
     
     maxRob = max(robCube.*targetMask,[],'all');
-    doseWindow = [0 maxRob+0.1];
+    %doseWindow = [0 maxRob+0.1];
+    doseWindow = [0 5.01];
     
     mMap1=round(1/(maxRob)*256);
     mMap2=(256-mMap1);
