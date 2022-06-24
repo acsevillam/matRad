@@ -18,7 +18,7 @@ function [ct,cst] = matRad_loadGeometry(run_config)
             end
 
             if(resolution=="5x5x5")
-                load('patient_2_multiScen_contourned.mat');
+                load('patient2_5x5x5mm.mat');
             end 
         case 'H&N'
             if(resolution=="5x5x5")
@@ -27,4 +27,3 @@ function [ct,cst] = matRad_loadGeometry(run_config)
     end
 
 end
-
