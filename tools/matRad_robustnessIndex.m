@@ -88,19 +88,17 @@ if exist('slice','var') && ~isempty(slice)
     
     plane      = 3;
     
-    f=figure;
-    f.Position(3:4) = [800 800];
+    f(1)=figure;
+    f(1).Position(3:4) = [800 800];
     
     subplot(2,2,1);
     set(gcf,'Color',[1 1 1]);
     matRad_plotSliceWrapper(gca,ct,cst,refScen,stdCube/refDose,plane,slice,[],[],colorcube,[],[0 1.01]);
-    hold off;
     title('Relative uncertainty');
     
     subplot(2,2,2);
     set(gcf,'Color',[1 1 1]);
     matRad_plotSliceWrapper(gca,ct,cst,refScen,abs(meanCube-refDose*(meanCube>0))/refDose,plane,slice,[],[],colorcube,[],[0 1.01]);
-    hold off;
     title('Relative mean and prescription dose difference');
     
     maxRob = max(robCube,[],'all');
@@ -117,14 +115,12 @@ if exist('slice','var') && ~isempty(slice)
     set(gcf,'Color',[1 1 1]);
     
     matRad_plotSliceWrapper(gca,ct,cst,refScen,robCube,plane,slice,[],[],colorcube,myColormap,doseWindow);
-    hold off;
     title('Robustness metric');
 
     subplot(2,2,4);
     set(gcf,'Color',[1 1 1]);
     
     matRad_plotSliceWrapper(gca,ct,cst,refScen,(robCube<=1).*doseMask,plane,slice,[],[],colorcube,[],[0 2.01]);
-    hold off;
     title({[num2str(robPassRate,5) '% of points ' ...
         'pass robustness criterion (' num2str(meanDoseThreshold) '% / ' ...
         num2str(stdThreshold) '%)']});
@@ -139,7 +135,7 @@ if exist('slice','var') && ~isempty(slice)
     colormap2 = matRad_getColormap('gammaIndex',2*mMap2);
     myColormap = [colormap1(1:mMap1-1,:); colormap2(mMap2+1:end-1,:)];
     
-    f = figure;
+    f(2) = figure;
     numSlices = ct.cubeDim(3);
     matRad_plotSliceWrapper(gca,ct,cst,refScen,robCube.*targetMask,plane,slice,[],[],colorcube,myColormap,doseWindow);
     title({[num2str(robPassRate,5) '% of points ' ...
