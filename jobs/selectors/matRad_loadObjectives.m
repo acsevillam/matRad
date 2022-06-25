@@ -314,7 +314,7 @@ switch radiationMode
                         
                         % Heart
                         cst{4,5}.Priority = 2; % overlap priority for optimization - a lower number corresponds to a higher priority
-                        cst{4,6}{1} = struct(DoseObjectives.matRad_MeanDose(60,0));
+                        cst{4,6}{1} = struct(DoseObjectives.matRad_MeanDose(10,0));
                         cst{4,6}{1}.robustness  = 'none';
                         
                     case '2'
@@ -327,7 +327,7 @@ switch radiationMode
                         
                         % Heart
                         cst{4,5}.Priority = 2; % overlap priority for optimization - a lower number corresponds to a higher priority
-                        cst{4,6}{1} = struct(DoseObjectives.matRad_MeanDose(50,0));
+                        cst{4,6}{1} = struct(DoseObjectives.matRad_MeanDose(10,0));
                         cst{4,6}{1}.robustness  = 'none';
                         
                     case '3'
@@ -340,7 +340,7 @@ switch radiationMode
                         
                         % Heart
                         cst{4,5}.Priority = 2; % overlap priority for optimization - a lower number corresponds to a higher priority
-                        cst{4,6}{1} = struct(DoseObjectives.matRad_MeanDose(40,0));
+                        cst{4,6}{1} = struct(DoseObjectives.matRad_MeanDose(10,0));
                         cst{4,6}{1}.robustness  = 'none';
                         
                     case '4'
@@ -353,7 +353,7 @@ switch radiationMode
                         
                         % Heart
                         cst{4,5}.Priority = 2; % overlap priority for optimization - a lower number corresponds to a higher priority
-                        cst{4,6}{1} = struct(DoseObjectives.matRad_MeanDose(30,0));
+                        cst{4,6}{1} = struct(DoseObjectives.matRad_MeanDose(10,0));
                         cst{4,6}{1}.robustness  = 'none';
                         
                     case '5'
@@ -366,7 +366,7 @@ switch radiationMode
                         
                         % Heart
                         cst{4,5}.Priority = 2; % overlap priority for optimization - a lower number corresponds to a higher priority
-                        cst{4,6}{1} = struct(DoseObjectives.matRad_MeanDose(20,0));
+                        cst{4,6}{1} = struct(DoseObjectives.matRad_MeanDose(5,0));
                         cst{4,6}{1}.robustness  = 'none';
                         
                     case '6'
@@ -379,7 +379,7 @@ switch radiationMode
                         
                         % Heart
                         cst{4,5}.Priority = 2; % overlap priority for optimization - a lower number corresponds to a higher priority
-                        cst{4,6}{1} = struct(DoseObjectives.matRad_MeanDose(10,0));
+                        cst{4,6}{1} = struct(DoseObjectives.matRad_MeanDose(2.5,0));
                         cst{4,6}{1}.robustness  = 'none';
                         
                 end
