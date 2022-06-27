@@ -664,13 +664,13 @@ savefig([folderPath filesep 'dvh_trustband_robust.fig']);
 
 %% Perform price of robustness analysis in nominal scenario
 slice = round(pln.propStf.isoCenter(1,3)./ct.resolution.z);
-[resultGUISampRob] = matRad_priceOfRobustnessIndex(resultGUISampRob,resultGUI_nominal.(quantityOpt),resultGUIRobNomScen.(quantityOpt),ct,cst,[],[],[],[-5 5],'relative',slice);
+[resultGUISampRob] = matRad_priceOfRobustnessIndex(resultGUISampRob,resultGUI_nominal.(quantityOpt),resultGUIRobNomScen.(quantityOpt),ct,cst,pln_robust,[],[],[],[-5 5],'relative',slice);
 
 savefig([folderPath filesep 'price_in_nominal.fig']);
 
 %% Perform price of robustness analysis using mean dose
 slice = round(pln.propStf.isoCenter(1,3)./ct.resolution.z);
-[resultGUISampRob] = matRad_priceOfRobustnessIndex(resultGUISampRob,resultGUISamp.meanCubeW,resultGUISampRob.meanCubeW,ct,cst,[],[],[],[-5 5],'relative',slice);
+[resultGUISampRob] = matRad_priceOfRobustnessIndex(resultGUISampRob,resultGUISamp.meanCubeW,resultGUISampRob.meanCubeW,ct,cst,pln_robust,[],[],[],[-5 5],'relative',slice);
 results.priceOfRobustnesAnalysis=resultGUISampRob.priceOfRobustnesAnalysis;
 
 savefig([folderPath filesep 'price_in_mean.fig']);
