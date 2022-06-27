@@ -129,7 +129,7 @@ if exist('slice','var') && ~isempty(slice)
     
     %maxRob = max(robCube.*targetMask,[],'all');
     %doseWindow = [0 maxRob+0.1];
-    maxRob = 5.01;
+    maxRob = 3.01;
     doseWindow = [0 maxRob];
     
     mMap1=round(1/(maxRob)*256);
