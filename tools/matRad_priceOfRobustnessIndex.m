@@ -40,6 +40,42 @@ matRad_cfg = MatRad_Config.instance();
 
 [env, ~] = matRad_getEnvironment();
 
+%%
+for  i = 1:size(cst,1)
+    if isequal(cst{i,3},'TARGET')
+        
+        % loop over target objectives and get the lowest dose objective
+        refDose = inf;
+        
+        if isstruct(cst{i,6})
+            cst{i,6} = num2cell(arrayfun(@matRad_DoseOptimizationFunction.convertOldOptimizationStruct,cst{i,6}));
+        end
+        
+        for runObjective = 1:numel(cst{i,6})
+            % check if this is an objective that penalizes underdosing
+            obj = cst{i,6}{runObjective};
+            if ~isa(obj,'matRad_DoseOptimizationFunction')
+                try
+                    obj = matRad_DoseOptimizationFunction.createInstanceFromStruct(obj);
+                catch ME
+                    matRad_cfg.dispWarning('Objective/Constraint not valid!\n%s',ME.message)
+                    continue;
+                end
+            end
+            
+            if isa(obj,'DoseObjectives.matRad_SquaredDeviation') || isa(obj,'DoseObjectives.matRad_SquaredUnderdosing')
+                refDose = (min(obj.getDoseParameters(),refDose))/pln.numOfFractions;
+            end
+        end
+        
+        if refDose == inf
+            sprintf('%s%s',i,'Warning: target has no objective that penalizes underdosage, ');
+        end
+        
+    end
+end
+%%
+
 if ~exist('refScen','var') || isempty(refScen)
     refScen=1;
 end
@@ -63,7 +99,7 @@ if ~exist('refVol', 'var') || isempty(refVol)
 end
 
 if ~exist('refGy', 'var') || isempty(refGy)
-    refGy = floor(linspace(0,max([doseCubeNom(:)]),6)*10)/10;
+    refGy = floor(linspace(0,refDose,6)*10)/10;
 end
 
 % Create target mask
