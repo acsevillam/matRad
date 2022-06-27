@@ -1,4 +1,4 @@
-function [resultGUISampRob] = matRad_priceOfRobustnessIndex(resultGUISampRob,doseCubeNom,doseCubeRob,ct,cst,refGy,refVol,refScen,priceWindow,calcType,slice)
+function [resultGUISampRob] = matRad_priceOfRobustnessIndex(resultGUISampRob,doseCubeNom,doseCubeRob,ct,cst,pln,refGy,refVol,refScen,priceWindow,calcType,slice)
 % robustness index calculation
 %
 % call
