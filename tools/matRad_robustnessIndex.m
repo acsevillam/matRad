@@ -143,7 +143,7 @@ if exist('slice','var') && ~isempty(slice)
     f2.Position(3:4) = [800 400];
     subplot(1,2,1);
     numSlices = ct.cubeDim(3);
-    matRad_plotSliceWrapper(gca,ct,cst,refScen,robCube.*targetMask,plane,slice,[],[],colorcube,myColormap,doseWindow,[],[],[],[],'LineWidth',1.2);
+    matRad_plotSliceWrapper(gca,ct,cst,refScen,robCube.*targetMask,plane,slice,[],[],colorcube,myColormap,doseWindow,[],[],'Deviation-Uncertainty',[],'LineWidth',1.2);
     title({[num2str(robPassRate,5) '% of points ' ...
         'pass robustness criterion (' num2str(meanDoseThreshold) '% / ' ...
         num2str(stdThreshold) '%)']});
@@ -152,7 +152,7 @@ if exist('slice','var') && ~isempty(slice)
     
     b = uicontrol('Parent',f2,'Style','slider','Position',[70,5,280,23],...
         'value',slice, 'min',1, 'max',numSlices,'SliderStep', [1/(numSlices-1) , 1/(numSlices-1)]);
-    b.Callback    = @(es,ed)  matRad_plotSliceWrapper(ax1,ct,cst,refScen,robCube.*targetMask,plane,round(es.Value),[],[],colorcube,myColormap,doseWindow,[],[],[],[],'LineWidth',1.2);  
+    b.Callback    = @(es,ed)  matRad_plotSliceWrapper(ax1,ct,cst,refScen,robCube.*targetMask,plane,round(es.Value),[],[],colorcube,myColormap,doseWindow,[],[],'Deviation-Uncertainty',[],'LineWidth',1.2);  
     
     subplot(1,2,2);
     numSlices = ct.cubeDim(3);

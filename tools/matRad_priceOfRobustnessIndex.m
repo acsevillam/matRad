@@ -265,14 +265,14 @@ if exist('slice','var') && ~isempty(slice)
     colormap1 = matRad_getColormap('gammaIndex',2*mMap1);
     colormap2 = matRad_getColormap('gammaIndex',2*mMap2);
     myColormap = [colormap1(1:mMap1-1,:); colormap2(mMap2+1:end-1,:)];
-    matRad_plotSliceWrapper(gca,ct,cst,refScen,priceCube.*OARMask,plane,slice,[],[],colorcube,myColormap,doseWindow,[],[],'Price of robustness index');
+    matRad_plotSliceWrapper(gca,ct,cst,refScen,priceCube.*OARMask,plane,slice,[],[],colorcube,myColormap,doseWindow,[],[],'Price of robustness',[],'LineWidth',1.2);
     ax=gca;
     ax.Colorbar.TickLabels{1}=['<=' num2str(priceWindow(1))];
     ax.Colorbar.TickLabels{end}=['>=' num2str(priceWindow(2))];
     
     b = uicontrol('Parent',f,'Style','slider','Position',[50,5,420,23],...
         'value',slice, 'min',1, 'max',numSlices,'SliderStep', [1/(numSlices-1) , 1/(numSlices-1)]);
-    b.Callback    = @(es,ed)  matRad_plotSliceWrapper(gca,ct,cst,refScen,priceCube.*OARMask,plane,round(es.Value),[],[],colorcube,myColormap,doseWindow,[],[],'Price of robustness index');
+    b.Callback    = @(es,ed)  matRad_plotSliceWrapper(gca,ct,cst,refScen,priceCube.*OARMask,plane,round(es.Value),[],[],colorcube,myColormap,doseWindow,[],[],'Price of robustness',[],'LineWidth',1.2);
     
 end
 
