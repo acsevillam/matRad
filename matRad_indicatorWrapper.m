@@ -1,6 +1,6 @@
-function [dvh,qi] = matRad_indicatorWrapper(cst,pln,resultGUI,scale,refGy,refVol,doseWindow)
+function [dvh,qi] = matRad_indicatorWrapper(cst,pln,resultGUI,quantity,scale,refGy,refVol,doseWindow)
 % matRad indictor wrapper
-% 
+%
 % call
 %   [dvh,qi] = matRad_indicatorWrapper(cst,pln,resultGUI)
 %   [dvh,qi] = matRad_indicatorWrapper(cst,pln,resultGUI,refGy,refVol)
@@ -25,26 +25,30 @@ function [dvh,qi] = matRad_indicatorWrapper(cst,pln,resultGUI,scale,refGy,refVol
 %
 % %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
-% Copyright 2017 the matRad development team. 
-% 
-% This file is part of the matRad project. It is subject to the license 
-% terms in the LICENSE file found in the top-level directory of this 
-% distribution and at https://github.com/e0404/matRad/LICENSES.txt. No part 
-% of the matRad project, including this file, may be copied, modified, 
-% propagated, or distributed except according to the terms contained in the 
+% Copyright 2017 the matRad development team.
+%
+% This file is part of the matRad project. It is subject to the license
+% terms in the LICENSE file found in the top-level directory of this
+% distribution and at https://github.com/e0404/matRad/LICENSES.txt. No part
+% of the matRad project, including this file, may be copied, modified,
+% propagated, or distributed except according to the terms contained in the
 % LICENSE file.
 %
 % %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-if ~exist('scale', 'var') 
+if ~exist('scale', 'var')
     scale = 1.0;
 end
 
-if isfield(resultGUI,'RBExD')
-    doseCube = resultGUI.RBExD*scale;
-else
-    doseCube = resultGUI.physicalDose*scale;
+if ~exist('quantity', 'var') || isempty(quantity)
+    if isfield(resultGUI,'RBExD')
+        quantity = 'RBExD';
+    else
+        quantity = 'physicalDose';
+    end
 end
+
+doseCube = resultGUI.(quantity)*scale;
 
 if ~exist('refVol', 'var') 
     refVol = [];
@@ -54,7 +58,7 @@ if ~exist('refGy', 'var')
     refGy = [];
 end
 
-if ~exist('doseWindow', 'var') 
+if ~exist('doseWindow', 'var')
     doseWindow = [];
 end
 
