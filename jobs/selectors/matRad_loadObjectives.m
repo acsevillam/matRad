@@ -58,74 +58,74 @@ switch radiationMode
                     case '1'
                         
                         % Bladder
-                        cst{2,5}.Priority = 3; % overlap priority for optimization - a lower number corresponds to a higher priority
-                        cst{2,6}{1} = struct(DoseObjectives.matRad_MaxDVH(600,45,20));
-                        cst{2,6}{1}.robustness  = 'none';
+                        cst{5,5}.Priority = 3; % overlap priority for optimization - a lower number corresponds to a higher priority
+                        cst{5,6}{1} = struct(DoseObjectives.matRad_MaxDVH(600,45,20));
+                        cst{5,6}{1}.robustness  = 'none';
                         
                         % Rectum
-                        cst{3,5}.Priority = 3; % overlap priority for optimization - a lower number corresponds to a higher priority
-                        cst{3,6}{1} = struct(DoseObjectives.matRad_MaxDVH(600,25,25));
-                        cst{3,6}{1}.robustness  = 'none';
+                        cst{4,5}.Priority = 3; % overlap priority for optimization - a lower number corresponds to a higher priority
+                        cst{4,6}{1} = struct(DoseObjectives.matRad_MaxDVH(600,25,25));
+                        cst{4,6}{1}.robustness  = 'none';
                         
                     case '2'
                         
                         % Bladder
-                        cst{2,5}.Priority = 3; % overlap priority for optimization - a lower number corresponds to a higher priority
-                        cst{2,6}{1} = struct(DoseObjectives.matRad_MaxDVH(600,50,25));
-                        cst{2,6}{1}.robustness  = 'none';
+                        cst{5,5}.Priority = 3; % overlap priority for optimization - a lower number corresponds to a higher priority
+                        cst{5,6}{1} = struct(DoseObjectives.matRad_MaxDVH(600,50,25));
+                        cst{5,6}{1}.robustness  = 'none';
                         
                         % Rectum
-                        cst{3,5}.Priority = 3; % overlap priority for optimization - a lower number corresponds to a higher priority
-                        cst{3,6}{1} = struct(DoseObjectives.matRad_MaxDVH(600,30,30));
-                        cst{3,6}{1}.robustness  = 'none';
+                        cst{4,5}.Priority = 3; % overlap priority for optimization - a lower number corresponds to a higher priority
+                        cst{4,6}{1} = struct(DoseObjectives.matRad_MaxDVH(600,30,30));
+                        cst{4,6}{1}.robustness  = 'none';
                         
                     case '3'
                         
                         % Bladder
-                        cst{2,5}.Priority = 3; % overlap priority for optimization - a lower number corresponds to a higher priority
-                        cst{2,6}{1} = struct(DoseObjectives.matRad_MaxDVH(600,55,30));
-                        cst{2,6}{1}.robustness  = 'none';
+                        cst{5,5}.Priority = 3; % overlap priority for optimization - a lower number corresponds to a higher priority
+                        cst{5,6}{1} = struct(DoseObjectives.matRad_MaxDVH(600,55,30));
+                        cst{5,6}{1}.robustness  = 'none';
                         
                         % Rectum
-                        cst{3,5}.Priority = 3; % overlap priority for optimization - a lower number corresponds to a higher priority
-                        cst{3,6}{1} = struct(DoseObjectives.matRad_MaxDVH(600,35,35));
-                        cst{3,6}{1}.robustness  = 'none';
+                        cst{4,5}.Priority = 3; % overlap priority for optimization - a lower number corresponds to a higher priority
+                        cst{4,6}{1} = struct(DoseObjectives.matRad_MaxDVH(600,35,35));
+                        cst{4,6}{1}.robustness  = 'none';
                         
                     case '4'
                         
                         % Bladder
-                        cst{2,5}.Priority = 3; % overlap priority for optimization - a lower number corresponds to a higher priority
-                        cst{2,6}{1} = struct(DoseObjectives.matRad_MaxDVH(600,60,35));
-                        cst{2,6}{1}.robustness  = 'none';
-                        
+                        cst{5,5}.Priority = 3; % overlap priority for optimization - a lower number corresponds to a higher priority
+                        cst{5,6}{1} = struct(DoseObjectives.matRad_MaxDVH(600,60,35));
+                        cst{5,6}{1}.robustness  = 'none';
+                       
                         % Rectum
-                        cst{3,5}.Priority = 3; % overlap priority for optimization - a lower number corresponds to a higher priority
-                        cst{3,6}{1} = struct(DoseObjectives.matRad_MaxDVH(600,40,40));
-                        cst{3,6}{1}.robustness  = 'none';
+                        cst{4,5}.Priority = 3; % overlap priority for optimization - a lower number corresponds to a higher priority
+                        cst{4,6}{1} = struct(DoseObjectives.matRad_MaxDVH(600,40,40));
+                        cst{4,6}{1}.robustness  = 'none';
                         
                     case '5'
                         
                         % Bladder
-                        cst{2,5}.Priority = 3; % overlap priority for optimization - a lower number corresponds to a higher priority
-                        cst{2,6}{1} = struct(DoseObjectives.matRad_MaxDVH(600,65,40));
-                        cst{2,6}{1}.robustness  = 'none';
+                        cst{5,5}.Priority = 3; % overlap priority for optimization - a lower number corresponds to a higher priority
+                        cst{5,6}{1} = struct(DoseObjectives.matRad_MaxDVH(600,65,40));
+                        cst{5,6}{1}.robustness  = 'none';
                         
                         % Rectum
-                        cst{3,5}.Priority = 3; % overlap priority for optimization - a lower number corresponds to a higher priority
-                        cst{3,6}{1} = struct(DoseObjectives.matRad_MaxDVH(600,45,45));
-                        cst{3,6}{1}.robustness  = 'none';
+                        cst{4,5}.Priority = 3; % overlap priority for optimization - a lower number corresponds to a higher priority
+                        cst{4,6}{1} = struct(DoseObjectives.matRad_MaxDVH(600,45,45));
+                        cst{4,6}{1}.robustness  = 'none';
                         
                     case '6'
                         
                         % Bladder
-                        cst{2,5}.Priority = 3; % overlap priority for optimization - a lower number corresponds to a higher priority
-                        cst{2,6}{1} = struct(DoseObjectives.matRad_MaxDVH(600,60,100));
-                        cst{2,6}{1}.robustness  = 'none';
+                        cst{5,5}.Priority = 3; % overlap priority for optimization - a lower number corresponds to a higher priority
+                        cst{5,6}{1} = struct(DoseObjectives.matRad_MaxDVH(600,60,100));
+                        cst{5,6}{1}.robustness  = 'none';
                         
                         % Rectum
-                        cst{3,5}.Priority = 3; % overlap priority for optimization - a lower number corresponds to a higher priority
-                        cst{3,6}{1} = struct(DoseObjectives.matRad_MaxDVH(600,50,100));
-                        cst{3,6}{1}.robustness  = 'none';
+                        cst{4,5}.Priority = 3; % overlap priority for optimization - a lower number corresponds to a higher priority
+                        cst{4,6}{1} = struct(DoseObjectives.matRad_MaxDVH(600,50,100));
+                        cst{4,6}{1}.robustness  = 'none';
                         
                 end
                                
@@ -184,74 +184,74 @@ switch radiationMode
                     case '1'
                         
                         % Bladder
-                        cst{2,5}.Priority = 3; % overlap priority for optimization - a lower number corresponds to a higher priority
-                        cst{2,6}{1} = struct(DoseObjectives.matRad_MaxDVH(600,45,20));
-                        cst{2,6}{1}.robustness  = 'none';
+                        cst{5,5}.Priority = 3; % overlap priority for optimization - a lower number corresponds to a higher priority
+                        cst{5,6}{1} = struct(DoseObjectives.matRad_MaxDVH(600,45,20));
+                        cst{5,6}{1}.robustness  = 'none';
                         
                         % Rectum
-                        cst{3,5}.Priority = 3; % overlap priority for optimization - a lower number corresponds to a higher priority
-                        cst{3,6}{1} = struct(DoseObjectives.matRad_MaxDVH(600,25,25));
-                        cst{3,6}{1}.robustness  = 'none';
+                        cst{4,5}.Priority = 3; % overlap priority for optimization - a lower number corresponds to a higher priority
+                        cst{4,6}{1} = struct(DoseObjectives.matRad_MaxDVH(600,25,25));
+                        cst{4,6}{1}.robustness  = 'none';
                         
                     case '2'
                         
                         % Bladder
-                        cst{2,5}.Priority = 3; % overlap priority for optimization - a lower number corresponds to a higher priority
-                        cst{2,6}{1} = struct(DoseObjectives.matRad_MaxDVH(600,50,25));
-                        cst{2,6}{1}.robustness  = 'none';
+                        cst{5,5}.Priority = 3; % overlap priority for optimization - a lower number corresponds to a higher priority
+                        cst{5,6}{1} = struct(DoseObjectives.matRad_MaxDVH(600,50,25));
+                        cst{5,6}{1}.robustness  = 'none';
                         
                         % Rectum
-                        cst{3,5}.Priority = 3; % overlap priority for optimization - a lower number corresponds to a higher priority
-                        cst{3,6}{1} = struct(DoseObjectives.matRad_MaxDVH(600,30,30));
-                        cst{3,6}{1}.robustness  = 'none';
+                        cst{4,5}.Priority = 3; % overlap priority for optimization - a lower number corresponds to a higher priority
+                        cst{4,6}{1} = struct(DoseObjectives.matRad_MaxDVH(600,30,30));
+                        cst{4,6}{1}.robustness  = 'none';
                         
                     case '3'
                         
                         % Bladder
-                        cst{2,5}.Priority = 3; % overlap priority for optimization - a lower number corresponds to a higher priority
-                        cst{2,6}{1} = struct(DoseObjectives.matRad_MaxDVH(600,55,30));
-                        cst{2,6}{1}.robustness  = 'none';
+                        cst{5,5}.Priority = 3; % overlap priority for optimization - a lower number corresponds to a higher priority
+                        cst{5,6}{1} = struct(DoseObjectives.matRad_MaxDVH(600,55,30));
+                        cst{5,6}{1}.robustness  = 'none';
                         
                         % Rectum
-                        cst{3,5}.Priority = 3; % overlap priority for optimization - a lower number corresponds to a higher priority
-                        cst{3,6}{1} = struct(DoseObjectives.matRad_MaxDVH(600,35,35));
-                        cst{3,6}{1}.robustness  = 'none';
+                        cst{4,5}.Priority = 3; % overlap priority for optimization - a lower number corresponds to a higher priority
+                        cst{4,6}{1} = struct(DoseObjectives.matRad_MaxDVH(600,35,35));
+                        cst{4,6}{1}.robustness  = 'none';
                         
                     case '4'
                         
                         % Bladder
-                        cst{2,5}.Priority = 3; % overlap priority for optimization - a lower number corresponds to a higher priority
-                        cst{2,6}{1} = struct(DoseObjectives.matRad_MaxDVH(600,60,35));
-                        cst{2,6}{1}.robustness  = 'none';
+                        cst{5,5}.Priority = 3; % overlap priority for optimization - a lower number corresponds to a higher priority
+                        cst{5,6}{1} = struct(DoseObjectives.matRad_MaxDVH(600,60,35));
+                        cst{5,6}{1}.robustness  = 'none';
                         
                         % Rectum
-                        cst{3,5}.Priority = 3; % overlap priority for optimization - a lower number corresponds to a higher priority
-                        cst{3,6}{1} = struct(DoseObjectives.matRad_MaxDVH(600,40,40));
-                        cst{3,6}{1}.robustness  = 'none';
+                        cst{4,5}.Priority = 3; % overlap priority for optimization - a lower number corresponds to a higher priority
+                        cst{4,6}{1} = struct(DoseObjectives.matRad_MaxDVH(600,40,40));
+                        cst{4,6}{1}.robustness  = 'none';
                         
                     case '5'
                         
                         % Bladder
-                        cst{2,5}.Priority = 3; % overlap priority for optimization - a lower number corresponds to a higher priority
-                        cst{2,6}{1} = struct(DoseObjectives.matRad_MaxDVH(600,65,40));
-                        cst{2,6}{1}.robustness  = 'none';
+                        cst{5,5}.Priority = 3; % overlap priority for optimization - a lower number corresponds to a higher priority
+                        cst{5,6}{1} = struct(DoseObjectives.matRad_MaxDVH(600,65,40));
+                        cst{5,6}{1}.robustness  = 'none';
                         
                         % Rectum
-                        cst{3,5}.Priority = 3; % overlap priority for optimization - a lower number corresponds to a higher priority
-                        cst{3,6}{1} = struct(DoseObjectives.matRad_MaxDVH(600,45,45));
-                        cst{3,6}{1}.robustness  = 'none';
+                        cst{4,5}.Priority = 3; % overlap priority for optimization - a lower number corresponds to a higher priority
+                        cst{4,6}{1} = struct(DoseObjectives.matRad_MaxDVH(600,45,45));
+                        cst{4,6}{1}.robustness  = 'none';
                         
                     case '6'
                         
                         % Bladder
-                        cst{2,5}.Priority = 3; % overlap priority for optimization - a lower number corresponds to a higher priority
-                        cst{2,6}{1} = struct(DoseObjectives.matRad_MaxDVH(600,60,100));
-                        cst{2,6}{1}.robustness  = 'none';
+                        cst{5,5}.Priority = 3; % overlap priority for optimization - a lower number corresponds to a higher priority
+                        cst{5,6}{1} = struct(DoseObjectives.matRad_MaxDVH(600,60,100));
+                        cst{5,6}{1}.robustness  = 'none';
                         
                         % Rectum
-                        cst{3,5}.Priority = 3; % overlap priority for optimization - a lower number corresponds to a higher priority
-                        cst{3,6}{1} = struct(DoseObjectives.matRad_MaxDVH(600,50,100));
-                        cst{3,6}{1}.robustness  = 'none';
+                        cst{4,5}.Priority = 3; % overlap priority for optimization - a lower number corresponds to a higher priority
+                        cst{4,6}{1} = struct(DoseObjectives.matRad_MaxDVH(600,50,100));
+                        cst{4,6}{1}.robustness  = 'none';
                         
                 end
                 

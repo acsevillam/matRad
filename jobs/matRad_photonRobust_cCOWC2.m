@@ -1,4 +1,4 @@
-function matRad_photonRobust_cCOWC2(radiationMode,description,plan_objectives,plan_target,plan_beams,shiftSD,robustness,scen_mode,wcFactor,rootPath,sampling,sampling_mode,sampling_wcFactor,p1,p2)
+function matRad_photonRobust_cCOWC2(radiationMode,description,caseID,plan_objectives,plan_target,plan_beams,shiftSD,robustness,scen_mode,wcFactor,rootPath,sampling,sampling_mode,sampling_wcFactor,p1,p2)
 
 %% Example: 4D robust Treatment Planning with photons
 %
@@ -26,7 +26,7 @@ function matRad_photonRobust_cCOWC2(radiationMode,description,plan_objectives,pl
 % (vi)  sample discrete scenarios from Gaussian uncertainty assumptions
 
 %% Clear variables
-clearvars -except radiationMode description plan_objectives plan_target plan_beams shiftSD robustness scen_mode wcFactor rootPath sampling sampling_mode sampling_wcFactor p1 p2 ;
+clearvars -except radiationMode description caseID plan_objectives plan_target plan_beams shiftSD robustness scen_mode wcFactor rootPath sampling sampling_mode sampling_wcFactor p1 p2 ;
 clc;
 close 'all';
 
@@ -42,7 +42,14 @@ if ~exist('description','var') || isempty(description)
 else
     run_config.description = description;
 end
+
 run_config.resolution = '5x5x5';
+
+if ~exist('caseID','var') || isempty(caseID)
+    run_config.caseID = 'default';
+else
+    run_config.caseID = caseID;
+end
 
 if ~exist('plan_objectives','var') || isempty(plan_objectives)
     run_config.plan_objectives = '1';
@@ -144,9 +151,9 @@ else
 end
 
 if run_config.robustness == "c-COWC"
-    output_folder = ['output' filesep run_config.radiationMode filesep run_config.description filesep run_config.robustness filesep run_config.plan_target filesep run_config.plan_beams filesep run_config.plan_objectives filesep run_config.scen_mode filesep num2str(run_config.wcFactor) filesep num2str(run_config.beta1) '_to_' num2str(run_config.beta2) filesep datestr(datetime,'yyyy-mm-dd HH-MM-SS')];
+    output_folder = ['output' filesep run_config.radiationMode filesep run_config.description filesep run_config.caseID filesep run_config.robustness filesep run_config.plan_target filesep run_config.plan_beams filesep run_config.plan_objectives filesep run_config.scen_mode filesep num2str(run_config.wcFactor) filesep num2str(run_config.beta1) '_to_' num2str(run_config.beta2) filesep datestr(datetime,'yyyy-mm-dd HH-MM-SS')];
 else
-    output_folder = ['output' filesep run_config.radiationMode filesep run_config.description filesep run_config.robustness filesep run_config.plan_target filesep run_config.plan_beams filesep run_config.plan_objectives filesep run_config.scen_mode filesep num2str(run_config.wcFactor) filesep datestr(datetime,'yyyy-mm-dd HH-MM-SS')];
+    output_folder = ['output' filesep run_config.radiationMode filesep run_config.description filesep run_config.caseID filesep run_config.robustness filesep run_config.plan_target filesep run_config.plan_beams filesep run_config.plan_objectives filesep run_config.scen_mode filesep num2str(run_config.wcFactor) filesep datestr(datetime,'yyyy-mm-dd HH-MM-SS')];
 end
 
 %Set up parent export folder and full file path
@@ -294,7 +301,6 @@ switch run_config.resolution
         pln.propDoseCalc.doseGrid.resolution.z = 5; % [mm]
 end
 
-
 %% Enable sequencing and disable direct aperture optimization (DAO) for now.
 % A DAO optimization is shown in a seperate example.
 pln.propOpt.runSequencing = 0;
@@ -351,7 +357,7 @@ savefig([folderPath filesep 'fluence_nominal.fig']);
 %% Plot dose distribution
 figure;
 matRad_geo3DWrapper(gca,ct,cst,resultGUI.physicalDose*pln.numOfFractions,run_config.doseWindow,[0.002 0.00005],colorcube,[],'Dose [Gy]');
-savefig([folderPath filesep 'dose3d_nominal.fig']);
+%savefig([folderPath filesep 'dose3d_nominal.fig']);
 
 %% Create target mask
 target_mask = zeros(size(resultGUI.physicalDose));
@@ -365,15 +371,15 @@ OAR_mask(cst{ixCTV,4}{1,1}) = 0;
 %% Plot target dose distribution
 figure;
 matRad_geo3DWrapper(gca,ct,cst,resultGUI.physicalDose.*target_mask*pln.numOfFractions,run_config.doseWindow,[0.002 0.00005],colorcube,[],'Dose [Gy]');
-savefig([folderPath filesep 'target_dose3d_nominal.fig']);
+%savefig([folderPath filesep 'target_dose3d_nominal.fig']);
 
 %% Plot OAR dose distribution
 figure;
 matRad_geo3DWrapper(gca,ct,cst,resultGUI.physicalDose.*OAR_mask*pln.numOfFractions,run_config.doseWindow,[0.002 0.00005],colorcube,[],'Dose [Gy]');
-savefig([folderPath filesep 'OAR_dose3d_nominal.fig']);
+%savefig([folderPath filesep 'OAR_dose3d_nominal.fig']);
 
 %% Indicator calculation and show DVH and QI
-[dvh,qi] = matRad_indicatorWrapper(cst,pln,resultGUI_nominal,pln.numOfFractions,[],[],run_config.doseWindow_dvh);
+[dvh,qi] = matRad_indicatorWrapper(cst,pln,resultGUI_nominal,[],pln.numOfFractions,[],[],run_config.doseWindow_dvh);
 savefig([folderPath filesep 'dvh_nominal.fig']);
 
 %% Create the VOI data for the phantom
@@ -508,7 +514,7 @@ end
 %% Plot dose distribution
 figure;
 matRad_geo3DWrapper(gca,ct,cst_robust,resultGUI_robust.physicalDose*pln_robust.numOfFractions,run_config.doseWindow,[0.002 0.00005],colorcube,[],'Dose [Gy]');
-savefig([folderPath filesep 'dose3d_robust.fig']);
+%savefig([folderPath filesep 'dose3d_robust.fig']);
 
 %% Create target mask
 target_mask = zeros(size(resultGUI.physicalDose));
@@ -522,15 +528,15 @@ OAR_mask(cst_robust{ixCTV,4}{1,1}) = 0;
 %% Plot target dose distribution
 figure;
 matRad_geo3DWrapper(gca,ct,cst_robust,resultGUI_robust.physicalDose.*target_mask*pln_robust.numOfFractions,run_config.doseWindow,[0.002 0.00005],colorcube,[],'Dose [Gy]');
-savefig([folderPath filesep 'target_dose3d_robust.fig']);
+%savefig([folderPath filesep 'target_dose3d_robust.fig']);
 
 %% Plot OAR dose distribution
 figure;
 matRad_geo3DWrapper(gca,ct,cst_robust,resultGUI_robust.physicalDose.*OAR_mask*pln_robust.numOfFractions,run_config.doseWindow,[0.002 0.00005],colorcube,[],'Dose [Gy]');
-savefig([folderPath filesep 'OAR_dose3d_robust.fig']);
+%savefig([folderPath filesep 'OAR_dose3d_robust.fig']);
 
 %% Indicator calculation and show DVH and QI
-[dvh_robust,dqi_robust] = matRad_indicatorWrapper(cst,pln,resultGUI_robust,pln_robust.numOfFractions,[],[],run_config.doseWindow_dvh);
+[dvh_robust,dqi_robust] = matRad_indicatorWrapper(cst,pln,resultGUI_robust,[],pln_robust.numOfFractions,[],[],run_config.doseWindow_dvh);
 savefig([folderPath filesep 'dvh_robust.fig']);
 
 %% check sampling option is activated
@@ -665,7 +671,6 @@ savefig([folderPath filesep 'dvh_trustband_robust.fig']);
 %% Perform price of robustness analysis in nominal scenario
 slice = round(pln.propStf.isoCenter(1,3)./ct.resolution.z);
 [resultGUISampRob] = matRad_priceOfRobustnessIndex(resultGUISampRob,resultGUI_nominal.(quantityOpt),resultGUIRobNomScen.(quantityOpt),ct,cst,pln_robust,[],[],[],[-5 5],'relative',slice);
-
 savefig([folderPath filesep 'price_in_nominal.fig']);
 
 %% Perform price of robustness analysis using mean dose
