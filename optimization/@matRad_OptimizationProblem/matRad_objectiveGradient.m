@@ -263,6 +263,15 @@ for  i = 1:size(cst,1)
                             end
                         end
                         
+                    case 'INTERVAL2'
+                        for s = 1:numel(useScen)
+                            ixScen = useScen(s);
+                            ixContour = contourScen(s);
+                            
+                            %add to dose gradient
+                            doseGradient{ixScen}(cst{i,4}{ixContour}) = doseGradient{ixScen}(cst{i,4}{ixContour}) + objective.computeDoseObjectiveGradient(w,cst{i,4}{ixContour});
+                        end
+
                     otherwise
                         matRad_cfg.dispError('Robustness setting %s not supported!',objective.robustness);
                         
