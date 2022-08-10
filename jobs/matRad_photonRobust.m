@@ -429,9 +429,9 @@ switch run_config.robustness
             cst_robust{ixTarget,6}{i}.robustness  = 'COWC';
         end
     case 'INTERVAL2'
-        cst_robust{ixCTV,6}{2} = struct(DoseObjectives.matRad_SquaredBertoluzzaDeviation2(800,p,run_config.theta,dij_interval));
-        cst_robust{ixCTV,6}{2}.robustness  = 'INTERVAL2';
-        cst_robust{ixCTV,6}{1}.robustness  = 'none';
+        cst_robust{ixCTV,6}=[];
+        cst_robust{ixCTV,6}{1} = struct(DoseObjectives.matRad_SquaredBertoluzzaDeviation2(800,p,run_config.theta,dij_interval));
+        cst_robust{ixCTV,6}{1}.robustness  = 'INTERVAL2';
 end
 
 %% Inverse Optimization for IMRT
