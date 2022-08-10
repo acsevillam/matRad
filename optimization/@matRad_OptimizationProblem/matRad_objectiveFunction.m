@@ -192,6 +192,10 @@ for  i = 1:size(cst,1)
                                 fMax = max(f_OWC);
                         end
                         f = f + fMax;
+
+                    case 'INTERVAL2'
+                        ixContour = contourScen(1);
+                        f = f + objective.computeDoseObjectiveFunction(w,cst{i,4}{ixContour});
                         
                     otherwise
                         matRad_cfg.dispError('Robustness setting %s not supported!',objective.robustness);

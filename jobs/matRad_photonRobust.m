@@ -1,4 +1,4 @@
-function matRad_photonRobust_cCOWC2(radiationMode,description,caseID,plan_objectives,plan_target,plan_beams,shiftSD,robustness,scen_mode,wcFactor,rootPath,sampling,sampling_mode,sampling_wcFactor,p1,p2)
+function matRad_photonRobust(radiationMode,description,varargin)
 
 %% Example: 4D robust Treatment Planning with photons
 %
@@ -26,7 +26,7 @@ function matRad_photonRobust_cCOWC2(radiationMode,description,caseID,plan_object
 % (vi)  sample discrete scenarios from Gaussian uncertainty assumptions
 
 %% Clear variables
-clearvars -except radiationMode description caseID plan_objectives plan_target plan_beams shiftSD robustness scen_mode wcFactor rootPath sampling sampling_mode sampling_wcFactor p1 p2 ;
+clearvars -except radiationMode description varargin ;
 clc;
 close 'all';
 
@@ -34,127 +34,102 @@ close 'all';
 matRad_rc
 param.logLevel=1;
 
-%% Set examples parameters
-%radiationMode='photons';
-run_config.radiationMode = radiationMode;
-if ~exist('description','var') || isempty(description)
-    run_config.description = 'prostate';
-else
-    run_config.description = description;
+%% Set function parameters
+
+validRadiationModes = {'photons','protons'};
+validDescriptions = {'prostate','breast'};
+validPatientIDs = {'3482','3648','3782','3790','3840','3477','3749','3832','3833','3929'};
+validPlanObjectives = {'1','2','3','4','5','6'};
+validPlanTargets = {'CTV','PTV'};
+validPlanBeams = {'5F','7F','9F'};
+validRobustness = {'none','STOCH','COWC','c-COWC','INTERVAL1','INTERVAL2'};
+validScenModes = {'nomScen','wcScen','impScen','impScen_permuted','impScen_permuted_truncated','random','random_truncated'};
+
+defaultPatientID = '3482';
+defaultPlanObjective = '4';
+defaultPlanTarget = 'CTV';
+defaultPlanBeams = '9F';
+defaultShiftSD = [5 5 5]; % mm
+defaultRobustness = 'COWC';
+defaultScenMode = 'wcScen';
+defaultWCFactor = 1.0;
+defaultP1 = 1;
+defaultP2 = 1;
+defaultTheta = 0.1;
+defaultSampling = true;
+defaultSamplingMode = 'impScen_permuted_truncated';
+defaultSamplingWCFactor = 1.5;
+defaultRootPath = matRad_cfg.matRadRoot;
+
+p = inputParser;
+
+addRequired(p,'radiationMode',@(x) any(validatestring(x,validRadiationModes)));
+addRequired(p,'description',@(x) any(validatestring(x,validDescriptions)));
+addParameter(p,'caseID',defaultPatientID,@(x) any(validatestring(x,validPatientIDs)));
+addParameter(p,'plan_objectives',defaultPlanObjective,@(x) any(validatestring(x,validPlanObjectives)));
+addParameter(p,'plan_target',defaultPlanTarget,@(x) any(validatestring(x,validPlanTargets)));
+addParameter(p,'plan_beams',defaultPlanBeams,@(x) any(validatestring(x,validPlanBeams)));
+addParameter(p,'shiftSD',defaultShiftSD,@(x) numel(x) == 3 && isnumeric(x) && all(x > 0));
+addParameter(p,'robustness',defaultRobustness,@(x) any(validatestring(x,validRobustness)));
+addParameter(p,'scen_mode',defaultScenMode,@(x) any(validatestring(x,validScenModes)));
+addParameter(p,'wcFactor',defaultWCFactor,@(x) isnumeric(x) && isscalar(x) && (x > 0));
+addParameter(p,'p1',defaultP1,@(x) validateattributes(x,{'numeric'},...
+            {'nonempty','integer','positive'}));
+addParameter(p,'p2',defaultP2,@(x) validateattributes(x,{'numeric'},...
+            {'nonempty','integer','positive'}));
+addParameter(p,'theta',defaultTheta,@(x) validateattributes(x,{'numeric'},...
+            {'nonempty','positive'}));
+addParameter(p,'sampling',defaultSampling,@islogical);
+addOptional(p,'sampling_mode',defaultSamplingMode,@(x) any(validatestring(x,validScenModes)));
+addOptional(p,'sampling_wcFactor',defaultSamplingWCFactor,@(x) isnumeric(x) && isscalar(x) && (x > 0));
+addParameter(p,'rootPath',defaultRootPath,@isstring);
+
+parse(p,radiationMode,description,varargin{:});
+
+run_config.radiationMode = p.Results.radiationMode;
+run_config.description = p.Results.description;
+run_config.caseID = p.Results.caseID;
+run_config.plan_objectives = p.Results.plan_objectives;
+run_config.plan_target = p.Results.plan_target;
+run_config.plan_beams = p.Results.plan_beams;
+run_config.shiftSD = p.Results.shiftSD;
+run_config.robustness = p.Results.robustness;
+run_config.scen_mode = p.Results.scen_mode;
+run_config.wcFactor = p.Results.wcFactor;
+run_config.theta = p.Results.theta;
+run_config.sampling = p.Results.sampling;
+run_config.sampling_mode = p.Results.sampling_mode;
+run_config.sampling_wcFactor = p.Results.sampling_wcFactor;
+run_config.rootPath = p.Results.rootPath;
+
+switch run_config.robustness
+    case "c-COWC"
+        switch run_config.scen_mode
+            case "wcScen"
+                run_config.numScens = 7;
+            case "impScen"
+                run_config.numScens = 13;
+            case "impScen_permuted_truncated"
+                run_config.numScens = 33;
+        end
+        run_config.p1 = p.Results.p1;
+        run_config.p2 = p.Results.p2;
+        run_config.beta1 = run_config.p1/run_config.numScens;
+        run_config.beta2 = run_config.p2/run_config.numScens;
+
+        output_folder = ['output' filesep run_config.radiationMode filesep run_config.description filesep run_config.caseID filesep run_config.robustness filesep run_config.plan_target filesep run_config.plan_beams filesep run_config.plan_objectives filesep run_config.scen_mode filesep num2str(run_config.wcFactor) filesep num2str(run_config.beta1) '_to_' num2str(run_config.beta2) filesep datestr(datetime,'yyyy-mm-dd HH-MM-SS')];
+
+    case "INTERVAL2"
+        run_config.theta = p.Results.theta;
+        output_folder = ['output' filesep run_config.radiationMode filesep run_config.description filesep run_config.caseID filesep run_config.robustness filesep run_config.plan_target filesep run_config.plan_beams filesep run_config.plan_objectives filesep run_config.scen_mode filesep num2str(run_config.wcFactor) filesep num2str(run_config.theta) filesep datestr(datetime,'yyyy-mm-dd HH-MM-SS')];
+    otherwise
+        output_folder = ['output' filesep run_config.radiationMode filesep run_config.description filesep run_config.caseID filesep run_config.robustness filesep run_config.plan_target filesep run_config.plan_beams filesep run_config.plan_objectives filesep run_config.scen_mode filesep num2str(run_config.wcFactor) filesep datestr(datetime,'yyyy-mm-dd HH-MM-SS')];
 end
 
 run_config.resolution = '5x5x5';
-
-if ~exist('caseID','var') || isempty(caseID)
-    run_config.caseID = 'default';
-else
-    run_config.caseID = caseID;
-end
-
-if ~exist('plan_objectives','var') || isempty(plan_objectives)
-    run_config.plan_objectives = '1';
-else
-    run_config.plan_objectives = plan_objectives;
-end
-
-if ~exist('plan_target','var') || isempty(plan_target)
-    run_config.plan_target = 'CTV';
-else
-    run_config.plan_target = plan_target;
-end
-
-if ~exist('plan_beams','var') || isempty(plan_beams)
-    run_config.plan_beams = '9F';
-else
-    run_config.plan_beams = plan_beams;
-end
-
-if ~exist('shiftSD','var') || isempty(shiftSD)
-    run_config.shiftSD = [5 5 5]; % mm
-else
-    run_config.shiftSD = shiftSD;
-end
-
-if ~exist('robustness','var') || isempty(robustness)
-    run_config.robustness = 'COWC';
-else
-    run_config.robustness = robustness;
-end
-
-if ~exist('scen_mode','var') || isempty(scen_mode)
-    run_config.scen_mode = 'wcScen';
-else
-    run_config.scen_mode = scen_mode;
-end
-
-if ~exist('wcFactor','var') || isempty(wcFactor)
-    run_config.wcFactor = 1.5;
-else
-    run_config.wcFactor = wcFactor;
-end
-
-if run_config.robustness == "c-COWC"
-    
-    switch run_config.scen_mode
-        case "wcScen"
-            run_config.numScens = 7;
-        case "impScen"
-            run_config.numScens = 13;
-        case "impScen_permuted_truncated"
-            run_config.numScens = 33;
-    end
-    
-    if ~exist('p1','var') || isempty(p1)
-        run_config.p1 = 1;
-    else
-        run_config.p1 = p1;
-    end
-    
-    run_config.beta1 = run_config.p1/run_config.numScens;
-    
-    if ~exist('p2','var') || isempty(p2)
-        run_config.p2 = 1;
-    else
-        run_config.p2 = p2;
-    end
-    
-    run_config.beta2 = run_config.p2/run_config.numScens;
-end
-
-if ~exist('sampling','var') || isempty(sampling)
-    run_config.sampling = false;
-else
-    run_config.sampling = sampling;
-end
-
-if ~exist('sampling_mode','var') || isempty(sampling_mode)
-    run_config.sampling_mode = 'impScen_permuted_truncated';
-else
-    run_config.sampling_mode = sampling_mode;
-end
-
-if ~exist('sampling_wcFactor','var') || isempty(sampling_wcFactor)
-    run_config.sampling_wcFactor = 2.0;
-else
-    run_config.sampling_wcFactor = sampling_wcFactor;
-end
-
 run_config.GammaCriterion = [3 3];
 run_config.robustnessCriterion = [10 10];
 run_config.sampling_size = 50;
-
-
-if ~exist('rootPath','var') || isempty(rootPath)
-    run_config.rootPath = matRad_cfg.matRadRoot;
-else
-    run_config.rootPath = rootPath;
-end
-
-if run_config.robustness == "c-COWC"
-    output_folder = ['output' filesep run_config.radiationMode filesep run_config.description filesep run_config.caseID filesep run_config.robustness filesep run_config.plan_target filesep run_config.plan_beams filesep run_config.plan_objectives filesep run_config.scen_mode filesep num2str(run_config.wcFactor) filesep num2str(run_config.beta1) '_to_' num2str(run_config.beta2) filesep datestr(datetime,'yyyy-mm-dd HH-MM-SS')];
-else
-    output_folder = ['output' filesep run_config.radiationMode filesep run_config.description filesep run_config.caseID filesep run_config.robustness filesep run_config.plan_target filesep run_config.plan_beams filesep run_config.plan_objectives filesep run_config.scen_mode filesep num2str(run_config.wcFactor) filesep datestr(datetime,'yyyy-mm-dd HH-MM-SS')];
-end
 
 %Set up parent export folder and full file path
 if ~(isfolder(output_folder))
@@ -187,7 +162,6 @@ display(cst{ixTarget,2});
 for i=1:length(cst{ixTarget,6})
     display(cst{ixTarget,6}{i});
 end
-
 
 %% Plot CT slice
 if param.logLevel == 1
@@ -278,8 +252,10 @@ if run_config.radiationMode == "protons"
     pln.radiationMode = 'protons';
     pln.machine       = 'Generic';
     quantityOpt   = 'RBExD';            % either  physicalDose / effect / RBExD
-    modelName     = 'constRBE';         % none: for photons, protons, carbon                                    constRBE: constant RBE model
-    % MCN: McNamara-variable RBE model for protons                          WED: Wedenberg-variable RBE model for protons
+    modelName     = 'constRBE';         % none: for photons, protons, carbon                                    
+    % constRBE: constant RBE model
+    % MCN: McNamara-variable RBE model for protons
+    % WED: Wedenberg-variable RBE model for protons
     % LEM: Local Effect Model for carbon ions
     % calculate LET distribution
     pln.propDoseCalc.calcLET = 0;
@@ -428,6 +404,17 @@ DCTime_robust = toc(now1);
 time1=sprintf('DCTime_robust: %.2f\n',DCTime_robust); disp(time1);
 results.performance.DCTime_robust=DCTime_robust;
 
+%% Dose interval pre-computing
+if run_config.robustness=="INTERVAL2"
+    structSel = {'CTV'};
+    now2 = tic();
+    [dij_robust,pln_robust,dij_interval] = matRad_calcDoseInterval2(ct,cst,stf_robust,pln_robust,dij_robust,structSel);
+    save([folderPath filesep 'dij_interval.mat'],'dij_robust','pln_robust','dij_interval');
+    IDCTime_robust = toc(now2);
+    time2=sprintf('DCTime_robust: %.2f\n',DCTime_robust); disp(time2);
+    results.performance.IDCTime_robust=IDCTime_robust;
+end
+
 %% Trigger robust optimization
 % Make the objective to a composite worst case objective
 
@@ -441,7 +428,10 @@ switch run_config.robustness
         for i=1:length(cst_robust{ixTarget,6})
             cst_robust{ixTarget,6}{i}.robustness  = 'COWC';
         end
-        
+    case 'INTERVAL2'
+        cst_robust{ixCTV,6}{2} = struct(DoseObjectives.matRad_SquaredBertoluzzaDeviation2(800,p,run_config.theta,dij_interval));
+        cst_robust{ixCTV,6}{2}.robustness  = 'INTERVAL2';
+        cst_robust{ixCTV,6}{1}.robustness  = 'none';
 end
 
 %% Inverse Optimization for IMRT
@@ -450,12 +440,12 @@ end
 % the clinical objectives and constraints underlying the radiation
 % treatment. Once the optimization has finished, trigger once the GUI to
 % visualize the optimized dose cubes.
-now2 = tic();
+now3 = tic();
 resultGUI_robust = matRad_fluenceOptimization(dij_robust,cst_robust,pln_robust);
 % add resultGUI_robust dose cubes to the existing resultGUI structure to allow the visualization in the GUI
 resultGUI = matRad_appendResultGUI(resultGUI,resultGUI_robust,0,'robust');
-OPTTime_robust = toc(now2);
-time2=sprintf('OPTTime_robust: %.2f\n',OPTTime_robust); disp(time2);
+OPTTime_robust = toc(now3);
+time3=sprintf('OPTTime_robust: %.2f\n',OPTTime_robust); disp(time3);
 results.performance.OPTTime_robust=OPTTime_robust;
 
 %% Plot robust fluence
@@ -555,10 +545,10 @@ structSel = {};
 
 %% Perform sampling analysis
 phaseProb = ones(1,ct.numOfCtScen)/ct.numOfCtScen;
-varargin.robustnessCriterion = run_config.robustnessCriterion;
-varargin.GammaCriterion = run_config.GammaCriterion;
-varargin.slice = round(isocenter(3)./ct.resolution.z);
-[cstStat, resultGUISamp, meta] = matRad_samplingAnalysis(ct,cst,plnSamp,caSamp, mSampDose, resultGUInomScen,phaseProb,varargin);
+robustnessCriterion = run_config.robustnessCriterion;
+GammaCriterion = run_config.GammaCriterion;
+slice = round(isocenter(3)./ct.resolution.z);
+[cstStat, resultGUISamp, meta] = matRad_samplingAnalysis(ct,cst,plnSamp,caSamp, mSampDose, resultGUInomScen,phaseProb,'robustnessCriterion',robustnessCriterion,'GammaCriterion',GammaCriterion,'slice',slice);
 results.robustnessAnalysis_nominal=resultGUISamp.robustnessAnalysis;
 
 savefig([folderPath filesep 'sampling_analysis_nominal.fig']);
@@ -614,10 +604,10 @@ savefig([folderPath filesep 'dvh_trustband_nominal.fig']);
 
 %% Perform sampling analysis
 phaseProb = ones(1,ct.numOfCtScen)/ct.numOfCtScen;
-varargin.robustnessCriterion = run_config.robustnessCriterion;
-varargin.GammaCriterion = run_config.GammaCriterion;
-varargin.slice = round(isocenter(3)./ct.resolution.z);
-[cstStatRob, resultGUISampRob, metaRob] = matRad_samplingAnalysis(ct,cst,plnSampRob,caSampRob, mSampDoseRob, resultGUIRobNomScen,phaseProb,varargin);
+robustnessCriterion = run_config.robustnessCriterion;
+GammaCriterion = run_config.GammaCriterion;
+slice = round(isocenter(3)./ct.resolution.z);
+[cstStatRob, resultGUISampRob, metaRob] = matRad_samplingAnalysis(ct,cst,plnSampRob,caSampRob, mSampDoseRob, resultGUIRobNomScen,phaseProb,'robustnessCriterion',robustnessCriterion,'GammaCriterion',GammaCriterion,'slice',slice);
 results.robustnessAnalysis_robust=resultGUISampRob.robustnessAnalysis;
 
 savefig([folderPath filesep 'sampling_analysis_robust.fig']);
