@@ -411,7 +411,7 @@ if run_config.robustness=="INTERVAL2"
     [dij_robust,pln_robust,dij_interval] = matRad_calcDoseInterval2(ct,cst,stf_robust,pln_robust,dij_robust,structSel);
     save([folderPath filesep 'dij_interval.mat'],'dij_robust','pln_robust','dij_interval');
     IDCTime_robust = toc(now2);
-    time2=sprintf('DCTime_robust: %.2f\n',DCTime_robust); disp(time2);
+    time2=sprintf('IDCTime_robust: %.2f\n',IDCTime_robust); disp(time2);
     results.performance.IDCTime_robust=IDCTime_robust;
 end
 
