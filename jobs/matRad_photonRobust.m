@@ -82,7 +82,7 @@ addParameter(p,'theta',defaultTheta,@(x) validateattributes(x,{'numeric'},...
 addParameter(p,'sampling',defaultSampling,@islogical);
 addOptional(p,'sampling_mode',defaultSamplingMode,@(x) any(validatestring(x,validScenModes)));
 addOptional(p,'sampling_wcFactor',defaultSamplingWCFactor,@(x) isnumeric(x) && isscalar(x) && (x > 0));
-addParameter(p,'rootPath',defaultRootPath,@isstring);
+addParameter(p,'rootPath',defaultRootPath,@isfolder);
 
 parse(p,radiationMode,description,varargin{:});
 
