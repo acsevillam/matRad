@@ -71,12 +71,15 @@ classdef matRad_SquaredBertoluzzaDeviation2 < DoseObjectives.matRad_DoseObjectiv
             Dr = obj.parameters{3}.radius;
             dose_center=Dc*w;
             dose_center=dose_center(Ix);
-            
+
             % deviation : dose minus prefered dose
             deviation = dose_center - obj.parameters{1};
-            % claculate objective function
-            fDose = obj.penalty/numel(dose_center) * ((deviation'*deviation) + ...
-                obj.parameters{2} * ( w'*Dr*w - (dose_center'*dose_center)));
+            
+            % radius dose first term
+            dose_radius_1 = w'*Dr*w;
+
+            % calculate objective function
+            fDose = obj.penalty/numel(dose_center) * (deviation'*deviation + obj.parameters{2} * (dose_radius_1 - dose_center'*dose_center));
         end
         
         %% Calculates the Objective Function gradient
@@ -85,13 +88,20 @@ classdef matRad_SquaredBertoluzzaDeviation2 < DoseObjectives.matRad_DoseObjectiv
             Dr = obj.parameters{3}.radius;
             dose_center=Dc*w;
             dose_center=dose_center(Ix);
-            
-            % deviation : Dose minus prefered dose
+
+            % deviation : dose minus prefered dose
             deviation = dose_center - obj.parameters{1};
+
+            % radius dose gradient first term
+            dose_radius_grad_1 = Dc*(w'*Dr)';
+            dose_radius_grad_1=dose_radius_grad_1(Ix);
+
             % calculate delta
             fDoseGrad = obj.penalty/numel(dose_center) * (2 * deviation + ...
-                2 * obj.parameters{2} *  (1-dose_center));
+                2 * obj.parameters{2} * (dose_radius_grad_1 - dose_center));
+
         end
+
     end
     
     methods (Static)

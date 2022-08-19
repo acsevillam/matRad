@@ -112,7 +112,6 @@ classdef matRad_OptimizationProblem < handle
             
         end
         
-        
         function val = summaxk(optiProb,fVals,fProb)
             
             [~,ixKp2] = maxk(fVals(:),optiProb.p2);
