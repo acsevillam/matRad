@@ -63,6 +63,7 @@ for  i = 1:size(cst,1)
         % loop over the number of constraints for the current VOI
         for j = 1:numel(cst{i,6})
             
+            %Get current optimization function
             objective = cst{i,6}{j};
             
             % only perform gradient computations for objectiveectives

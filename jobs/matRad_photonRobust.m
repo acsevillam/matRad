@@ -605,7 +605,7 @@ savefig([folderPath filesep 'dvh_trustband_nominal.fig']);
 %% Perform sampling analysis
 phaseProb = ones(1,ct.numOfCtScen)/ct.numOfCtScen;
 robustnessCriterion = run_config.robustnessCriterion;
-GammaCriterion = run_config.GammaCriterion;
+GammaCriterion = run_config.GammaCriterion; 
 slice = round(isocenter(3)./ct.resolution.z);
 [cstStatRob, resultGUISampRob, metaRob] = matRad_samplingAnalysis(ct,cst,plnSampRob,caSampRob, mSampDoseRob, resultGUIRobNomScen,phaseProb,'robustnessCriterion',robustnessCriterion,'GammaCriterion',GammaCriterion,'slice',slice);
 results.robustnessAnalysis_robust=resultGUISampRob.robustnessAnalysis;
