@@ -55,6 +55,9 @@ contourScen   = fullScen{1};
 doseGradient          = cell(size(dij.physicalDose));
 doseGradient(useScen) = {zeros(dij.doseGrid.numOfVoxels,1)};
 
+wGradient          = cell(size(dij.physicalDose));
+wGradient(useScen) = {zeros(dij.totalNumOfBixels,1)};
+
 %For probabilistic optimization
 vOmega = 0;
 
@@ -267,9 +270,12 @@ for  i = 1:size(cst,1)
                         for s = 1:numel(useScen)
                             ixScen = useScen(s);
                             ixContour = contourScen(s);
+
+                            d_i = d{ixScen}(cst{i,4}{ixContour});
                             
                             %add to dose gradient
-                            doseGradient{ixScen}(cst{i,4}{ixContour}) = doseGradient{ixScen}(cst{i,4}{ixContour}) + objective.computeDoseObjectiveGradient(w,cst{i,4}{ixContour});
+                            wGradient{ixScen} = wGradient{ixScen} + objective.computeFluenceObjectiveGradient(w,cst{i,4}{ixContour},d_i);
+
                         end
 
                     otherwise
@@ -316,7 +322,7 @@ optiProb.BP.computeGradient(dij,doseGradient,w);
 g = optiProb.BP.GetGradient();
 
 for s = 1:numel(useScen)
-   weightGradient = weightGradient + g{useScen(s)};
+   weightGradient = weightGradient + g{useScen(s)} + wGradient{useScen(s)};
 end
 
 if vOmega ~= 0

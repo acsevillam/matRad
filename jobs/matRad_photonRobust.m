@@ -78,7 +78,7 @@ addParameter(p,'p1',defaultP1,@(x) validateattributes(x,{'numeric'},...
 addParameter(p,'p2',defaultP2,@(x) validateattributes(x,{'numeric'},...
             {'nonempty','integer','positive'}));
 addParameter(p,'theta',defaultTheta,@(x) validateattributes(x,{'numeric'},...
-            {'nonempty','positive'}));
+            {'nonempty'}));
 addParameter(p,'sampling',defaultSampling,@islogical);
 addOptional(p,'sampling_mode',defaultSamplingMode,@(x) any(validatestring(x,validScenModes)));
 addOptional(p,'sampling_wcFactor',defaultSamplingWCFactor,@(x) isnumeric(x) && isscalar(x) && (x > 0));
@@ -430,7 +430,7 @@ switch run_config.robustness
         end
     case 'INTERVAL2'
         cst_robust{ixCTV,6}=[];
-        cst_robust{ixCTV,6}{1} = struct(DoseObjectives.matRad_SquaredBertoluzzaDeviation2(400,p,run_config.theta,dij_interval));
+        cst_robust{ixCTV,6}{1} = struct(DoseObjectives.matRad_SquaredBertoluzzaDeviation2(800,p,run_config.theta,dij_interval));
         cst_robust{ixCTV,6}{1}.robustness  = 'INTERVAL2';
 end
 
