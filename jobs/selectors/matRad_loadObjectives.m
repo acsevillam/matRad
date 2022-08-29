@@ -43,10 +43,10 @@ switch radiationMode
                     ixTarget = 7;
                     cst{ixTarget,3}  = 'TARGET';
                     cst{ixTarget,5}.Priority = 1; % overlap priority for optimization - a lower number corresponds to a higher priority
-                    cst{ixTarget,6}{1} = struct(DoseObjectives.matRad_MinDVH(200,78,99));
+                    %cst{ixTarget,6}{1} = struct(DoseObjectives.matRad_MinDVH(200,78,99));
+                    %cst{ixTarget,6}{1}.robustness  = 'none';
+                    cst{ixTarget,6}{1} = struct(DoseObjectives.matRad_SquaredDeviation(800,p));
                     cst{ixTarget,6}{1}.robustness  = 'none';
-                    cst{ixTarget,6}{2} = struct(DoseObjectives.matRad_SquaredDeviation(800,p));
-                    cst{ixTarget,6}{2}.robustness  = 'none';
                     %cst{ixTarget,6}{3} = struct(DoseConstraints.matRad_MinMaxDVH(p,95,100));
                     
                     %PTV
