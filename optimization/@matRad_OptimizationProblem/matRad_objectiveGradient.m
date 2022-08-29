@@ -274,7 +274,7 @@ for  i = 1:size(cst,1)
                             d_i = d{ixScen}(cst{i,4}{ixContour});
                             
                             %add to dose gradient
-                            wGradient{ixScen} = wGradient{ixScen} + objective.computeFluenceObjectiveGradient(w,cst{i,4}{ixContour},d_i);
+                            wGradient{ixScen} = wGradient{ixScen} + objective.computeFluenceObjectiveGradient(w,cst{i,4}{ixContour});
 
                         end
 
