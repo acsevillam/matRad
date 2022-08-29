@@ -11,10 +11,8 @@ pln_dummy.multScen = matRad_multScen(ct,'nomScen');
 % calculate dummy case dij to save interval
 dij_dummy = matRad_calcPhotonDose(ct,stf,pln_dummy,cst);
 
-%dij_interval.center=sparse(dij.doseGrid.numOfVoxels,dij.totalNumOfBixels);
-dij_interval.center=dij_dummy.physicalDose{1};
+dij_interval.center=sparse(dij.doseGrid.numOfVoxels,dij.totalNumOfBixels);
 dij_interval.radius=sparse(dij.totalNumOfBixels,dij.totalNumOfBixels);
-%ndSparse(dij_interval.doseGrid.numOfVoxels,dij_interval.totalNumOfBixels,dij_interval.totalNumOfBixels);
 
 % initialize waitbar
 figureWait = waitbar(0,'calculate dose interval for each voxel and bixel...');
@@ -64,7 +62,7 @@ for it=1:numel(subIx)
     dij_tmp=cell2mat(cellfun(@(data) data(subIx(it),:),dij.physicalDose(scenIx),'UniformOutput',false));
     
     % Interval center dose influence matrix 
-    %dij_interval.center(subIx(it),:)=sum(dij_tmp'*diag(pln.multScen.scenProb),2); % mean(dij_tmp,1);
+    dij_interval.center(subIx(it),:)=sum(dij_tmp'*diag(pln.multScen.scenProb),2); % mean(dij_tmp,1);
     
     % Interval radius dose influence matrix
     dij_interval.radius=dij_interval.radius+sparse(dij_tmp'*diag(pln.multScen.scenProb)*dij_tmp);
