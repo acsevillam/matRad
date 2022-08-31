@@ -74,6 +74,7 @@ classdef matRad_SquaredBertoluzzaDeviation2 < DoseObjectives.matRad_DoseObjectiv
         
         %% Calculates the Objective Function gradient
         function fWGrad   = computeFluenceObjectiveGradient(obj,w,Ix)
+            theta = obj.parameters{2};
             Dc = obj.parameters{3}.center;
             Dr = obj.parameters{3}.radius;
             
@@ -89,8 +90,10 @@ classdef matRad_SquaredBertoluzzaDeviation2 < DoseObjectives.matRad_DoseObjectiv
             dose_radius_grad_1 = w'*Dr;
 
             % calculate delta
-            fWGrad = (obj.penalty/numel(Ix) * (2 * (1-obj.parameters{2}) * deviation' * Dc + ...
-            2 * obj.parameters{2} * (dose_radius_grad_1 - dose_center' * Dc)))';
+            %fWGrad = (obj.penalty/numel(Ix) * (2 * (1-theta) * deviation' * Dc + ...
+            %2 * theta * (dose_radius_grad_1 - dose_center' * Dc)))';
+            fWGrad = (obj.penalty/numel(Ix) * (2 * deviation' * Dc + ...
+            2 * theta * (dose_radius_grad_1 - dose_center' * Dc)))';
 
             %val= bertoluzza(obj,w,Ix);
             %grad1 = gradest(@(x) bertoluzza(obj,x,Ix),w);
@@ -118,7 +121,8 @@ classdef matRad_SquaredBertoluzzaDeviation2 < DoseObjectives.matRad_DoseObjectiv
             % radius dose first term
             dose_radius_1 = w'*Dr*w;
 
-            fFluence=obj.penalty/numel(dose_center) * ((1-theta) * (deviation'*deviation) + theta * (dose_radius_1 - dose_center'*dose_center));
+            %fFluence=obj.penalty/numel(dose_center) * ((1-theta) * (deviation'*deviation) + theta * (dose_radius_1 - dose_center'*dose_center));
+            fFluence=obj.penalty/numel(dose_center) * ((deviation'*deviation) + theta * (dose_radius_1 - dose_center'*dose_center));
         end
 
     end
