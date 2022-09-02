@@ -1,4 +1,4 @@
-classdef matRad_SquaredBertoluzzaDeviation2 < DoseObjectives.matRad_DoseObjective
+classdef matRad_SquaredBertoluzzaDeviation3 < DoseObjectives.matRad_DoseObjective
     % matRad_SquaredDeviation Implements a penalized least squares objective
     %   See matRad_DoseObjective for interface description
     %
@@ -32,7 +32,7 @@ classdef matRad_SquaredBertoluzzaDeviation2 < DoseObjectives.matRad_DoseObjectiv
     end
     
     methods
-        function obj = matRad_SquaredBertoluzzaDeviation2(penalty,dRef,theta,dij_interval)
+        function obj = matRad_SquaredBertoluzzaDeviation3(penalty,dRef,theta,dij_interval)
             
             %If we have a struct in first argument
             if nargin == 1 && isstruct(penalty)
@@ -76,8 +76,11 @@ classdef matRad_SquaredBertoluzzaDeviation2 < DoseObjectives.matRad_DoseObjectiv
         function fWGrad   = computeFluenceObjectiveGradient(obj,w,Ix)
             theta = obj.parameters{2};
             Dc = obj.parameters{3}.center;
-            Dr = obj.parameters{3}.radius;
-            
+            U = obj.parameters{3}.U;
+            S = obj.parameters{3}.S;
+            V = obj.parameters{3}.V;
+            Dr=U*S*V';
+
             dose_center_tmp=Dc*w;
             dose_center=zeros(size(dose_center_tmp));
             dose_center(Ix)=dose_center_tmp(Ix);
@@ -115,7 +118,10 @@ classdef matRad_SquaredBertoluzzaDeviation2 < DoseObjectives.matRad_DoseObjectiv
         function fFluence = bertoluzza(obj,w,Ix)
             theta = obj.parameters{2};
             Dc = obj.parameters{3}.center;
-            Dr = obj.parameters{3}.radius;
+            U = obj.parameters{3}.U;
+            S = obj.parameters{3}.S;
+            V = obj.parameters{3}.V;
+            Dr=U*S*V';
 
             dose_center=Dc*w;
             dose_center=dose_center(Ix);
@@ -135,7 +141,7 @@ classdef matRad_SquaredBertoluzzaDeviation2 < DoseObjectives.matRad_DoseObjectiv
     methods (Static)
         function rob = availableRobustness()
             rob = DoseObjectives.matRad_DoseObjective.availableRobustness();
-            rob{end+1} = 'INTERVAL2'; %By default, no robustness is available
+            rob{end+1} = 'INTERVAL3'; %By default, no robustness is available
         end
     end
     
