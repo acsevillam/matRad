@@ -42,7 +42,7 @@ validPatientIDs = {'3482','3648','3782','3790','3840','3477','3749','3832','3833
 validPlanObjectives = {'1','2','3','4','5','6'};
 validPlanTargets = {'CTV','PTV'};
 validPlanBeams = {'5F','7F','9F'};
-validRobustness = {'none','STOCH','COWC','c-COWC','INTERVAL1','INTERVAL2'};
+validRobustness = {'none','STOCH','COWC','c-COWC','INTERVAL1','INTERVAL2','INTERVAL3'};
 validScenModes = {'nomScen','wcScen','impScen','impScen_permuted','impScen_permuted_truncated','random','random_truncated'};
 
 defaultPatientID = '3482';
@@ -405,15 +405,26 @@ time1=sprintf('DCTime_robust: %.2f\n',DCTime_robust); disp(time1);
 results.performance.DCTime_robust=DCTime_robust;
 
 %% Dose interval pre-computing
-if run_config.robustness=="INTERVAL2"
-    structSel = {'CTV'};
-    now2 = tic();
-    [dij_robust,pln_robust,dij_interval] = matRad_calcDoseInterval2(ct,cst,stf_robust,pln_robust,dij_robust,structSel);
-    save([folderPath filesep 'dij_interval.mat'],'dij_robust','pln_robust','dij_interval');
-    IDCTime_robust = toc(now2);
-    time2=sprintf('IDCTime_robust: %.2f\n',IDCTime_robust); disp(time2);
-    results.performance.IDCTime_robust=IDCTime_robust;
+
+switch run_config.robustness
+    case 'INTERVAL2'
+        structSel = {'CTV'};
+        now2 = tic();
+        [dij_robust,pln_robust,dij_interval] = matRad_calcDoseInterval2(ct,cst,stf_robust,pln_robust,dij_robust,structSel);
+        save([folderPath filesep 'dij_interval.mat'],'dij_robust','pln_robust','dij_interval');
+        IDCTime_robust = toc(now2);
+        time2=sprintf('IDCTime_robust: %.2f\n',IDCTime_robust); disp(time2);
+        results.performance.IDCTime_robust=IDCTime_robust;
+    case 'INTERVAL3'
+        structSel = {'CTV'};
+        now2 = tic();
+        [dij_robust,pln_robust,dij_interval] = matRad_calcDoseInterval3(ct,cst,stf_robust,pln_robust,dij_robust,structSel);
+        save([folderPath filesep 'dij_interval.mat'],'dij_robust','pln_robust','dij_interval');
+        IDCTime_robust = toc(now2);
+        time2=sprintf('IDCTime_robust: %.2f\n',IDCTime_robust); disp(time2);
+        results.performance.IDCTime_robust=IDCTime_robust;
 end
+
 
 %% Trigger robust optimization
 % Make the objective to a composite worst case objective
@@ -432,6 +443,11 @@ switch run_config.robustness
         cst_robust{ixCTV,6}=[];
         cst_robust{ixCTV,6}{1} = struct(DoseObjectives.matRad_SquaredBertoluzzaDeviation2(800,p,run_config.theta,dij_interval));
         cst_robust{ixCTV,6}{1}.robustness  = 'INTERVAL2';
+    case 'INTERVAL3'
+        cst_robust{ixCTV,6}=[];
+        cst_robust{ixCTV,6}{1} = struct(DoseObjectives.matRad_SquaredBertoluzzaDeviation3(800,p,run_config.theta,dij_interval));
+        cst_robust{ixCTV,6}{1}.robustness  = 'INTERVAL3';
+
 end
 
 %% Inverse Optimization for IMRT

@@ -270,12 +270,26 @@ for  i = 1:size(cst,1)
                         for s = 1:numel(useScen)
                             ixScen = useScen(s);
                             ixContour = contourScen(s);
+                            if(isequal(cst{i,3},'TARGET'))
+                                %add to dose gradient
+                                wGradient{ixScen} = wGradient{ixScen} + objective.computeFluenceObjectiveGradient(w,cst{i,4}{ixContour});
+                            end
+                        end
+
+                    case 'INTERVAL3'
+                        for s = 1:numel(useScen)
+                            ixScen = useScen(s);
+                            ixContour = contourScen(s);
 
                             d_i = d{ixScen}(cst{i,4}{ixContour});
-                            
-                            %add to dose gradient
-                            wGradient{ixScen} = wGradient{ixScen} + objective.computeFluenceObjectiveGradient(w,cst{i,4}{ixContour});
 
+                            if(isequal(cst{i,3},'TARGET'))
+                                %add to dose gradient
+                                wGradient{ixScen} = wGradient{ixScen} + objective.computeFluenceObjectiveGradient(w,cst{i,4}{ixContour});
+                            %else
+                                %doseGradient{ixScen}(cst{i,4}{ixContour}) = doseGradient{ixScen}(cst{i,4}{ixContour}) + ...
+                                %    (objective.computeDoseObjectiveGradient(d_i) * scenProb(s));
+                            end
                         end
 
                     otherwise

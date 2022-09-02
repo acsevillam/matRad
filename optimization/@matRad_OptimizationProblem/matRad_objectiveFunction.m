@@ -196,7 +196,19 @@ for  i = 1:size(cst,1)
 
                     case 'INTERVAL2'
                         ixContour = contourScen(1);
-                        f = f + objective.computeDoseObjectiveFunction(w,cst{i,4}{ixContour});
+                        if(isequal(cst{i,3},'TARGET'))
+                            f = f + objective.computeDoseObjectiveFunction(w,cst{i,4}{ixContour});
+                        end
+
+                    case 'INTERVAL3'
+                        ixContour = contourScen(1);
+                        if(isequal(cst{i,3},'TARGET'))
+                            f = f + objective.computeDoseObjectiveFunction(w,cst{i,4}{ixContour});
+                        %else
+                            %ixContour = contourScen(1);
+                            %d_i = d{ixScen}(cst{i,4}{ixContour});
+                            %f = f + objective.computeDoseObjectiveFunction(d_i);
+                        end
                         
                     otherwise
                         matRad_cfg.dispError('Robustness setting %s not supported!',objective.robustness);
