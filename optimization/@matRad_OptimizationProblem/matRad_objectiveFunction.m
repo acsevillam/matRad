@@ -193,21 +193,31 @@ for  i = 1:size(cst,1)
                                 fMax = max(f_OWC);
                         end
                         f = f + fMax;
-
+                        
                     case 'INTERVAL2'
                         ixContour = contourScen(1);
                         if(isequal(cst{i,3},'TARGET'))
-                            f = f + objective.computeDoseObjectiveFunction(w,cst{i,4}{ixContour});
+                            f = f + objective.computeDoseObjectiveFunction(w,cst{i,4}{ixContour},optiProb.theta1,optiProb.dij_interval);
                         end
-
+                        
                     case 'INTERVAL3'
                         ixContour = contourScen(1);
                         if(isequal(cst{i,3},'TARGET'))
-                            f = f + objective.computeDoseObjectiveFunction(w,cst{i,4}{ixContour});
-                        %else
-                            %ixContour = contourScen(1);
-                            %d_i = d{ixScen}(cst{i,4}{ixContour});
-                            %f = f + objective.computeDoseObjectiveFunction(d_i);
+                            f = f + objective.computeDoseObjectiveFunction(w,cst{i,4}{ixContour},optiProb.theta1,optiProb.dij_interval);
+                        else
+                            
+                            Dc = optiProb.dij_interval.center;
+                            U = optiProb.dij_interval.U;
+                            S = optiProb.dij_interval.S;
+                            V = optiProb.dij_interval.V;
+                            
+                            d_center_i=Dc*w;
+                            d_center_i=d_center_i(cst{i,4}{ixContour});
+                            d_radius_i=arrayfun(@(dose,index) w'*(U{index}*S{index}*(V{index})')*w - dose * dose,d_center_i,cst{i,4}{ixContour});
+                            d_radius_i(d_radius_i<0)=0;
+                            d_radius_i=sqrt(d_radius_i);
+                            
+                            f = f + objective.computeDoseObjectiveFunction(d_center_i+optiProb.theta2*d_radius_i);
                         end
                         
                     otherwise

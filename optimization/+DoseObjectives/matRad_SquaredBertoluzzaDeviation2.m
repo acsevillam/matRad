@@ -22,17 +22,17 @@ classdef matRad_SquaredBertoluzzaDeviation2 < DoseObjectives.matRad_DoseObjectiv
     
     properties (Constant)
         name = 'Squared Deviation';
-        parameterNames = {'d^{ref}','theta','dij_interval'};
-        parameterTypes = {'dose','theta','dij_interval'};
+        parameterNames = {'d^{ref}'};
+        parameterTypes = {'dose'};
     end
     
     properties
-        parameters = {60,0.1};
+        parameters = {60};
         penalty = 1;
     end
     
     methods
-        function obj = matRad_SquaredBertoluzzaDeviation2(penalty,dRef,theta,dij_interval)
+        function obj = matRad_SquaredBertoluzzaDeviation2(penalty,dRef)
             
             %If we have a struct in first argument
             if nargin == 1 && isstruct(penalty)
@@ -47,14 +47,7 @@ classdef matRad_SquaredBertoluzzaDeviation2 < DoseObjectives.matRad_DoseObjectiv
             obj@DoseObjectives.matRad_DoseObjective(inputStruct);
             
             %now handle initialization from other parameters
-            if ~initFromStruct
-                if nargin == 4 && isstruct(dij_interval)
-                    obj.parameters{3} = dij_interval;
-                end
-                if nargin >= 3 && isscalar(theta)
-                    obj.parameters{2} = theta;
-                end
-                
+            if ~initFromStruct                
                 if nargin >= 2 && isscalar(dRef)
                     obj.parameters{1} = dRef;
                 end
@@ -66,17 +59,16 @@ classdef matRad_SquaredBertoluzzaDeviation2 < DoseObjectives.matRad_DoseObjectiv
         end
         
         %% Calculates the Objective Function value
-        function fDose = computeDoseObjectiveFunction(obj,w,Ix)
+        function fDose = computeDoseObjectiveFunction(obj,w,Ix,theta,dij_interval)
             % calculate objective function
-            fDose = bertoluzza(obj,w,Ix);
+            fDose = bertoluzza(obj,w,Ix,theta,dij_interval);
             
         end
         
         %% Calculates the Objective Function gradient
-        function fWGrad   = computeFluenceObjectiveGradient(obj,w,Ix)
-            theta = obj.parameters{2};
-            Dc = obj.parameters{3}.center;
-            Dr = obj.parameters{3}.radius;
+        function fWGrad   = computeFluenceObjectiveGradient(obj,w,Ix,theta,dij_interval)
+            Dc = dij_interval.center;
+            Dr = dij_interval.radius;
             
             dose_center_tmp=Dc*w;
             dose_center=zeros(size(dose_center_tmp));
@@ -95,27 +87,26 @@ classdef matRad_SquaredBertoluzzaDeviation2 < DoseObjectives.matRad_DoseObjectiv
             fWGrad = (obj.penalty/numel(Ix) * (2 * deviation' * Dc + ...
             2 * theta * (dose_radius_grad_1 - dose_center' * Dc)))';
 
-            val= bertoluzza(obj,w,Ix);
-            grad1 = gradest(@(x) bertoluzza(obj,x,Ix),w);
-            grad1_normalized = grad1./norm(grad1);
-            grad2 = fWGrad;
-            grad2_normalized = grad2./norm(grad2);
-            diff=(grad1_normalized-grad2_normalized')./grad1_normalized;
+            %val= bertoluzza(obj,w,Ix);
+            %grad1 = gradest(@(x) bertoluzza(obj,x,Ix),w);
+            %grad1_normalized = grad1./norm(grad1);
+            %grad2 = fWGrad;
+            %grad2_normalized = grad2./norm(grad2);
+            %diff=(grad1_normalized-grad2_normalized')./grad1_normalized;
 
-            fprintf('Val. %i \n',val);
-            fprintf('%i, %i, %i, %i, %i\n', [grad1;grad2';grad1_normalized;grad2_normalized';diff]);
+            %fprintf('Val. %i \n',val);
+            %fprintf('%i, %i, %i, %i, %i\n', [grad1;grad2';grad1_normalized;grad2_normalized';diff]);
             
-            f = figure;
-            edges = [-1:0.03125:1]*1e-10;
-            h = histogram(diff,edges);
-            title(['$F_{CTV}(x)$=' num2str(val)],'Interpreter','Latex');
+            %f = figure;
+            %edges = [-1:0.03125:1]*1e-10;
+            %h = histogram(diff,edges);
+            %title(['$F_{CTV}(x)$=' num2str(val)],'Interpreter','Latex');
 
         end
         
-        function fFluence = bertoluzza(obj,w,Ix)
-            theta = obj.parameters{2};
-            Dc = obj.parameters{3}.center;
-            Dr = obj.parameters{3}.radius;
+        function fFluence = bertoluzza(obj,w,Ix,theta,dij_interval)
+            Dc = dij_interval.center;
+            Dr = dij_interval.radius;
 
             dose_center=Dc*w;
             dose_center=dose_center(Ix);

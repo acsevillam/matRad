@@ -1,4 +1,4 @@
-function [dij_dummy, pln_dummy,dij_interval] = matRad_calcDoseInterval3(ct,cst,stf,pln,dij,structSel)
+function [dij_dummy, pln_dummy,dij_interval] = matRad_calcDoseInterval3(ct,cst,stf,pln,dij,structSel,k)
 
 matRad_cfg =  MatRad_Config.instance();
 [env,envver] = matRad_getEnvironment();
@@ -12,6 +12,7 @@ pln_dummy.multScen = matRad_multScen(ct,'nomScen');
 dij_dummy = matRad_calcPhotonDose(ct,stf,pln_dummy,cst);
 
 dij_interval.center=sparse(dij.doseGrid.numOfVoxels,dij.totalNumOfBixels);
+dij_interval.radius=sparse(dij.totalNumOfBixels,dij.totalNumOfBixels);
 dij_interval.U=cell(dij.doseGrid.numOfVoxels,1);
 dij_interval.S=cell(dij.doseGrid.numOfVoxels,1);
 dij_interval.V=cell(dij.doseGrid.numOfVoxels,1);
@@ -35,7 +36,7 @@ else
     for i=1:size(cst,1)
         for j = 1:numel(structSel)
             if strcmp(structSel{j}, cst{i,2})
-                V = [V cst{i,4}{1}];
+                V = [V; cst{i,4}{1}];
             end
         end
     end
@@ -60,15 +61,15 @@ for it=1:numel(subIx)
     end
     
     scenIx = find(pln.multScen.scenMask);
-    
     dij_tmp=cell2mat(cellfun(@(data) data(subIx(it),:),dij.physicalDose(scenIx),'UniformOutput',false));
     
     % Interval center dose influence matrix 
     dij_interval.center(subIx(it),:)=sum(dij_tmp'*diag(pln.multScen.scenProb),2); % mean(dij_tmp,1);
     
     % Interval radius dose influence matrix
+    dij_interval.radius=dij_interval.radius+sparse(dij_tmp'*diag(pln.multScen.scenProb)*dij_tmp);
     dij_interval_tmp.radius=sparse(dij_tmp'*diag(pln.multScen.scenProb)*dij_tmp);
-    [dij_interval.U{subIx(it)},dij_interval.S{subIx(it)},dij_interval.V{subIx(it)}] = svds(dij_interval_tmp.radius,6);
+    [dij_interval.U{subIx(it)},dij_interval.S{subIx(it)},dij_interval.V{subIx(it)}] = svds(dij_interval_tmp.radius,k,'largest');
     clear 'dij_tmp' 'dij_interval_tmp';
     
 end
