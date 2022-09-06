@@ -36,6 +36,11 @@ classdef matRad_OptimizationProblem < handle
         p1=1; %
         p2=1; %
         
+        % Paremeters for INTERVAL
+        theta1=0.1;
+        theta2=0;
+        dij_interval=struct();
+        
     end
     
     methods

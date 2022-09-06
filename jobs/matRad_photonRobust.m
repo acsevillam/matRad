@@ -55,7 +55,8 @@ defaultScenMode = 'wcScen';
 defaultWCFactor = 1.0;
 defaultP1 = 1;
 defaultP2 = 1;
-defaultTheta = 0.1;
+defaultTheta1 = 0.1;
+defaultTheta2 = 0.02;
 defaultSampling = true;
 defaultSamplingMode = 'impScen_permuted_truncated';
 defaultSamplingWCFactor = 1.5;
@@ -77,8 +78,10 @@ addParameter(p,'p1',defaultP1,@(x) validateattributes(x,{'numeric'},...
             {'nonempty','integer','positive'}));
 addParameter(p,'p2',defaultP2,@(x) validateattributes(x,{'numeric'},...
             {'nonempty','integer','positive'}));
-addParameter(p,'theta',defaultTheta,@(x) validateattributes(x,{'numeric'},...
+addParameter(p,'theta1',defaultTheta1,@(x) validateattributes(x,{'numeric'},...
             {'nonempty','positive'}));
+addParameter(p,'theta2',defaultTheta2,@(x) validateattributes(x,{'numeric'},...
+            {'nonempty'}));
 addParameter(p,'sampling',defaultSampling,@islogical);
 addOptional(p,'sampling_mode',defaultSamplingMode,@(x) any(validatestring(x,validScenModes)));
 addOptional(p,'sampling_wcFactor',defaultSamplingWCFactor,@(x) isnumeric(x) && isscalar(x) && (x > 0));
@@ -96,7 +99,6 @@ run_config.shiftSD = p.Results.shiftSD;
 run_config.robustness = p.Results.robustness;
 run_config.scen_mode = p.Results.scen_mode;
 run_config.wcFactor = p.Results.wcFactor;
-run_config.theta = p.Results.theta;
 run_config.sampling = p.Results.sampling;
 run_config.sampling_mode = p.Results.sampling_mode;
 run_config.sampling_wcFactor = p.Results.sampling_wcFactor;
@@ -116,12 +118,15 @@ switch run_config.robustness
         run_config.p2 = p.Results.p2;
         run_config.beta1 = run_config.p1/run_config.numScens;
         run_config.beta2 = run_config.p2/run_config.numScens;
-
         output_folder = ['output' filesep run_config.radiationMode filesep run_config.description filesep run_config.caseID filesep run_config.robustness filesep run_config.plan_target filesep run_config.plan_beams filesep run_config.plan_objectives filesep run_config.scen_mode filesep num2str(run_config.wcFactor) filesep num2str(run_config.beta1) '_to_' num2str(run_config.beta2) filesep datestr(datetime,'yyyy-mm-dd HH-MM-SS')];
 
     case "INTERVAL2"
-        run_config.theta = p.Results.theta;
-        output_folder = ['output' filesep run_config.radiationMode filesep run_config.description filesep run_config.caseID filesep run_config.robustness filesep run_config.plan_target filesep run_config.plan_beams filesep run_config.plan_objectives filesep run_config.scen_mode filesep num2str(run_config.wcFactor) filesep num2str(run_config.theta) filesep datestr(datetime,'yyyy-mm-dd HH-MM-SS')];
+        run_config.theta1 = p.Results.theta1;
+        output_folder = ['output' filesep run_config.radiationMode filesep run_config.description filesep run_config.caseID filesep run_config.robustness filesep run_config.plan_target filesep run_config.plan_beams filesep run_config.plan_objectives filesep run_config.scen_mode filesep num2str(run_config.wcFactor) filesep num2str(run_config.theta1) filesep datestr(datetime,'yyyy-mm-dd HH-MM-SS')];
+    case "INTERVAL3"
+        run_config.theta1 = p.Results.theta1;
+        run_config.theta2 = p.Results.theta2;
+        output_folder = ['output' filesep run_config.radiationMode filesep run_config.description filesep run_config.caseID filesep run_config.robustness filesep run_config.plan_target filesep run_config.plan_beams filesep run_config.plan_objectives filesep run_config.scen_mode filesep num2str(run_config.wcFactor) filesep num2str(run_config.theta1) filesep datestr(datetime,'yyyy-mm-dd HH-MM-SS')];
     otherwise
         output_folder = ['output' filesep run_config.radiationMode filesep run_config.description filesep run_config.caseID filesep run_config.robustness filesep run_config.plan_target filesep run_config.plan_beams filesep run_config.plan_objectives filesep run_config.scen_mode filesep num2str(run_config.wcFactor) filesep datestr(datetime,'yyyy-mm-dd HH-MM-SS')];
 end
@@ -416,9 +421,10 @@ switch run_config.robustness
         time2=sprintf('IDCTime_robust: %.2f\n',IDCTime_robust); disp(time2);
         results.performance.IDCTime_robust=IDCTime_robust;
     case 'INTERVAL3'
-        structSel = {'CTV'};
+        structSel = {'CTV','BLADDER','RECTUM'};
         now2 = tic();
-        [dij_robust,pln_robust,dij_interval] = matRad_calcDoseInterval3(ct,cst,stf_robust,pln_robust,dij_robust,structSel);
+        k=1;
+        [dij_robust,pln_robust,dij_interval] = matRad_calcDoseInterval3(ct,cst,stf_robust,pln_robust,dij_robust,structSel,k);
         save([folderPath filesep 'dij_interval.mat'],'dij_robust','pln_robust','dij_interval');
         IDCTime_robust = toc(now2);
         time2=sprintf('IDCTime_robust: %.2f\n',IDCTime_robust); disp(time2);
@@ -440,13 +446,20 @@ switch run_config.robustness
             cst_robust{ixTarget,6}{i}.robustness  = 'COWC';
         end
     case 'INTERVAL2'
+        pln_robust.propOpt.dij_interval=dij_interval;
+        pln_robust.propOpt.theta1=run_config.theta1;
         cst_robust{ixCTV,6}=[];
-        cst_robust{ixCTV,6}{1} = struct(DoseObjectives.matRad_SquaredBertoluzzaDeviation2(800,p,run_config.theta,dij_interval));
+        cst_robust{ixCTV,6}{1} = struct(DoseObjectives.matRad_SquaredBertoluzzaDeviation2(800,p));
         cst_robust{ixCTV,6}{1}.robustness  = 'INTERVAL2';
     case 'INTERVAL3'
+        pln_robust.propOpt.dij_interval=dij_interval;
+        pln_robust.propOpt.theta1=run_config.theta1;
+        pln_robust.propOpt.theta1=run_config.theta2;
         cst_robust{ixCTV,6}=[];
-        cst_robust{ixCTV,6}{1} = struct(DoseObjectives.matRad_SquaredBertoluzzaDeviation3(800,p,run_config.theta,dij_interval));
+        cst_robust{ixCTV,6}{1} = struct(DoseObjectives.matRad_SquaredBertoluzzaDeviation2(800,p));
         cst_robust{ixCTV,6}{1}.robustness  = 'INTERVAL3';
+        cst_robust{4,6}{1}.robustness  = 'INTERVAL3';
+        cst_robust{5,6}{1}.robustness  = 'INTERVAL3';
 
 end
 

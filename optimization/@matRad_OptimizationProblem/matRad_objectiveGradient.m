@@ -272,7 +272,7 @@ for  i = 1:size(cst,1)
                             ixContour = contourScen(s);
                             if(isequal(cst{i,3},'TARGET'))
                                 %add to dose gradient
-                                wGradient{ixScen} = wGradient{ixScen} + objective.computeFluenceObjectiveGradient(w,cst{i,4}{ixContour});
+                                wGradient{ixScen} = wGradient{ixScen} + objective.computeFluenceObjectiveGradient(w,cst{i,4}{ixContour},optiProb.theta1,optiProb.dij_interval);
                             end
                         end
 
@@ -281,14 +281,23 @@ for  i = 1:size(cst,1)
                             ixScen = useScen(s);
                             ixContour = contourScen(s);
 
-                            d_i = d{ixScen}(cst{i,4}{ixContour});
-
                             if(isequal(cst{i,3},'TARGET'))
                                 %add to dose gradient
-                                wGradient{ixScen} = wGradient{ixScen} + objective.computeFluenceObjectiveGradient(w,cst{i,4}{ixContour});
-                            %else
-                                %doseGradient{ixScen}(cst{i,4}{ixContour}) = doseGradient{ixScen}(cst{i,4}{ixContour}) + ...
-                                %    (objective.computeDoseObjectiveGradient(d_i) * scenProb(s));
+                                wGradient{ixScen} = wGradient{ixScen} + objective.computeFluenceObjectiveGradient(w,cst{i,4}{ixContour},optiProb.theta1,optiProb.dij_interval);
+                            else
+                                
+                                Dc = optiProb.dij_interval.center;
+                                U = optiProb.dij_interval.U;
+                                S = optiProb.dij_interval.S;
+                                V = optiProb.dij_interval.V;
+                                
+                                d_center_i=Dc*w;
+                                d_center_i=d_center_i(cst{i,4}{ixContour});
+                                d_radius_i=arrayfun(@(dose,index) w'*(U{index}*S{index}*(V{index})')*w - dose * dose,d_center_i,cst{i,4}{ixContour});
+                                d_radius_i(d_radius_i<0)=0;
+                                d_radius_i=sqrt(d_radius_i);
+                                doseGradient{ixScen}(cst{i,4}{ixContour}) = doseGradient{ixScen}(cst{i,4}{ixContour}) + ...
+                                    (objective.computeDoseObjectiveGradient(d_center_i+optiProb.theta1*d_radius_i));
                             end
                         end
 

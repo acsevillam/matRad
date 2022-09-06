@@ -242,6 +242,15 @@ end
 if isfield(pln,'propOpt') && isfield(pln.propOpt,'p2')
     optiProb.p2 = pln.propOpt.p2;
 end
+if isfield(pln,'propOpt') && isfield(pln.propOpt,'theta1')
+    optiProb.theta1 = pln.propOpt.theta1;
+end
+if isfield(pln,'propOpt') && isfield(pln.propOpt,'theta2')
+    optiProb.theta2 = pln.propOpt.theta2;
+end
+if isfield(pln,'propOpt') && isfield(pln.propOpt,'dij_interval')
+    optiProb.dij_interval = pln.propOpt.dij_interval;
+end
 
 optiProb.quantityOpt = pln.bioParam.quantityOpt;
 if isfield(pln,'propOpt') && isfield(pln.propOpt,'useLogSumExpForRobOpt')
