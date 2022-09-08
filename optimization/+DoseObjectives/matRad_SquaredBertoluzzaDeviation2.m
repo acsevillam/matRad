@@ -104,7 +104,7 @@ classdef matRad_SquaredBertoluzzaDeviation2 < DoseObjectives.matRad_DoseObjectiv
 
         end
         
-        function fFluence = bertoluzza(obj,w,Ix,theta,dij_interval)
+        function fFluence = bertoluzza(obj,w,Ix,theta1,dij_interval)
             Dc = dij_interval.center;
             Dr = dij_interval.radius;
 
@@ -117,8 +117,8 @@ classdef matRad_SquaredBertoluzzaDeviation2 < DoseObjectives.matRad_DoseObjectiv
             % radius dose first term
             dose_radius_1 = w'*Dr*w;
 
-            %fFluence=obj.penalty/numel(dose_center) * ((1-theta) * (deviation'*deviation) + theta * (dose_radius_1 - dose_center'*dose_center));
-            fFluence=obj.penalty/numel(dose_center) * ((deviation'*deviation) + theta * (dose_radius_1 - dose_center'*dose_center));
+            %fFluence=obj.penalty/numel(dose_center) * ((1-theta) * (deviation'*deviation) + theta1 * (dose_radius_1 - dose_center'*dose_center));
+            fFluence=obj.penalty/numel(dose_center) * ((deviation'*deviation) + theta1 * (dose_radius_1 - dose_center'*dose_center));
         end
 
     end

@@ -399,7 +399,7 @@ display(stf_robust(1));
 % allows subsequent inverse optimization.
 now1 = tic();
 if run_config.radiationMode == "photons"
-    dij_robust = matRad_calcPhotonDose(ct,stf_robust,pln_robust,cst_robust);
+    %dij_robust = matRad_calcPhotonDose(ct,stf_robust,pln_robust,cst_robust);
 end
 
 if run_config.radiationMode == "protons"
@@ -423,9 +423,10 @@ switch run_config.robustness
     case 'INTERVAL3'
         structSel = {'CTV','BLADDER','RECTUM'};
         now2 = tic();
-        k=1;
-        [dij_robust,pln_robust,dij_interval] = matRad_calcDoseInterval3(ct,cst,stf_robust,pln_robust,dij_robust,structSel,k);
-        save([folderPath filesep 'dij_interval.mat'],'dij_robust','pln_robust','dij_interval');
+        k=10;
+        %[dij_robust,pln_robust,dij_interval] = matRad_calcDoseInterval3(ct,cst,stf_robust,pln_robust,dij_robust,structSel,k);
+        %save([folderPath filesep 'dij_interval.mat'],'dij_robust','pln_robust','dij_interval');
+        load('dij_interval.mat');
         IDCTime_robust = toc(now2);
         time2=sprintf('IDCTime_robust: %.2f\n',IDCTime_robust); disp(time2);
         results.performance.IDCTime_robust=IDCTime_robust;
