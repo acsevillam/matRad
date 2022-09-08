@@ -210,14 +210,13 @@ for  i = 1:size(cst,1)
                             U = optiProb.dij_interval.U;
                             S = optiProb.dij_interval.S;
                             V = optiProb.dij_interval.V;
-                            
-                            d_center_i=Dc*w;
-                            d_center_i=d_center_i(cst{i,4}{ixContour});
-                            d_radius_i=arrayfun(@(dose,index) w'*(U{index}*S{index}*(V{index})')*w - dose * dose,d_center_i,cst{i,4}{ixContour});
-                            d_radius_i(d_radius_i<0)=0;
-                            d_radius_i=sqrt(d_radius_i);
-                            
-                            f = f + objective.computeDoseObjectiveFunction(d_center_i+optiProb.theta2*d_radius_i);
+
+                            d_center=Dc*w;
+                            d_center=d_center(cst{i,4}{ixContour});
+
+                            d_radius=arrayfun(@(index) sqrt(w' * (U{index}*S{index}*(V{index})')*w),cst{i,4}{ixContour}) ;
+
+                            f = f + objective.computeDoseObjectiveFunction(d_center+optiProb.theta2*d_radius);
                         end
                         
                     otherwise

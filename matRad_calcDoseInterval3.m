@@ -68,8 +68,9 @@ for it=1:numel(subIx)
     
     % Interval radius dose influence matrix
     dij_interval.radius=dij_interval.radius+sparse(dij_tmp'*diag(pln.multScen.scenProb)*dij_tmp);
-    dij_interval_tmp.radius=sparse(dij_tmp'*diag(pln.multScen.scenProb)*dij_tmp);
+    dij_interval_tmp.radius=sparse(dij_tmp'*diag(pln.multScen.scenProb)*dij_tmp-dij_interval.center(subIx(it),:)'*dij_interval.center(subIx(it),:));
     [dij_interval.U{subIx(it)},dij_interval.S{subIx(it)},dij_interval.V{subIx(it)}] = svds(dij_interval_tmp.radius,k,'largest');
+    
     clear 'dij_tmp' 'dij_interval_tmp';
     
 end

@@ -8,21 +8,26 @@ param.logLevel=1;
 defaultRootPath = matRad_cfg.matRadRoot;
 radiationMode='photons';
 description='prostate';
-caseID='3840';
-robustness='c-COWC'; % none COWC c-COWC
+caseID='3782'; % 3482 3648 3782
+robustness='INTERVAL2'; % none COWC c-COWC
 plan_target='CTV'; % CTV PTV
 plan_beams='9F';
 plan_objectives='4';
-scen_mode='impScen'; % nomScen impScen impScen_permuted_truncated
+scen_mode='impScen_permuted_truncated'; % nomScen impScen impScen_permuted_truncated
 wcFactor=1;
 beta1=1/13;
 beta2=13/13;
+theta1=0.7;
 %output_folder = ['output' filesep radiationMode filesep description filesep caseID filesep robustness ...
 %    filesep plan_target filesep plan_beams filesep plan_objectives filesep scen_mode filesep num2str(wcFactor) ]; %filesep '2022-07-10 03-59-36' filesep 'dvh_trustband_robust.fig'];
 
+%output_folder = ['output' filesep radiationMode filesep description filesep caseID filesep robustness ...
+%    filesep plan_target filesep plan_beams filesep plan_objectives filesep scen_mode filesep num2str(wcFactor) filesep num2str(beta1) '_to_' num2str(beta2) ];
+
 output_folder = ['output' filesep radiationMode filesep description filesep caseID filesep robustness ...
-    filesep plan_target filesep plan_beams filesep plan_objectives filesep scen_mode filesep num2str(wcFactor) filesep num2str(beta1) '_to_' num2str(beta2) ];
-foldername = [defaultRootPath filesep '../../JOBS/cminimax2/1_all/job4' filesep output_folder];
+    filesep plan_target filesep plan_beams filesep plan_objectives filesep scen_mode filesep num2str(wcFactor) filesep num2str(theta1) ];
+
+foldername = [defaultRootPath filesep '../../JOBS/interval/1_all/job1' filesep output_folder];
 listing = dir(foldername);
 filename=[foldername filesep listing(end).name filesep 'dvh_trustband_robust.fig'];
 openfig(filename);
