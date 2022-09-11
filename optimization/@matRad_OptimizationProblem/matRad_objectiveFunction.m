@@ -211,8 +211,8 @@ for  i = 1:size(cst,1)
                             S = optiProb.dij_interval.S;
                             V = optiProb.dij_interval.V;
 
-                            d_center=Dc*w;
-                            d_center=d_center(cst{i,4}{ixContour});
+                            d_center=d{ixScen}(cst{i,4}{ixContour});%Dc*w;
+                            %d_center=d_center(cst{i,4}{ixContour});
 
                             d_radius=arrayfun(@(index) sqrt(w' * (U{index}*S{index}*(V{index})')*w),cst{i,4}{ixContour}) ;
 
