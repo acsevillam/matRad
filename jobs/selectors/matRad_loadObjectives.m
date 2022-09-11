@@ -1,4 +1,4 @@
-function [cst,ixTarget,p,ixBody,ixCTV] = matRad_loadObjectives(run_config,target,cst)
+function [cst,ixTarget,p,ixBody,ixCTV,OARStructSel] = matRad_loadObjectives(run_config,target,cst)
 
 patient=run_config.description;
 plan_objectives = run_config.plan_objectives;
@@ -13,6 +13,8 @@ switch radiationMode
                 cst{ixBody,5}.Priority = 4; % overlap priority for optimization - a lower number corresponds to a higher priority
                 cst{ixBody,6}{1} = struct(DoseObjectives.matRad_SquaredOverdosing(600,76));
                 cst{ixBody,6}{1}.robustness  = 'none';
+                
+                OARStructSel = {'BLADDER','RECTUM'};
                 
                 if(target=="PTV")
                     % CTV
@@ -140,6 +142,8 @@ switch radiationMode
                 cst{ixBody,6}{1} = struct(DoseObjectives.matRad_SquaredOverdosing(600,76));
                 cst{ixBody,6}{1}.robustness  = 'none';
                 
+                OARStructSel = {'BLADDER','RECTUM'};
+                
                 if(target=="PTV")
                     % CTV
                     p=78;
@@ -262,6 +266,8 @@ switch radiationMode
                 cst{ixBody,5}.Priority = 3; % overlap priority for optimization - a lower number corresponds to a higher priority
                 cst{ixBody,6}{1} = struct(DoseObjectives.matRad_SquaredOverdosing(600,40.56));
                 cst{ixBody,6}{1}.robustness  = 'none';
+                
+                OARStructSel = {'HEART','LEFT LUNG'};
                 
                 if(target=="PTV")
                     % CTV

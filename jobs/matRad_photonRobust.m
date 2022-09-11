@@ -56,6 +56,7 @@ defaultWCFactor = 1.0;
 defaultP1 = 1;
 defaultP2 = 1;
 defaultTheta1 = 0.1;
+defaultK = 1;
 defaultTheta2 = 0.02;
 defaultSampling = true;
 defaultSamplingMode = 'impScen_permuted_truncated';
@@ -80,6 +81,8 @@ addParameter(p,'p2',defaultP2,@(x) validateattributes(x,{'numeric'},...
             {'nonempty','integer','positive'}));
 addParameter(p,'theta1',defaultTheta1,@(x) validateattributes(x,{'numeric'},...
             {'nonempty','positive'}));
+addParameter(p,'k',defaultK,@(x) validateattributes(x,{'numeric'},...
+            {'nonempty','integer','positive'}));
 addParameter(p,'theta2',defaultTheta2,@(x) validateattributes(x,{'numeric'},...
             {'nonempty'}));
 addParameter(p,'sampling',defaultSampling,@islogical);
@@ -125,6 +128,7 @@ switch run_config.robustness
         output_folder = ['output' filesep run_config.radiationMode filesep run_config.description filesep run_config.caseID filesep run_config.robustness filesep run_config.plan_target filesep run_config.plan_beams filesep run_config.plan_objectives filesep run_config.scen_mode filesep num2str(run_config.wcFactor) filesep num2str(run_config.theta1) filesep datestr(datetime,'yyyy-mm-dd HH-MM-SS')];
     case "INTERVAL3"
         run_config.theta1 = p.Results.theta1;
+        run_config.k = p.Results.k;
         run_config.theta2 = p.Results.theta2;
         output_folder = ['output' filesep run_config.radiationMode filesep run_config.description filesep run_config.caseID filesep run_config.robustness filesep run_config.plan_target filesep run_config.plan_beams filesep run_config.plan_objectives filesep run_config.scen_mode filesep num2str(run_config.wcFactor) filesep num2str(run_config.theta1) filesep datestr(datetime,'yyyy-mm-dd HH-MM-SS')];
     otherwise
@@ -160,7 +164,7 @@ disp(run_config);
 %% Create the VOI data for the phantom
 % Now we define structures a contour for the phantom and a target
 % define optimization parameter for both VOIs
-[cst,ixTarget,p,ixBody,ixCTV] = matRad_loadObjectives(run_config,'CTV',cst);
+[cst,ixTarget,p,ixBody,ixCTV,OARStructSel] = matRad_loadObjectives(run_config,'CTV',cst);
 
 %% Print target objectives
 display(cst{ixTarget,2});
@@ -367,7 +371,7 @@ savefig([folderPath filesep 'dvh_nominal.fig']);
 % Now we define structures a contour for the phantom and a target
 % define optimization parameter for both VOIs
 cst_robust=cst;
-[cst_robust,ixTarget,p,ixBody,ixCTV] = matRad_loadObjectives(run_config,run_config.plan_target,cst_robust);
+[cst_robust,ixTarget,p,ixBody,ixCTV,OARStructSel] = matRad_loadObjectives(run_config,run_config.plan_target,cst_robust);
 
 %% Print target objectives
 display(cst_robust{ixTarget,2});
@@ -413,20 +417,20 @@ results.performance.DCTime_robust=DCTime_robust;
 
 switch run_config.robustness
     case 'INTERVAL2'
-        structSel = {'CTV'};
+        targetStructSel = {'CTV'};
         now2 = tic();
-        [dij_robust,pln_robust,dij_interval] = matRad_calcDoseInterval2(ct,cst,stf_robust,pln_robust,dij_robust,structSel);
+        [dij_robust,pln_robust,dij_interval] = matRad_calcDoseInterval2(ct,cst,stf_robust,pln_robust,dij_robust,targetStructSel);
         save([folderPath filesep 'dij_interval.mat'],'dij_robust','pln_robust','dij_interval');
+        %load('dij_interval2.mat');
         IDCTime_robust = toc(now2);
         time2=sprintf('IDCTime_robust: %.2f\n',IDCTime_robust); disp(time2);
         results.performance.IDCTime_robust=IDCTime_robust;
     case 'INTERVAL3'
-        structSel = {'CTV','BLADDER','RECTUM'};
+        targetStructSel = {'CTV'};
         now2 = tic();
-        k=10;
-        %[dij_robust,pln_robust,dij_interval] = matRad_calcDoseInterval3(ct,cst,stf_robust,pln_robust,dij_robust,structSel,k);
+        %[dij_robust,pln_robust,dij_interval] = matRad_calcDoseInterval3(ct,cst,stf_robust,pln_robust,dij_robust,targetStructSel,OARStructSel,run_config.k);
         %save([folderPath filesep 'dij_interval.mat'],'dij_robust','pln_robust','dij_interval');
-        load('dij_interval.mat');
+        load('dij_interval2.mat');
         IDCTime_robust = toc(now2);
         time2=sprintf('IDCTime_robust: %.2f\n',IDCTime_robust); disp(time2);
         results.performance.IDCTime_robust=IDCTime_robust;
@@ -439,6 +443,7 @@ end
 % Target
 switch run_config.robustness
     case 'c-COWC'
+        
         pln_robust.propOpt.p1=run_config.p1;
         pln_robust.propOpt.p2=run_config.p2;
         pln_robust.propOpt.useMaxApprox='cheapCOWC';
@@ -446,21 +451,34 @@ switch run_config.robustness
         for i=1:length(cst_robust{ixTarget,6})
             cst_robust{ixTarget,6}{i}.robustness  = 'COWC';
         end
+        
     case 'INTERVAL2'
+        
         pln_robust.propOpt.dij_interval=dij_interval;
         pln_robust.propOpt.theta1=run_config.theta1;
         cst_robust{ixCTV,6}=[];
         cst_robust{ixCTV,6}{1} = struct(DoseObjectives.matRad_SquaredBertoluzzaDeviation2(800,p));
         cst_robust{ixCTV,6}{1}.robustness  = 'INTERVAL2';
+    
     case 'INTERVAL3'
+        
         pln_robust.propOpt.dij_interval=dij_interval;
         pln_robust.propOpt.theta1=run_config.theta1;
-        pln_robust.propOpt.theta1=run_config.theta2;
+        pln_robust.propOpt.theta2=run_config.theta2;
+        
         cst_robust{ixCTV,6}=[];
         cst_robust{ixCTV,6}{1} = struct(DoseObjectives.matRad_SquaredBertoluzzaDeviation2(800,p));
         cst_robust{ixCTV,6}{1}.robustness  = 'INTERVAL3';
-        cst_robust{4,6}{1}.robustness  = 'INTERVAL3';
-        cst_robust{5,6}{1}.robustness  = 'INTERVAL3';
+        
+        for i=1:size(cst,1)
+            for j = 1:numel(OARStructSel)
+                if strcmp(OARStructSel{j}, cst{i,2})
+                    for k = 1:numel(cst{i,6})
+                        cst_robust{i,6}{k}.robustness  = 'INTERVAL3';
+                    end
+                end
+            end
+        end
 
 end
 

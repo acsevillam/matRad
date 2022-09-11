@@ -291,26 +291,30 @@ for  i = 1:size(cst,1)
                                 S = optiProb.dij_interval.S;
                                 V = optiProb.dij_interval.V;
                                 
-                                d_center=Dc*w;
-                                d_center=d_center(cst{i,4}{ixContour});
+                                d_center=d{ixScen}(cst{i,4}{ixContour});%Dc*w;
+                                %d_center=d_center(cst{i,4}{ixContour});
                                 d_radius=arrayfun(@(index) sqrt(w'*(U{index}*S{index}*(V{index})')*w),cst{i,4}{ixContour});
                                 d_radius=sqrt(d_radius);
                                 
-                                doseGradient_center=zeros(size(Dc*w));
-                                doseGradient_center(cst{i,4}{ixContour},:) = gradest(@(x) objective.computeDoseObjectiveFunction(x+optiProb.theta2*d_radius),d_center);
+                                doseGradient_center = gradest(@(x) objective.computeDoseObjectiveFunction(x+optiProb.theta2*d_radius),d_center);
+                                doseGradient_radius = gradest(@(x) objective.computeDoseObjectiveFunction(d_center+optiProb.theta2*x),d_radius);
+                                
+                                %doseGradient_center2=objective.computeDoseObjectiveGradient(d_center+optiProb.theta2*d_radius);
+                                %doseGradient_center2=doseGradient_center2';
+                                
+                                %fprintf('%i, %i\n', [doseGradient_center;doseGradient_center2]);
 
-                                doseGradient_radius=zeros(size(Dc*w));
-                                doseGradient_radius(cst{i,4}{ixContour},:) = gradest(@(x) objective.computeDoseObjectiveFunction(d_center+optiProb.theta2*x),d_radius);
-
-
-                                if(nnz(doseGradient_center(cst{i,4}{ixContour},:))>0 || nnz(doseGradient_radius(cst{i,4}{ixContour},:))>0)
+                                if(nnz(doseGradient_center)>0 || nnz(doseGradient_radius)>0)
+                                    
                                     fluenceGradient_center=Dc;
+                                    fluenceGradient_radius = cell2mat(arrayfun(@(d_radius_i,index) w' * (U{index}*S{index}*(V{index})')/d_radius_i,d_radius,cst{i,4}{ixContour},'UniformOutput',false)) ;
 
-                                    fluenceGradient_radius=zeros(size(Dc));
-                                    fluenceGradient_radius(cst{i,4}{ixContour},:) = cell2mat(arrayfun(@(d_radius_i,index) w' * (U{index}*S{index}*(V{index})')/d_radius_i,d_radius,cst{i,4}{ixContour},'UniformOutput',false)) ;
-
-                                    wGradient{ixScen} = wGradient{ixScen} + (objective.penalty/numel(cst{i,4}{ixContour}))* (doseGradient_center' * fluenceGradient_center + doseGradient_radius'*fluenceGradient_radius)';
+                                    wGradient{ixScen} = wGradient{ixScen} + (doseGradient_center * fluenceGradient_center(cst{i,4}{ixContour},:) + doseGradient_radius*fluenceGradient_radius)';
+                                    
                                 end
+                                
+                                %fprintf('%i, %i\n', [((doseGradient_center * fluenceGradient_center(cst{i,4}{ixContour},:) + doseGradient_radius*fluenceGradient_radius)')';doseGradient_center2*fluenceGradient_center(cst{i,4}{ixContour},:)]);
+                                
                                 %val1 = objFun(objective,optiProb,w,cst{i,4}{ixContour});
                                 %val2 = objFun2(objective,optiProb,w,cst{i,4}{ixContour});
                                 %grad1 = gradest(@(x) objFun(objective,optiProb,x,cst{i,4}{ixContour}),w);
@@ -398,7 +402,7 @@ for it=1:numel(subIx)
     d_radius(it) = sqrt(w'*(U{subIx(it)}*S{subIx(it)}*(V{subIx(it)})')*w);
 end
 
-fFluence=(obj.penalty/numel(d_center))*objective.computeDoseObjectiveFunction(d_center+optiProb.theta2*d_radius);
+fFluence=(objective.penalty/numel(d_center))*objective.computeDoseObjectiveFunction(d_center+optiProb.theta2*d_radius);
 toc
 end
 
@@ -414,6 +418,6 @@ d_center=d_center(subIx);
 
 d_radius=cell2mat(arrayfun(@(index) sqrt(w' * (U{index}*S{index}*(V{index})')*w),subIx,'UniformOutput',false)) ;
 
-fFluence=(obj.penalty/numel(d_center))*objective.computeDoseObjectiveFunction(d_center+optiProb.theta2*d_radius);
+fFluence=(objective.penalty/numel(d_center))*objective.computeDoseObjectiveFunction(d_center+optiProb.theta2*d_radius);
 toc
 end

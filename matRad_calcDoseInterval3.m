@@ -1,4 +1,4 @@
-function [dij_dummy, pln_dummy,dij_interval] = matRad_calcDoseInterval3(ct,cst,stf,pln,dij,structSel,k)
+function [dij_dummy, pln_dummy,dij_interval] = matRad_calcDoseInterval3(ct,cst,stf,pln,dij,targetStructSel,OARStructSel,k)
 
 matRad_cfg =  MatRad_Config.instance();
 [env,envver] = matRad_getEnvironment();
@@ -26,50 +26,97 @@ set(figureWait,'pointer','watch');
 cst = matRad_resizeCstToGrid(cst,dij.ctGrid.x,  dij.ctGrid.y,  dij.ctGrid.z,...
     dij.doseGrid.x,dij.doseGrid.y,dij.doseGrid.z);
 
-V = [];
+targetV = [];
 % define voxels for sampling
-if ~exist('structSel', 'var') || sum(size(structSel)) == 0
-    V = [cst{:,4}];
+if ~exist('targetStructSel', 'var') || sum(size(targetStructSel)) == 0
+    targetV = [cst{:,4}];
     % final voxel subset for sampling
-    subIx = unique(vertcat(V{:}));
+    targetSubIx = unique(vertcat(targetV{:}));
 else
     for i=1:size(cst,1)
-        for j = 1:numel(structSel)
-            if strcmp(structSel{j}, cst{i,2})
-                V = [V; cst{i,4}{1}];
+        for j = 1:numel(targetStructSel)
+            if strcmp(targetStructSel{j}, cst{i,2})
+                targetV = [targetV; cst{i,4}{1}];
             end
         end
     end
     % final voxel subset for sampling
-    subIx = V;
+    targetSubIx = targetV;
 end
 
-for it=1:numel(subIx)
+OARV = [];
+% define voxels for sampling
+if ~exist('OARStructSel', 'var') || sum(size(OARStructSel)) == 0
+    OARV = [cst{:,4}];
+    % final voxel subset for sampling
+    OARSubIx = unique(vertcat(OARV{:}));
+else
+    for i=1:size(cst,1)
+        for j = 1:numel(OARStructSel)
+            if strcmp(OARStructSel{j}, cst{i,2})
+                OARV = [OARV; cst{i,4}{1}];
+            end
+        end
+    end
+    % final voxel subset for sampling
+    OARSubIx = OARV;
+end
+
+
+for it=1:numel(targetSubIx)
     
     % Display progress and update text only 200 times
     if matRad_cfg.logLevel > 1
         % Display progress and update text only 200 times
-        if mod(it,max(1,round(numel(subIx)/200))) == 0
-            matRad_progress(it/max(1,round(numel(subIx)/200)),...
-                floor(numel(subIx)/max(1,round(numel(subIx)/200))));
+        if mod(it,max(1,round(numel(targetSubIx)/200))) == 0
+            matRad_progress(it/max(1,round(numel(targetSubIx)/200)),...
+                floor(numel(targetSubIx)/max(1,round(numel(targetSubIx)/200))));
         end
         
         % update waitbar only 100 times if it is not closed
-        if mod(it,round(numel(subIx)/100)) == 0 && ishandle(figureWait)
-            waitbar(it/numel(subIx),figureWait);
+        if mod(it,round(numel(targetSubIx)/100)) == 0 && ishandle(figureWait)
+            waitbar(it/numel(targetSubIx),figureWait);
         end
     end
     
     scenIx = find(pln.multScen.scenMask);
-    dij_tmp=cell2mat(cellfun(@(data) data(subIx(it),:),dij.physicalDose(scenIx),'UniformOutput',false));
+    dij_tmp=cell2mat(cellfun(@(data) data(targetSubIx(it),:),dij.physicalDose(scenIx),'UniformOutput',false));
     
     % Interval center dose influence matrix 
-    dij_interval.center(subIx(it),:)=sum(dij_tmp'*diag(pln.multScen.scenProb),2); % mean(dij_tmp,1);
+    dij_interval.center(targetSubIx(it),:)=sum(dij_tmp'*diag(pln.multScen.scenProb),2); % mean(dij_tmp,1);
     
     % Interval radius dose influence matrix
     dij_interval.radius=dij_interval.radius+sparse(dij_tmp'*diag(pln.multScen.scenProb)*dij_tmp);
-    dij_interval_tmp.radius=sparse(dij_tmp'*diag(pln.multScen.scenProb)*dij_tmp-dij_interval.center(subIx(it),:)'*dij_interval.center(subIx(it),:));
-    [dij_interval.U{subIx(it)},dij_interval.S{subIx(it)},dij_interval.V{subIx(it)}] = svds(dij_interval_tmp.radius,k,'largest');
+    
+    clear 'dij_tmp' 'dij_interval_tmp';
+    
+end
+
+for it=1:numel(OARSubIx)
+    
+    % Display progress and update text only 200 times
+    if matRad_cfg.logLevel > 1
+        % Display progress and update text only 200 times
+        if mod(it,max(1,round(numel(OARSubIx)/200))) == 0
+            matRad_progress(it/max(1,round(numel(OARSubIx)/200)),...
+                floor(numel(OARSubIx)/max(1,round(numel(OARSubIx)/200))));
+        end
+        
+        % update waitbar only 100 times if it is not closed
+        if mod(it,round(numel(OARSubIx)/100)) == 0 && ishandle(figureWait)
+            waitbar(it/numel(OARSubIx),figureWait);
+        end
+    end
+    
+    scenIx = find(pln.multScen.scenMask);
+    dij_tmp=cell2mat(cellfun(@(data) data(OARSubIx(it),:),dij.physicalDose(scenIx),'UniformOutput',false));
+    
+    % Interval center dose influence matrix 
+    dij_interval.center(OARSubIx(it),:)=sum(dij_tmp'*diag(pln.multScen.scenProb),2); % mean(dij_tmp,1);
+    
+    % Interval radius dose influence matrix
+    dij_interval_tmp.radius=sparse(dij_tmp'*diag(pln.multScen.scenProb)*dij_tmp-dij_interval.center(OARSubIx(it),:)'*dij_interval.center(OARSubIx(it),:));
+    [dij_interval.U{OARSubIx(it)},dij_interval.S{OARSubIx(it)},dij_interval.V{OARSubIx(it)}] = svds(dij_interval_tmp.radius,k,'largest');
     
     clear 'dij_tmp' 'dij_interval_tmp';
     
