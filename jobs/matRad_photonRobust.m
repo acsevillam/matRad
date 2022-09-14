@@ -58,6 +58,7 @@ defaultP2 = 1;
 defaultTheta1 = 0.1;
 defaultK = 1;
 defaultTheta2 = 0.02;
+defaultLoadDij = true;
 defaultSampling = true;
 defaultSamplingMode = 'impScen_permuted_truncated';
 defaultSamplingWCFactor = 1.5;
@@ -85,6 +86,7 @@ addParameter(p,'k',defaultK,@(x) validateattributes(x,{'numeric'},...
             {'nonempty','integer','positive'}));
 addParameter(p,'theta2',defaultTheta2,@(x) validateattributes(x,{'numeric'},...
             {'nonempty'}));
+addParameter(p,'loadDij',defaultLoadDij,@islogical);
 addParameter(p,'sampling',defaultSampling,@islogical);
 addOptional(p,'sampling_mode',defaultSamplingMode,@(x) any(validatestring(x,validScenModes)));
 addOptional(p,'sampling_wcFactor',defaultSamplingWCFactor,@(x) isnumeric(x) && isscalar(x) && (x > 0));
@@ -103,6 +105,7 @@ run_config.robustness = p.Results.robustness;
 run_config.scen_mode = p.Results.scen_mode;
 run_config.wcFactor = p.Results.wcFactor;
 run_config.sampling = p.Results.sampling;
+run_config.loadDij = p.Results.loadDij;
 run_config.sampling_mode = p.Results.sampling_mode;
 run_config.sampling_wcFactor = p.Results.sampling_wcFactor;
 run_config.rootPath = p.Results.rootPath;
@@ -131,6 +134,10 @@ switch run_config.robustness
         run_config.k = p.Results.k;
         run_config.theta2 = p.Results.theta2;
         output_folder = ['output' filesep run_config.radiationMode filesep run_config.description filesep run_config.caseID filesep run_config.robustness filesep run_config.plan_target filesep run_config.plan_beams filesep run_config.plan_objectives filesep run_config.scen_mode filesep num2str(run_config.wcFactor) filesep num2str(run_config.theta1) filesep num2str(run_config.theta2) filesep datestr(datetime,'yyyy-mm-dd HH-MM-SS')];
+        dij_file = [run_config.rootPath  filesep 'jobs' filesep 'images' filesep run_config.description filesep run_config.caseID '_dij_interval.mat'];
+        if run_config.loadDij && isfile(dij_file)
+            load(dij_file,'pln_robust','dij_robust','dij_interval');
+        end
     otherwise
         output_folder = ['output' filesep run_config.radiationMode filesep run_config.description filesep run_config.caseID filesep run_config.robustness filesep run_config.plan_target filesep run_config.plan_beams filesep run_config.plan_objectives filesep run_config.scen_mode filesep num2str(run_config.wcFactor) filesep datestr(datetime,'yyyy-mm-dd HH-MM-SS')];
 end
@@ -402,12 +409,14 @@ display(stf_robust(1));
 % matrices for unit beamlet intensities. Having dose influences available
 % allows subsequent inverse optimization.
 now1 = tic();
-if run_config.radiationMode == "photons"
-    dij_robust = matRad_calcPhotonDose(ct,stf_robust,pln_robust,cst_robust);
-end
+if ~exist('dij_robust','var') || isempty(dij_robust)
+    if run_config.radiationMode == "photons"
+        dij_robust = matRad_calcPhotonDose(ct,stf_robust,pln_robust,cst_robust);
+    end
 
-if run_config.radiationMode == "protons"
-    dij_robust = matRad_calcParticleDose(ct,stf_robust,pln_robust,cst_robust);
+    if run_config.radiationMode == "protons"
+        dij_robust = matRad_calcParticleDose(ct,stf_robust,pln_robust,cst_robust);
+    end
 end
 DCTime_robust = toc(now1);
 time1=sprintf('DCTime_robust: %.2f\n',DCTime_robust); disp(time1);
@@ -428,9 +437,11 @@ switch run_config.robustness
     case 'INTERVAL3'
         targetStructSel = {'CTV'};
         now2 = tic();
-        [dij_robust,pln_robust,dij_interval] = matRad_calcDoseInterval3(ct,cst,stf_robust,pln_robust,dij_robust,targetStructSel,OARStructSel,run_config.k);
-        save([folderPath filesep 'dij_interval.mat'],'dij_robust','pln_robust','dij_interval');
-        %load('dij_interval2.mat');
+        if ~exist('dij_interval','var') || isempty(dij_interval)
+            [dij_robust,pln_robust,dij_interval] = matRad_calcDoseInterval3(ct,cst,stf_robust,pln_robust,dij_robust,targetStructSel,OARStructSel,run_config.k);
+            dij_file = [run_config.rootPath  filesep 'jobs' filesep 'images' filesep run_config.description filesep run_config.caseID '_dij_interval.mat'];
+            save(dij_file,'dij_robust','pln_robust','dij_interval', '-v7.3');
+        end
         IDCTime_robust = toc(now2);
         time2=sprintf('IDCTime_robust: %.2f\n',IDCTime_robust); disp(time2);
         results.performance.IDCTime_robust=IDCTime_robust;

@@ -8,7 +8,7 @@ param.logLevel=1;
 defaultRootPath = matRad_cfg.matRadRoot;
 radiationMode='photons';
 description='prostate';
-caseID='3782'; % 3482 3648 3782
+caseID='3840'; % 3482 3648 3782 3790 3840
 robustness='INTERVAL2'; % none COWC c-COWC
 plan_target='CTV'; % CTV PTV
 plan_beams='9F';
@@ -17,7 +17,7 @@ scen_mode='impScen_permuted_truncated'; % nomScen impScen impScen_permuted_trunc
 wcFactor=1;
 beta1=1/13;
 beta2=13/13;
-theta1=0.7;
+theta1=0.1;
 %output_folder = ['output' filesep radiationMode filesep description filesep caseID filesep robustness ...
 %    filesep plan_target filesep plan_beams filesep plan_objectives filesep scen_mode filesep num2str(wcFactor) ]; %filesep '2022-07-10 03-59-36' filesep 'dvh_trustband_robust.fig'];
 
