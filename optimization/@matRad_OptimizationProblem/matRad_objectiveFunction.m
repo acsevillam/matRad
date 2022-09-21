@@ -201,24 +201,51 @@ for  i = 1:size(cst,1)
                         end
                         
                     case 'INTERVAL3'
+
                         ixContour = contourScen(1);
+                        subIx = cst{i,4}{ixContour};
+
                         if(isequal(cst{i,3},'TARGET'))
-                            f = f + objective.computeDoseObjectiveFunction(w,cst{i,4}{ixContour},optiProb.theta1,optiProb.dij_interval);
+                            f = f + objective.computeDoseObjectiveFunction(w,subIx,optiProb.theta1,optiProb.dij_interval);
                         else
                             
+                            p = gcp(); % If no pool, create new one.
+
                             Dc = optiProb.dij_interval.center;
+                            [~,Ix]=ismember(subIx,optiProb.dij_interval.OARSubIx);
                             U = optiProb.dij_interval.U;
+                            U=U(Ix);
                             S = optiProb.dij_interval.S;
+                            S=S(Ix);
                             V = optiProb.dij_interval.V;
+                            V=V(Ix);
 
-                            d_center=d{ixScen}(cst{i,4}{ixContour});%Dc*w;
-                            %d_center=d_center(cst{i,4}{ixContour});
+                            d_center=Dc*w;
+                            d_center=d_center(subIx);
 
-                            d_radius=arrayfun(@(index) sqrt(w' * (U{index}*S{index}*(V{index})')*w),cst{i,4}{ixContour}) ;
+                            if exist('parfor_progress', 'file') == 2
+                                FlagParforProgressDisp = true;
+                                parfor_progress(round(numel(subIx)/100));  % http://de.mathworks.com/matlabcentral/fileexchange/32101-progress-monitor--progress-bar--that-works-with-parfor
+                            else
+                                matRad_cfg.dispInfo('matRad: Consider downloading parfor_progress function from the matlab central fileexchange to get feedback from parfor loop.\n');
+                                FlagParforProgressDisp = false;
+                            end
+                            
+                            d_radius=zeros(size(subIx));
+                            for it=1:numel(subIx)
+                                Dr=U{it}*S{it}*(V{it})';
+                                d_radius(it) = sqrt(w'*Dr*w);
+                                if FlagParforProgressDisp && mod(it,100)==0
+                                    parfor_progress;
+                                end
+                            end
+
+                            if FlagParforProgressDisp
+                                parfor_progress(0);
+                            end
 
                             f = f + objective.computeDoseObjectiveFunction(d_center+optiProb.theta2*d_radius);
                         end
-                        
                     otherwise
                         matRad_cfg.dispError('Robustness setting %s not supported!',objective.robustness);
                         

@@ -11,11 +11,8 @@ pln_dummy.multScen = matRad_multScen(ct,'nomScen');
 % calculate dummy case dij to save interval
 dij_dummy = matRad_calcPhotonDose(ct,stf,pln_dummy,cst);
 
-dij_interval.center=sparse(dij.doseGrid.numOfVoxels,dij.totalNumOfBixels);
-dij_interval.radius=sparse(dij.totalNumOfBixels,dij.totalNumOfBixels);
-dij_interval.U=cell(dij.doseGrid.numOfVoxels,1);
-dij_interval.S=cell(dij.doseGrid.numOfVoxels,1);
-dij_interval.V=cell(dij.doseGrid.numOfVoxels,1);
+dij_interval.center=zeros(dij.doseGrid.numOfVoxels,dij.totalNumOfBixels);
+dij_interval.radius=zeros(dij.totalNumOfBixels,dij.totalNumOfBixels);
 
 % initialize waitbar
 figureWait = waitbar(0,'calculate dose interval for each voxel and bixel...');
@@ -62,9 +59,8 @@ else
     OARSubIx = OARV;
 end
 
-
 for it=1:numel(targetSubIx)
-    
+
     % Display progress and update text only 200 times
     if matRad_cfg.logLevel > 1
         % Display progress and update text only 200 times
@@ -72,28 +68,33 @@ for it=1:numel(targetSubIx)
             matRad_progress(it/max(1,round(numel(targetSubIx)/200)),...
                 floor(numel(targetSubIx)/max(1,round(numel(targetSubIx)/200))));
         end
-        
+
         % update waitbar only 100 times if it is not closed
         if mod(it,round(numel(targetSubIx)/100)) == 0 && ishandle(figureWait)
             waitbar(it/numel(targetSubIx),figureWait);
         end
     end
-    
+
     scenIx = find(pln.multScen.scenMask);
     dij_tmp=cell2mat(cellfun(@(data) data(targetSubIx(it),:),dij.physicalDose(scenIx),'UniformOutput',false));
-    
-    % Interval center dose influence matrix 
+
+    % Interval center dose influence matrix
     dij_interval.center(targetSubIx(it),:)=sum(dij_tmp'*diag(pln.multScen.scenProb),2); % mean(dij_tmp,1);
-    
+
     % Interval radius dose influence matrix
-    dij_interval.radius=dij_interval.radius+sparse(dij_tmp'*diag(pln.multScen.scenProb)*dij_tmp);
-    
+    dij_interval.radius=dij_interval.radius+(dij_tmp'*diag(pln.multScen.scenProb)*dij_tmp);
+
     clear 'dij_tmp' 'dij_interval_tmp';
-    
+
 end
 
+dij_interval.U=cell(size(OARSubIx));
+dij_interval.S=cell(size(OARSubIx));
+dij_interval.V=cell(size(OARSubIx));
+dij_interval.OARSubIx=OARSubIx;
+
 for it=1:numel(OARSubIx)
-    
+
     % Display progress and update text only 200 times
     if matRad_cfg.logLevel > 1
         % Display progress and update text only 200 times
@@ -101,25 +102,25 @@ for it=1:numel(OARSubIx)
             matRad_progress(it/max(1,round(numel(OARSubIx)/200)),...
                 floor(numel(OARSubIx)/max(1,round(numel(OARSubIx)/200))));
         end
-        
+
         % update waitbar only 100 times if it is not closed
         if mod(it,round(numel(OARSubIx)/100)) == 0 && ishandle(figureWait)
             waitbar(it/numel(OARSubIx),figureWait);
         end
     end
-    
+
     scenIx = find(pln.multScen.scenMask);
     dij_tmp=cell2mat(cellfun(@(data) data(OARSubIx(it),:),dij.physicalDose(scenIx),'UniformOutput',false));
-    
-    % Interval center dose influence matrix 
+
+    % Interval center dose influence matrix
     dij_interval.center(OARSubIx(it),:)=sum(dij_tmp'*diag(pln.multScen.scenProb),2); % mean(dij_tmp,1);
-    
+
     % Interval radius dose influence matrix
-    dij_interval_tmp.radius=sparse(dij_tmp'*diag(pln.multScen.scenProb)*dij_tmp-dij_interval.center(OARSubIx(it),:)'*dij_interval.center(OARSubIx(it),:));
-    [dij_interval.U{OARSubIx(it)},dij_interval.S{OARSubIx(it)},dij_interval.V{OARSubIx(it)}] = svds(dij_interval_tmp.radius,k,'largest');
-    
+    dij_interval_tmp.radius=(dij_tmp'*diag(pln.multScen.scenProb)*dij_tmp-dij_interval.center(OARSubIx(it),:)'*dij_interval.center(OARSubIx(it),:));
+    [dij_interval.U{it},dij_interval.S{it},dij_interval.V{it}]= svds(dij_interval_tmp.radius,k,'largest');
+
     clear 'dij_tmp' 'dij_interval_tmp';
-    
+
 end
 
 %Close Waitbar
