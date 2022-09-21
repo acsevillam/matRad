@@ -277,43 +277,59 @@ for  i = 1:size(cst,1)
                         end
 
                     case 'INTERVAL3'
+
                         for s = 1:numel(useScen)
                             ixScen = useScen(s);
                             ixContour = contourScen(s);
+                            subIx = cst{i,4}{ixContour};
 
                             if(isequal(cst{i,3},'TARGET'))
                                 %add to dose gradient
-                                wGradient{ixScen} = wGradient{ixScen} + objective.computeFluenceObjectiveGradient(w,cst{i,4}{ixContour},optiProb.theta1,optiProb.dij_interval);
+                                wGradient{ixScen} = wGradient{ixScen} + objective.computeFluenceObjectiveGradient(w,subIx,optiProb.theta1,optiProb.dij_interval);
                             else
-                                
+
+                                p = gcp(); % If no pool, create new one.
+
                                 Dc = optiProb.dij_interval.center;
+                                [~,Ix]=ismember(subIx,optiProb.dij_interval.OARSubIx);
                                 U = optiProb.dij_interval.U;
+                                U=U(Ix);
                                 S = optiProb.dij_interval.S;
+                                S=S(Ix);
                                 V = optiProb.dij_interval.V;
-                                
-                                d_center=d{ixScen}(cst{i,4}{ixContour});%Dc*w;
-                                %d_center=d_center(cst{i,4}{ixContour});
-                                d_radius=arrayfun(@(index) sqrt(w'*(U{index}*S{index}*(V{index})')*w),cst{i,4}{ixContour});
-                                d_radius=sqrt(d_radius);
-                                
-                                doseGradient_center = gradest(@(x) objective.computeDoseObjectiveFunction(x+optiProb.theta2*d_radius),d_center);
-                                doseGradient_radius = gradest(@(x) objective.computeDoseObjectiveFunction(d_center+optiProb.theta2*x),d_radius);
-                                
-                                %doseGradient_center2=objective.computeDoseObjectiveGradient(d_center+optiProb.theta2*d_radius);
-                                %doseGradient_center2=doseGradient_center2';
-                                
-                                %fprintf('%i, %i\n', [doseGradient_center;doseGradient_center2]);
+                                V=V(Ix);
 
-                                if(nnz(doseGradient_center)>0 || nnz(doseGradient_radius)>0)
-                                    
-                                    fluenceGradient_center=Dc;
-                                    fluenceGradient_radius = cell2mat(arrayfun(@(d_radius_i,index) w' * (U{index}*S{index}*(V{index})')/d_radius_i,d_radius,cst{i,4}{ixContour},'UniformOutput',false)) ;
-
-                                    wGradient{ixScen} = wGradient{ixScen} + (doseGradient_center * fluenceGradient_center(cst{i,4}{ixContour},:) + doseGradient_radius*fluenceGradient_radius)';
-                                    
+                                d_center=Dc*w;
+                                d_center=d_center(subIx);
+                                
+                                if exist('parfor_progress', 'file') == 2
+                                    FlagParforProgressDisp = true;
+                                    parfor_progress(round(numel(subIx)/100));  % http://de.mathworks.com/matlabcentral/fileexchange/32101-progress-monitor--progress-bar--that-works-with-parfor
+                                else
+                                    matRad_cfg.dispInfo('matRad: Consider downloading parfor_progress function from the matlab central fileexchange to get feedback from parfor loop.\n');
+                                    FlagParforProgressDisp = false;
                                 end
-                                
-                                %fprintf('%i, %i\n', [((doseGradient_center * fluenceGradient_center(cst{i,4}{ixContour},:) + doseGradient_radius*fluenceGradient_radius)')';doseGradient_center2*fluenceGradient_center(cst{i,4}{ixContour},:)]);
+
+                                d_radius=zeros(size(subIx));
+                                fluenceGradient_radius=zeros(numel(subIx),numel(wGradient{ixScen}));
+
+                                for it=1:numel(subIx)
+                                    Dr=U{it}*S{it}*(V{it})';
+                                    d_radius(it) = sqrt(w'*Dr*w);
+                                    fluenceGradient_radius(it,:) = w'*Dr/d_radius(it);
+                                    if FlagParforProgressDisp && mod(it,100)==0
+                                        parfor_progress;
+                                    end
+                                end
+
+                                if FlagParforProgressDisp
+                                    parfor_progress(0);
+                                end
+
+                                doseGradient_tmp = objective.computeDoseObjectiveGradient(d_center+optiProb.theta2*d_radius);
+                                fluenceGradient_center=Dc;
+                                    
+                                wGradient{ixScen} = wGradient{ixScen} + (doseGradient_tmp' * fluenceGradient_center(subIx,:) + optiProb.theta2*doseGradient_tmp'*fluenceGradient_radius)';
                                 
                                 %val1 = objFun(objective,optiProb,w,cst{i,4}{ixContour});
                                 %val2 = objFun2(objective,optiProb,w,cst{i,4}{ixContour});
@@ -324,8 +340,7 @@ for  i = 1:size(cst,1)
                                 %diff=(grad1_normalized-grad2_normalized')./grad1_normalized;
 
                                 %fprintf('Val. %i \n',val);
-                                %fprintf('%i, %i, %i, %i, %i\n', [grad1;grad2';grad1_normalized;grad2_normalized';diff]);
-
+                                %fprintf('%i, %i, %i, %i, %i\n', [grad1;grad2';grad1_normalized;grad2_normalized';diff]);    
 
                             end
                         end
@@ -369,6 +384,7 @@ if exist('delta_COWC','var')
 end
 
 weightGradient = zeros(dij.totalNumOfBixels,1);
+
 
 optiProb.BP.computeGradient(dij,doseGradient,w);
 g = optiProb.BP.GetGradient();

@@ -129,12 +129,16 @@ switch run_config.robustness
     case "INTERVAL2"
         run_config.theta1 = p.Results.theta1;
         output_folder = ['output' filesep run_config.radiationMode filesep run_config.description filesep run_config.caseID filesep run_config.robustness filesep run_config.plan_target filesep run_config.plan_beams filesep run_config.plan_objectives filesep run_config.scen_mode filesep num2str(run_config.wcFactor) filesep num2str(run_config.theta1) filesep datestr(datetime,'yyyy-mm-dd HH-MM-SS')];
+        dij_file = [run_config.rootPath  filesep 'jobs' filesep 'images' filesep run_config.description filesep run_config.caseID '_dij_interval2.mat'];
+        if run_config.loadDij && isfile(dij_file)
+            load(dij_file,'pln_robust','dij_robust','dij_interval');
+        end
     case "INTERVAL3"
         run_config.theta1 = p.Results.theta1;
         run_config.k = p.Results.k;
         run_config.theta2 = p.Results.theta2;
         output_folder = ['output' filesep run_config.radiationMode filesep run_config.description filesep run_config.caseID filesep run_config.robustness filesep run_config.plan_target filesep run_config.plan_beams filesep run_config.plan_objectives filesep run_config.scen_mode filesep num2str(run_config.wcFactor) filesep num2str(run_config.theta1) filesep num2str(run_config.theta2) filesep datestr(datetime,'yyyy-mm-dd HH-MM-SS')];
-        dij_file = [run_config.rootPath  filesep 'jobs' filesep 'images' filesep run_config.description filesep run_config.caseID '_dij_interval.mat'];
+        dij_file = [run_config.rootPath  filesep 'jobs' filesep 'images' filesep run_config.description filesep run_config.caseID '_dij_interval3.mat'];
         if run_config.loadDij && isfile(dij_file)
             load(dij_file,'pln_robust','dij_robust','dij_interval');
         end
@@ -429,7 +433,8 @@ switch run_config.robustness
         targetStructSel = {'CTV'};
         now2 = tic();
         [dij_robust,pln_robust,dij_interval] = matRad_calcDoseInterval2(ct,cst,stf_robust,pln_robust,dij_robust,targetStructSel);
-        save([folderPath filesep 'dij_interval.mat'],'dij_robust','pln_robust','dij_interval');
+        dij_file = [run_config.rootPath  filesep 'jobs' filesep 'images' filesep run_config.description filesep run_config.caseID '_dij_interval2.mat'];
+        save(dij_file,'dij_robust','pln_robust','dij_interval', '-v7.3');
         %load('dij_interval2.mat');
         IDCTime_robust = toc(now2);
         time2=sprintf('IDCTime_robust: %.2f\n',IDCTime_robust); disp(time2);
@@ -439,7 +444,7 @@ switch run_config.robustness
         now2 = tic();
         if ~exist('dij_interval','var') || isempty(dij_interval)
             [dij_robust,pln_robust,dij_interval] = matRad_calcDoseInterval3(ct,cst,stf_robust,pln_robust,dij_robust,targetStructSel,OARStructSel,run_config.k);
-            dij_file = [run_config.rootPath  filesep 'jobs' filesep 'images' filesep run_config.description filesep run_config.caseID '_dij_interval.mat'];
+            dij_file = [run_config.rootPath  filesep 'jobs' filesep 'images' filesep run_config.description filesep run_config.caseID '_dij_interval3.mat'];
             save(dij_file,'dij_robust','pln_robust','dij_interval', '-v7.3');
         end
         IDCTime_robust = toc(now2);
