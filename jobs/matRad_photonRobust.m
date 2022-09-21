@@ -518,7 +518,7 @@ savefig([folderPath filesep 'fluence_robust.fig']);
 
 %% Create an interactive plot to slide through axial slices
 
-if run_config.radiationMode == "photons" && false
+if run_config.radiationMode == "photons"
     for numScen=1:pln_robust.multScen.totNumScen
         
         if(pln_robust.multScen.totNumScen>1)
@@ -540,11 +540,11 @@ if run_config.radiationMode == "photons" && false
             'value',slice, 'min',1, 'max',numSlices,'SliderStep', [1/(numSlices-1) , 1/(numSlices-1)]);
         b.Callback = @(es,ed)  matRad_plotSliceWrapper(gca,ct,cst_robust,1,resultGUI_robust.(quantityMap)*pln_robust.numOfFractions,plane,round(es.Value),[],[],colorcube,[],doseWindow,doseIsoLevels,[],'Dose [Gy]',[],'LineWidth',1.2);
         
-        savefig([folderPath filesep 'dose_robust_' quantityMap '.fig']);
+        savefig([folderPath filesep 'dose_robust_' quantityMap '.fig'],'compact');
     end
 end
 
-if run_config.radiationMode == "protons" || true
+if run_config.radiationMode == "protons"
     
     quantityMap=quantityOpt;
     
@@ -561,7 +561,7 @@ if run_config.radiationMode == "protons" || true
         'value',slice, 'min',1, 'max',numSlices,'SliderStep', [1/(numSlices-1) , 1/(numSlices-1)]);
     b.Callback = @(es,ed)  matRad_plotSliceWrapper(gca,ct,cst_robust,1,resultGUI_robust.(quantityMap)*pln_robust.numOfFractions,plane,round(es.Value),[],[],colorcube,[],doseWindow,doseIsoLevels,[],'Dose [Gy]',[],'LineWidth',1.2);
     
-    savefig([folderPath filesep 'dose_robust_' quantityMap '.fig']);
+    savefig([folderPath filesep 'dose_robust_' quantityMap '.fig'],'compact');
     
 end
 
