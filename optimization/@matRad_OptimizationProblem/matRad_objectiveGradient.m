@@ -302,13 +302,13 @@ for  i = 1:size(cst,1)
                                 d_center=Dc*w;
                                 d_center=d_center(subIx);
                                 
-                                if exist('parfor_progress', 'file') == 2
-                                    FlagParforProgressDisp = true;
-                                    parfor_progress(round(numel(subIx)/1000));  % http://de.mathworks.com/matlabcentral/fileexchange/32101-progress-monitor--progress-bar--that-works-with-parfor
-                                else
-                                    matRad_cfg.dispInfo('matRad: Consider downloading parfor_progress function from the matlab central fileexchange to get feedback from parfor loop.\n');
-                                    FlagParforProgressDisp = false;
-                                end
+                                %if exist('parfor_progress', 'file') == 2
+                                %    FlagParforProgressDisp = true;
+                                %    parfor_progress(round(numel(subIx)/1000));  % http://de.mathworks.com/matlabcentral/fileexchange/32101-progress-monitor--progress-bar--that-works-with-parfor
+                                %else
+                                %    matRad_cfg.dispInfo('matRad: Consider downloading parfor_progress function from the matlab central fileexchange to get feedback from parfor loop.\n');
+                                %    FlagParforProgressDisp = false;
+                                %end
 
                                 d_radius=zeros(size(subIx));
                                 fluenceGradient_radius=zeros(numel(subIx),numel(wGradient{ixScen}));
@@ -317,14 +317,14 @@ for  i = 1:size(cst,1)
                                     Dr=U{it}*S{it}*(V{it})';
                                     d_radius(it) = sqrt(w'*Dr*w);
                                     fluenceGradient_radius(it,:) = w'*Dr/d_radius(it);
-                                    if FlagParforProgressDisp && mod(it,1000)==0
-                                        parfor_progress;
-                                    end
+                                    %if FlagParforProgressDisp && mod(it,1000)==0
+                                    %    parfor_progress;
+                                    %end
                                 end
 
-                                if FlagParforProgressDisp
-                                    parfor_progress(0);
-                                end
+                                %if FlagParforProgressDisp
+                                %    parfor_progress(0);
+                                %end
 
                                 doseGradient_tmp = objective.computeDoseObjectiveGradient(d_center+optiProb.theta2*d_radius);
                                 fluenceGradient_center=Dc;
