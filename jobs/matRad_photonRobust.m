@@ -26,7 +26,7 @@ function matRad_photonRobust(radiationMode,description,varargin)
 % (vi)  sample discrete scenarios from Gaussian uncertainty assumptions
 
 %% Clear variables
-clearvars -except radiationMode description varargin ;
+clearvars -exceptit  radiationMode description varargin ;
 clc;
 close 'all';
 
