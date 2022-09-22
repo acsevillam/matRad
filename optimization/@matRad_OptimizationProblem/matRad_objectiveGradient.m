@@ -304,7 +304,7 @@ for  i = 1:size(cst,1)
                                 
                                 if exist('parfor_progress', 'file') == 2
                                     FlagParforProgressDisp = true;
-                                    parfor_progress(round(numel(subIx)/100));  % http://de.mathworks.com/matlabcentral/fileexchange/32101-progress-monitor--progress-bar--that-works-with-parfor
+                                    parfor_progress(round(numel(subIx)/1000));  % http://de.mathworks.com/matlabcentral/fileexchange/32101-progress-monitor--progress-bar--that-works-with-parfor
                                 else
                                     matRad_cfg.dispInfo('matRad: Consider downloading parfor_progress function from the matlab central fileexchange to get feedback from parfor loop.\n');
                                     FlagParforProgressDisp = false;
@@ -317,7 +317,7 @@ for  i = 1:size(cst,1)
                                     Dr=U{it}*S{it}*(V{it})';
                                     d_radius(it) = sqrt(w'*Dr*w);
                                     fluenceGradient_radius(it,:) = w'*Dr/d_radius(it);
-                                    if FlagParforProgressDisp && mod(it,100)==0
+                                    if FlagParforProgressDisp && mod(it,1000)==0
                                         parfor_progress;
                                     end
                                 end
