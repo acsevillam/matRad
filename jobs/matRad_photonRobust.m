@@ -506,8 +506,10 @@ end
 % the clinical objectives and constraints underlying the radiation
 % treatment. Once the optimization has finished, trigger once the GUI to
 % visualize the optimized dose cubes.
+arallel.internal.ui.MatlabProfileManager.removeProfile('profile1');
+parallel.internal.ui.MatlabProfileManager.removeProfile('profile1_Import');
 profile_master = parallel.importProfile('profile1.mlsettings');
-p=parpool(profile_master);
+p=parpool(profile_master,32);
 
 profile on;
 now3 = tic();
