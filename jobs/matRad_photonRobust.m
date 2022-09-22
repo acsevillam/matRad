@@ -506,12 +506,8 @@ end
 % the clinical objectives and constraints underlying the radiation
 % treatment. Once the optimization has finished, trigger once the GUI to
 % visualize the optimized dose cubes.
-myCluster = parcluster('Processes');
-myCluster.NumWorkers = 32;
-myCluster.NumThreads = 1;
-saveProfile(myCluster);
-myCluster;    
-p=parpool(myCluster);
+profile_master = parallel.importProfile('profile1.mlsettings');
+parallel.defaultProfile(profile_master)
 
 profile on;
 now3 = tic();
