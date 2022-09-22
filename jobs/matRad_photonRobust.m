@@ -507,7 +507,7 @@ end
 % treatment. Once the optimization has finished, trigger once the GUI to
 % visualize the optimized dose cubes.
 profile_master = parallel.importProfile('profile1.mlsettings');
-p=parpool(profile_master,32);
+p=parpool(profile_master,28);
 
 profile on;
 now3 = tic();
