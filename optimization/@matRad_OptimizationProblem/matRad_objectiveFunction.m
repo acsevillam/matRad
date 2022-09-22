@@ -232,7 +232,7 @@ for  i = 1:size(cst,1)
                             end
                             
                             d_radius=zeros(size(subIx));
-                            for it=1:numel(subIx)
+                            parfor it=1:numel(subIx)
                                 Dr=U{it}*S{it}*(V{it})';
                                 d_radius(it) = sqrt(w'*Dr*w);
                                 if FlagParforProgressDisp && mod(it,100)==0
