@@ -33,6 +33,8 @@ close 'all';
 %% set matRad runtime configuration
 matRad_rc
 param.logLevel=1;
+s = settings;
+s.matlab.general.matfile.SaveFormat.TemporaryValue = 'v7.3';
 
 %% Set function parameters
 
@@ -504,6 +506,14 @@ end
 % the clinical objectives and constraints underlying the radiation
 % treatment. Once the optimization has finished, trigger once the GUI to
 % visualize the optimized dose cubes.
+myCluster = parcluster('Processes');
+myCluster.NumWorkers = 32;
+myCluster.NumThreads = 1;
+saveProfile(myCluster);
+myCluster;    
+p=parpool(myCluster);
+
+profile on;
 now3 = tic();
 resultGUI_robust = matRad_fluenceOptimization(dij_robust,cst_robust,pln_robust);
 % add resultGUI_robust dose cubes to the existing resultGUI structure to allow the visualization in the GUI
@@ -511,7 +521,10 @@ resultGUI = matRad_appendResultGUI(resultGUI,resultGUI_robust,0,'robust');
 OPTTime_robust = toc(now3);
 time3=sprintf('OPTTime_robust: %.2f\n',OPTTime_robust); disp(time3);
 results.performance.OPTTime_robust=OPTTime_robust;
+profiler = profile('info');
+save([folderPath filesep 'profiler'],'profiler');
 
+delete(gcp('nocreate'))
 %% Plot robust fluence
 matRad_visSpotWeights(stf_robust,resultGUI_robust.w);
 savefig([folderPath filesep 'fluence_robust.fig']);
@@ -540,7 +553,7 @@ if run_config.radiationMode == "photons" && false
             'value',slice, 'min',1, 'max',numSlices,'SliderStep', [1/(numSlices-1) , 1/(numSlices-1)]);
         b.Callback = @(es,ed)  matRad_plotSliceWrapper(gca,ct,cst_robust,1,resultGUI_robust.(quantityMap)*pln_robust.numOfFractions,plane,round(es.Value),[],[],colorcube,[],doseWindow,doseIsoLevels,[],'Dose [Gy]',[],'LineWidth',1.2);
         
-        %savefig([f,folderPath filesep 'dose_robust_' quantityMap '.fig'],'compact');
+        savefig([folderPath filesep 'dose_robust_' quantityMap '.fig']);
     end
 end
 
@@ -561,7 +574,7 @@ if run_config.radiationMode == "protons" || true
         'value',slice, 'min',1, 'max',numSlices,'SliderStep', [1/(numSlices-1) , 1/(numSlices-1)]);
     b.Callback = @(es,ed)  matRad_plotSliceWrapper(gca,ct,cst_robust,1,resultGUI_robust.(quantityMap)*pln_robust.numOfFractions,plane,round(es.Value),[],[],colorcube,[],doseWindow,doseIsoLevels,[],'Dose [Gy]',[],'LineWidth',1.2);
     
-    %savefig(f,[folderPath filesep 'dose_robust_' quantityMap '.fig'],'compact');
+    savefig(f,[folderPath filesep 'dose_robust_' quantityMap '.fig']);
     
 end
 
