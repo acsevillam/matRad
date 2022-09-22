@@ -313,7 +313,7 @@ for  i = 1:size(cst,1)
                                 d_radius=zeros(size(subIx));
                                 fluenceGradient_radius=zeros(numel(subIx),numel(wGradient{ixScen}));
 
-                                for it=1:numel(subIx)
+                                parfor it=1:numel(subIx)
                                     Dr=U{it}*S{it}*(V{it})';
                                     d_radius(it) = sqrt(w'*Dr*w);
                                     fluenceGradient_radius(it,:) = w'*Dr/d_radius(it);

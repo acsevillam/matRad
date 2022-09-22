@@ -540,7 +540,7 @@ if run_config.radiationMode == "photons" && false
             'value',slice, 'min',1, 'max',numSlices,'SliderStep', [1/(numSlices-1) , 1/(numSlices-1)]);
         b.Callback = @(es,ed)  matRad_plotSliceWrapper(gca,ct,cst_robust,1,resultGUI_robust.(quantityMap)*pln_robust.numOfFractions,plane,round(es.Value),[],[],colorcube,[],doseWindow,doseIsoLevels,[],'Dose [Gy]',[],'LineWidth',1.2);
         
-        savefig([folderPath filesep 'dose_robust_' quantityMap '.fig'],'compact');
+        %savefig([f,folderPath filesep 'dose_robust_' quantityMap '.fig'],'compact');
     end
 end
 
@@ -561,7 +561,7 @@ if run_config.radiationMode == "protons" || true
         'value',slice, 'min',1, 'max',numSlices,'SliderStep', [1/(numSlices-1) , 1/(numSlices-1)]);
     b.Callback = @(es,ed)  matRad_plotSliceWrapper(gca,ct,cst_robust,1,resultGUI_robust.(quantityMap)*pln_robust.numOfFractions,plane,round(es.Value),[],[],colorcube,[],doseWindow,doseIsoLevels,[],'Dose [Gy]',[],'LineWidth',1.2);
     
-    savefig([folderPath filesep 'dose_robust_' quantityMap '.fig'],'compact');
+    %savefig(f,[folderPath filesep 'dose_robust_' quantityMap '.fig'],'compact');
     
 end
 
