@@ -238,7 +238,6 @@ for  i = 1:size(cst,1)
                                 %if FlagParforProgressDisp && mod(it,1000)==0
                                 %    parfor_progress;
                                 %end
-                                Dr=[];
                             end
 
                             %if FlagParforProgressDisp
