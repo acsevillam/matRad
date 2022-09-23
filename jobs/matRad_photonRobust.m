@@ -26,7 +26,7 @@ function matRad_photonRobust(radiationMode,description,varargin)
 % (vi)  sample discrete scenarios from Gaussian uncertainty assumptions
 
 %% Clear variables
-clearvars -exceptit  radiationMode description varargin ;
+clearvars -except radiationMode description varargin ;
 clc;
 close 'all';
 
@@ -65,6 +65,7 @@ defaultSampling = true;
 defaultSamplingMode = 'impScen_permuted_truncated';
 defaultSamplingWCFactor = 1.5;
 defaultRootPath = matRad_cfg.matRadRoot;
+defaultNCores = feature('numcores');
 
 p = inputParser;
 
@@ -93,6 +94,8 @@ addParameter(p,'sampling',defaultSampling,@islogical);
 addOptional(p,'sampling_mode',defaultSamplingMode,@(x) any(validatestring(x,validScenModes)));
 addOptional(p,'sampling_wcFactor',defaultSamplingWCFactor,@(x) isnumeric(x) && isscalar(x) && (x > 0));
 addParameter(p,'rootPath',defaultRootPath,@isfolder);
+addParameter(p,'n_cores',defaultNCores,@(x) validateattributes(x,{'numeric'},...
+            {'nonempty','integer','positive'}));
 
 parse(p,radiationMode,description,varargin{:});
 
@@ -111,6 +114,7 @@ run_config.loadDij = p.Results.loadDij;
 run_config.sampling_mode = p.Results.sampling_mode;
 run_config.sampling_wcFactor = p.Results.sampling_wcFactor;
 run_config.rootPath = p.Results.rootPath;
+run_config.n_cores = p.Results.n_cores;
 
 switch run_config.robustness
     case "c-COWC"
@@ -507,7 +511,7 @@ end
 % treatment. Once the optimization has finished, trigger once the GUI to
 % visualize the optimized dose cubes.
 profile_master = parallel.importProfile('profile1.mlsettings');
-p=parpool(profile_master,16);
+p=parpool(profile_master,run_config.n_cores);
 
 profile on;
 now3 = tic();
@@ -522,6 +526,7 @@ save([folderPath filesep 'profiler'],'profiler');
 
 delete(gcp('nocreate'))
 parallel.internal.ui.MatlabProfileManager.removeProfile('profile1');
+
 %% Plot robust fluence
 matRad_visSpotWeights(stf_robust,resultGUI_robust.w);
 savefig([folderPath filesep 'fluence_robust.fig']);
