@@ -67,54 +67,54 @@ defaultSamplingWCFactor = 1.5;
 defaultRootPath = matRad_cfg.matRadRoot;
 defaultNCores = feature('numcores');
 
-p = inputParser;
+parser = inputParser;
 
-addRequired(p,'radiationMode',@(x) any(validatestring(x,validRadiationModes)));
-addRequired(p,'description',@(x) any(validatestring(x,validDescriptions)));
-addParameter(p,'caseID',defaultPatientID,@(x) any(validatestring(x,validPatientIDs)));
-addParameter(p,'plan_objectives',defaultPlanObjective,@(x) any(validatestring(x,validPlanObjectives)));
-addParameter(p,'plan_target',defaultPlanTarget,@(x) any(validatestring(x,validPlanTargets)));
-addParameter(p,'plan_beams',defaultPlanBeams,@(x) any(validatestring(x,validPlanBeams)));
-addParameter(p,'shiftSD',defaultShiftSD,@(x) numel(x) == 3 && isnumeric(x) && all(x > 0));
-addParameter(p,'robustness',defaultRobustness,@(x) any(validatestring(x,validRobustness)));
-addParameter(p,'scen_mode',defaultScenMode,@(x) any(validatestring(x,validScenModes)));
-addParameter(p,'wcFactor',defaultWCFactor,@(x) isnumeric(x) && isscalar(x) && (x > 0));
-addParameter(p,'p1',defaultP1,@(x) validateattributes(x,{'numeric'},...
+addRequired(parser,'radiationMode',@(x) any(validatestring(x,validRadiationModes)));
+addRequired(parser,'description',@(x) any(validatestring(x,validDescriptions)));
+addParameter(parser,'caseID',defaultPatientID,@(x) any(validatestring(x,validPatientIDs)));
+addParameter(parser,'plan_objectives',defaultPlanObjective,@(x) any(validatestring(x,validPlanObjectives)));
+addParameter(parser,'plan_target',defaultPlanTarget,@(x) any(validatestring(x,validPlanTargets)));
+addParameter(parser,'plan_beams',defaultPlanBeams,@(x) any(validatestring(x,validPlanBeams)));
+addParameter(parser,'shiftSD',defaultShiftSD,@(x) numel(x) == 3 && isnumeric(x) && all(x > 0));
+addParameter(parser,'robustness',defaultRobustness,@(x) any(validatestring(x,validRobustness)));
+addParameter(parser,'scen_mode',defaultScenMode,@(x) any(validatestring(x,validScenModes)));
+addParameter(parser,'wcFactor',defaultWCFactor,@(x) isnumeric(x) && isscalar(x) && (x > 0));
+addParameter(parser,'p1',defaultP1,@(x) validateattributes(x,{'numeric'},...
             {'nonempty','integer','positive'}));
-addParameter(p,'p2',defaultP2,@(x) validateattributes(x,{'numeric'},...
+addParameter(parser,'p2',defaultP2,@(x) validateattributes(x,{'numeric'},...
             {'nonempty','integer','positive'}));
-addParameter(p,'theta1',defaultTheta1,@(x) validateattributes(x,{'numeric'},...
+addParameter(parser,'theta1',defaultTheta1,@(x) validateattributes(x,{'numeric'},...
             {'nonempty','positive'}));
-addParameter(p,'k',defaultK,@(x) validateattributes(x,{'numeric'},...
+addParameter(parser,'k',defaultK,@(x) validateattributes(x,{'numeric'},...
             {'nonempty','integer','positive'}));
-addParameter(p,'theta2',defaultTheta2,@(x) validateattributes(x,{'numeric'},...
+addParameter(parser,'theta2',defaultTheta2,@(x) validateattributes(x,{'numeric'},...
             {'nonempty'}));
-addParameter(p,'loadDij',defaultLoadDij,@islogical);
-addParameter(p,'sampling',defaultSampling,@islogical);
-addOptional(p,'sampling_mode',defaultSamplingMode,@(x) any(validatestring(x,validScenModes)));
-addOptional(p,'sampling_wcFactor',defaultSamplingWCFactor,@(x) isnumeric(x) && isscalar(x) && (x > 0));
-addParameter(p,'rootPath',defaultRootPath,@isfolder);
-addParameter(p,'n_cores',defaultNCores,@(x) validateattributes(x,{'numeric'},...
+addParameter(parser,'loadDij',defaultLoadDij,@islogical);
+addParameter(parser,'sampling',defaultSampling,@islogical);
+addOptional(parser,'sampling_mode',defaultSamplingMode,@(x) any(validatestring(x,validScenModes)));
+addOptional(parser,'sampling_wcFactor',defaultSamplingWCFactor,@(x) isnumeric(x) && isscalar(x) && (x > 0));
+addParameter(parser,'rootPath',defaultRootPath,@isfolder);
+addParameter(parser,'n_cores',defaultNCores,@(x) validateattributes(x,{'numeric'},...
             {'nonempty','integer','positive'}));
 
-parse(p,radiationMode,description,varargin{:});
+parse(parser,radiationMode,description,varargin{:});
 
-run_config.radiationMode = p.Results.radiationMode;
-run_config.description = p.Results.description;
-run_config.caseID = p.Results.caseID;
-run_config.plan_objectives = p.Results.plan_objectives;
-run_config.plan_target = p.Results.plan_target;
-run_config.plan_beams = p.Results.plan_beams;
-run_config.shiftSD = p.Results.shiftSD;
-run_config.robustness = p.Results.robustness;
-run_config.scen_mode = p.Results.scen_mode;
-run_config.wcFactor = p.Results.wcFactor;
-run_config.sampling = p.Results.sampling;
-run_config.loadDij = p.Results.loadDij;
-run_config.sampling_mode = p.Results.sampling_mode;
-run_config.sampling_wcFactor = p.Results.sampling_wcFactor;
-run_config.rootPath = p.Results.rootPath;
-run_config.n_cores = p.Results.n_cores;
+run_config.radiationMode = parser.Results.radiationMode;
+run_config.description = parser.Results.description;
+run_config.caseID = parser.Results.caseID;
+run_config.plan_objectives = parser.Results.plan_objectives;
+run_config.plan_target = parser.Results.plan_target;
+run_config.plan_beams = parser.Results.plan_beams;
+run_config.shiftSD = parser.Results.shiftSD;
+run_config.robustness = parser.Results.robustness;
+run_config.scen_mode = parser.Results.scen_mode;
+run_config.wcFactor = parser.Results.wcFactor;
+run_config.sampling = parser.Results.sampling;
+run_config.loadDij = parser.Results.loadDij;
+run_config.sampling_mode = parser.Results.sampling_mode;
+run_config.sampling_wcFactor = parser.Results.sampling_wcFactor;
+run_config.rootPath = parser.Results.rootPath;
+run_config.n_cores = parser.Results.n_cores;
 
 switch run_config.robustness
     case "c-COWC"
@@ -126,23 +126,23 @@ switch run_config.robustness
             case "impScen_permuted_truncated"
                 run_config.numScens = 33;
         end
-        run_config.p1 = p.Results.p1;
-        run_config.p2 = p.Results.p2;
+        run_config.p1 = parser.Results.p1;
+        run_config.p2 = parser.Results.p2;
         run_config.beta1 = run_config.p1/run_config.numScens;
         run_config.beta2 = run_config.p2/run_config.numScens;
         output_folder = ['output' filesep run_config.radiationMode filesep run_config.description filesep run_config.caseID filesep run_config.robustness filesep run_config.plan_target filesep run_config.plan_beams filesep run_config.plan_objectives filesep run_config.scen_mode filesep num2str(run_config.wcFactor) filesep num2str(run_config.beta1) '_to_' num2str(run_config.beta2) filesep datestr(datetime,'yyyy-mm-dd HH-MM-SS')];
 
     case "INTERVAL2"
-        run_config.theta1 = p.Results.theta1;
+        run_config.theta1 = parser.Results.theta1;
         output_folder = ['output' filesep run_config.radiationMode filesep run_config.description filesep run_config.caseID filesep run_config.robustness filesep run_config.plan_target filesep run_config.plan_beams filesep run_config.plan_objectives filesep run_config.scen_mode filesep num2str(run_config.wcFactor) filesep num2str(run_config.theta1) filesep datestr(datetime,'yyyy-mm-dd HH-MM-SS')];
         dij_file = [run_config.rootPath  filesep 'jobs' filesep 'images' filesep run_config.description filesep run_config.caseID '_dij_interval2.mat'];
         if run_config.loadDij && isfile(dij_file)
             load(dij_file,'pln_robust','dij_robust','dij_interval');
         end
     case "INTERVAL3"
-        run_config.theta1 = p.Results.theta1;
-        run_config.k = p.Results.k;
-        run_config.theta2 = p.Results.theta2;
+        run_config.theta1 = parser.Results.theta1;
+        run_config.k = parser.Results.k;
+        run_config.theta2 = parser.Results.theta2;
         output_folder = ['output' filesep run_config.radiationMode filesep run_config.description filesep run_config.caseID filesep run_config.robustness filesep run_config.plan_target filesep run_config.plan_beams filesep run_config.plan_objectives filesep run_config.scen_mode filesep num2str(run_config.wcFactor) filesep num2str(run_config.theta1) filesep num2str(run_config.theta2) filesep datestr(datetime,'yyyy-mm-dd HH-MM-SS')];
         dij_file = [run_config.rootPath  filesep 'jobs' filesep 'images' filesep run_config.description filesep run_config.caseID '_dij_interval3.mat'];
         if run_config.loadDij && isfile(dij_file)
@@ -511,7 +511,7 @@ end
 % treatment. Once the optimization has finished, trigger once the GUI to
 % visualize the optimized dose cubes.
 profile_master = parallel.importProfile('profile1.mlsettings');
-p=parpool(profile_master,run_config.n_cores);
+pool=parpool(profile_master,run_config.n_cores);
 
 profile on;
 now3 = tic();
