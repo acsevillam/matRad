@@ -11,8 +11,8 @@ pln_dummy.multScen = matRad_multScen(ct,'nomScen');
 % calculate dummy case dij to save interval
 dij_dummy = matRad_calcPhotonDose(ct,stf,pln_dummy,cst);
 
-dij_interval.center=zeros(dij.doseGrid.numOfVoxels,dij.totalNumOfBixels);
-dij_interval.radius=zeros(dij.totalNumOfBixels,dij.totalNumOfBixels);
+dij_interval.center=sparse(dij.doseGrid.numOfVoxels,dij.totalNumOfBixels);
+dij_interval.radius=sparse(dij.totalNumOfBixels,dij.totalNumOfBixels);
 
 % initialize waitbar
 figureWait = waitbar(0,'calculate dose interval for each voxel and bixel...');
