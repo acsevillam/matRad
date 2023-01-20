@@ -57,7 +57,7 @@ meta.sufficientStatistics = matRad_checkSampIntegrity(pln.multScen);
 
 ix    = pln.subIx;
 
-%%
+%% Calculate scenarios probabilities
 
 vProb = zeros(numel(caSampRes),1);
 
