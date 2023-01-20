@@ -175,7 +175,8 @@ if FlagParallToolBoxLicensed
         if isfield(ct,'dvf')
             %ctSamp.dvf = [];
             ctSamp.dvf{1} = ct.dvf{ctScen};
-            resultSamp.physicalDose = imwarp(resultSamp.physicalDose, permute(ct.dvf{1},[2 3 4 1]));
+            resultSamp.physicalDose = imwarp(resultSamp.physicalDose, permute(ct.dvf{1},[2 3 4 1])); % Revisar el dvf{1} puede que falte definir el indice correcto
+            % Revisar el resize de la grilla de dosis y el dvf
         end
         
         resultGUIsampledScen.physicalDose{ctScen,shiftScen,RangeScen} = resultSamp.physicalDose;

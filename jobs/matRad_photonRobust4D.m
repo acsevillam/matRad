@@ -195,6 +195,8 @@ for  it = 1:size(cst,1)
             cst{it,2}='LEFT LUNG';
         case 'PULMON DERECHO'
             cst{it,2}='RIGTH LUNG';
+        case 'SENO CONTRALATERAL'
+           cst{it,2}='CONTRALATERAL BREAST';
     end
     if isempty(cst{it,4}{1,1}) == true
         fprintf(' %s is an empty structure. \n',cst{it,2});
@@ -261,42 +263,6 @@ if (ct.numOfCtScen>1)
     b.Callback    = @(es,ed)  matRad_plotSliceWrapper(gca,ct,cst,round(es.Value),[],plane,slice);
 end
 clear  numScen plane slice ans f b;
-
-%% Plot CT slice
-%{
-if param.logLevel == 1
-    
-    figure('Renderer', 'painters', 'Position', [10 10 300*ct.numOfCtScen 400]);
-    
-    isocenter = matRad_getIsoCenter(cst,ct,0);
-    
-    for scen_iterator = 1:ct.numOfCtScen
-        plane      = 1;
-        slice      = round(isocenter(2)./ct.resolution.y);
-        subplot(2,ct.numOfCtScen,scen_iterator); camroll(90);
-        matRad_plotSliceWrapper(gca,ct,cst,scen_iterator,[],plane,slice,[],[],[],[],[],[],[],[],[],'LineWidth',1.2);
-        
-        plane      = 3;
-        slice      = round(isocenter(3)./ct.resolution.z);
-        subplot(2,ct.numOfCtScen,scen_iterator+ct.numOfCtScen);
-        matRad_plotSliceWrapper(gca,ct,cst,scen_iterator,[],plane,slice,[],[],[],[],[],[],[],[],[],'LineWidth',1.2);
-    end
-    
-end
-clear  scen_iterator plane slice ans;
-
-if (ct.numOfCtScen>1)
-    f          = figure; title('individual scenarios'); camroll(90);
-    plane      = 1;
-    slice      = round(isocenter(2)./ct.resolution.y);
-    numScen    = 1;
-    matRad_plotSliceWrapper(gca,ct,cst,numScen,[],plane,slice,[],[],[],[],[],[],[],[],[],'LineWidth',1.2);
-    b             = uicontrol('Parent',f,'Style','slider','Position',[50,5,419,23],...
-        'value',numScen, 'min',1, 'max',ct.numOfCtScen,'SliderStep', [1/(ct.numOfCtScen-1) , 1/(ct.numOfCtScen-1)]);
-    b.Callback    = @(es,ed)  matRad_plotSliceWrapper(gca,ct,cst,round(es.Value),[],plane,slice,[],[],[],[],[],[],[],[],[],'LineWidth',1.2);
-end
-clear  numScen plane slice ans f b;
-%}
 
 savefig([folderPath filesep 'ct.fig']);
 
@@ -417,6 +383,9 @@ if run_config.radiationMode == "protons"
     dij = matRad_calcParticleDose(ct,stf,pln,cst);
 end
 
+%% Resize dvf according to dose grid
+[dij] = register.resizeDVF(dij);
+
 %% Inverse Optimization  for IMPT based on RBE-weighted dose
 % The goal of the fluence optimization is to find a set of bixel/spot
 % weights which yield the best possible dose distribution according to the
@@ -506,6 +475,9 @@ end
 DCTime_robust = toc(now1);
 time1=sprintf('DCTime_robust: %.2f\n',DCTime_robust); disp(time1);
 results.performance.DCTime_robust=DCTime_robust;
+
+%% Resize dvf according to dose grid
+[dij_robust] = register.resizeDVF(dij_robust);
 
 %% Dose interval pre-computing
 

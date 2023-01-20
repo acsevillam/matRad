@@ -35,6 +35,7 @@ classdef  matRad_ElasticImageRegistration < matRad_ImageRegistration
     properties
         ct
         cst
+        dij
         refScen
         metadata
     end
@@ -101,7 +102,47 @@ classdef  matRad_ElasticImageRegistration < matRad_ImageRegistration
             cst=obj.cst;
             
         end
-        
+
+        % Calculate the deformation vector fields
+        function [dij] = resizeDVF(obj,dij)
+            
+            nScen = obj.ct.numOfCtScen;
+            cubeHU_resized = cell(1,nScen);
+            obj.dij = dij;
+
+            for scen = 1:nScen
+                cubeHU_resized{scen} = matRad_interp3(dij.ctGrid.x,dij.ctGrid.y,dij.ctGrid.z, ...
+                                       obj.ct.cubeHU{scen}, ...
+                                       dij.doseGrid.x,dij.doseGrid.y',dij.doseGrid.z,'nearest');
+            end
+
+            % Non rigid registration demons-based. Calculates the DVF(Displacement
+            % Vector Field) that models the transformation.
+            
+            obj.dij.dvfType = obj.metadata.dvfType;
+            obj.dij.refScen = obj.refScen;
+
+            obj.dij.dvf_resized = cell(1,nScen);
+            
+            switch obj.metadata.dvfType
+                case 'pull'
+                    for scen = 1:nScen
+                        fprintf('Registering scenario %d.\n',scen);
+                        [obj.dij.dvf_resized{scen},~] = imregdemons(cubeHU_resized{obj.refScen},cubeHU_resized{scen},obj.metadata.nItera,'PyramidLevels',obj.metadata.pyramLevels,'AccumulatedFieldSmoothing',obj.metadata.smoothLevels);
+                        obj.dij.dvf_resized{scen} = permute(obj.dij.dvf_resized{scen},[4 1 2 3]);
+                    end
+                case 'push'
+                    for scen = 1:nScen
+                        fprintf('Registering scenario %d.\n',scen);
+                        [obj.dij.dvf_resized{scen},~] = imregdemons(cubeHU_resized{scen},cubeHU_resized{obj.refScen},obj.metadata.nItera,'PyramidLevels',obj.metadata.pyramLevels,'AccumulatedFieldSmoothing',obj.metadata.smoothLevels);
+                        obj.dij.dvf_resized{scen} = permute(obj.dij.dvf_resized{scen},[4 1 2 3]);
+                    end
+            end
+            
+            dij=obj.dij;
+            
+        end
+
         % Propagate contourns
         function [ct,cst] = propContours(obj)
             
