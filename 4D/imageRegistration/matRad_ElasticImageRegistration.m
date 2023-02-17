@@ -35,7 +35,6 @@ classdef  matRad_ElasticImageRegistration < matRad_ImageRegistration
     properties
         ct
         cst
-        dij
         refScen
         metadata
     end
@@ -73,7 +72,7 @@ classdef  matRad_ElasticImageRegistration < matRad_ImageRegistration
         end
         
         % Calculate the deformation vector fields
-        function [ct,cst] = calcDVF(obj)
+        function [ct] = calcDVF(obj)
             
             % Non rigid registration demons-based. Calculates the DVF(Displacement
             % Vector Field) that models the transformation.
@@ -81,16 +80,17 @@ classdef  matRad_ElasticImageRegistration < matRad_ImageRegistration
             nScen = obj.ct.numOfCtScen;
             obj.ct.dvf = cell(1,nScen);
             obj.ct.dvfType = obj.metadata.dvfType;
+            obj.ct.dvfDim = obj.ct.cubeDim;
             obj.ct.refScen = obj.refScen;
             
             switch obj.metadata.dvfType
-                case 'pull'
+                case 'push'
                     for scen = 1:nScen
                         fprintf('Registering scenario %d.\n',scen);
                         [obj.ct.dvf{scen},~] = imregdemons(obj.ct.cubeHU{obj.refScen},obj.ct.cubeHU{scen},obj.metadata.nItera,'PyramidLevels',obj.metadata.pyramLevels,'AccumulatedFieldSmoothing',obj.metadata.smoothLevels);
                         obj.ct.dvf{scen} = permute(obj.ct.dvf{scen},[4 1 2 3]);
                     end
-                case 'push'
+                case 'pull'
                     for scen = 1:nScen
                         fprintf('Registering scenario %d.\n',scen);
                         [obj.ct.dvf{scen},~] = imregdemons(obj.ct.cubeHU{scen},obj.ct.cubeHU{obj.refScen},obj.metadata.nItera,'PyramidLevels',obj.metadata.pyramLevels,'AccumulatedFieldSmoothing',obj.metadata.smoothLevels);
@@ -99,47 +99,44 @@ classdef  matRad_ElasticImageRegistration < matRad_ImageRegistration
             end
             
             ct=obj.ct;
-            cst=obj.cst;
             
         end
 
         % Calculate the deformation vector fields
-        function [dij] = resizeDVF(obj,dij)
+        function [ct] = calcDVF_resized(obj,resolution)
             
             nScen = obj.ct.numOfCtScen;
             cubeHU_resized = cell(1,nScen);
-            obj.dij = dij;
+            tmpGrid.x = obj.ct.x(1):resolution.x:obj.ct.x(end);
+            tmpGrid.y = obj.ct.y(1):resolution.y:obj.ct.y(end);
+            tmpGrid.z = obj.ct.z(1):resolution.z:obj.ct.z(end);
+            obj.ct.dvfDim = [numel(tmpGrid.y) numel(tmpGrid.x) numel(tmpGrid.z)];
 
             for scen = 1:nScen
-                cubeHU_resized{scen} = matRad_interp3(dij.ctGrid.x,dij.ctGrid.y,dij.ctGrid.z, ...
+                cubeHU_resized{scen} = matRad_interp3(obj.ct.x,obj.ct.y,obj.ct.z, ...
                                        obj.ct.cubeHU{scen}, ...
-                                       dij.doseGrid.x,dij.doseGrid.y',dij.doseGrid.z,'nearest');
+                                       tmpGrid.x,tmpGrid.y',tmpGrid.z,'nearest');
             end
 
             % Non rigid registration demons-based. Calculates the DVF(Displacement
             % Vector Field) that models the transformation.
             
-            obj.dij.dvfType = obj.metadata.dvfType;
-            obj.dij.refScen = obj.refScen;
-
-            obj.dij.dvf_resized = cell(1,nScen);
-            
             switch obj.metadata.dvfType
                 case 'pull'
                     for scen = 1:nScen
                         fprintf('Registering scenario %d.\n',scen);
-                        [obj.dij.dvf_resized{scen},~] = imregdemons(cubeHU_resized{obj.refScen},cubeHU_resized{scen},obj.metadata.nItera,'PyramidLevels',obj.metadata.pyramLevels,'AccumulatedFieldSmoothing',obj.metadata.smoothLevels);
-                        obj.dij.dvf_resized{scen} = permute(obj.dij.dvf_resized{scen},[4 1 2 3]);
+                        [obj.ct.dvf{scen},~] = imregdemons(cubeHU_resized{obj.refScen},cubeHU_resized{scen},obj.metadata.nItera,'PyramidLevels',obj.metadata.pyramLevels,'AccumulatedFieldSmoothing',obj.metadata.smoothLevels);
+                        obj.ct.dvf{scen} = permute(obj.ct.dvf{scen},[4 1 2 3]);
                     end
                 case 'push'
                     for scen = 1:nScen
                         fprintf('Registering scenario %d.\n',scen);
-                        [obj.dij.dvf_resized{scen},~] = imregdemons(cubeHU_resized{scen},cubeHU_resized{obj.refScen},obj.metadata.nItera,'PyramidLevels',obj.metadata.pyramLevels,'AccumulatedFieldSmoothing',obj.metadata.smoothLevels);
-                        obj.dij.dvf_resized{scen} = permute(obj.dij.dvf_resized{scen},[4 1 2 3]);
+                        [obj.ct.dvf{scen},~] = imregdemons(cubeHU_resized{scen},cubeHU_resized{obj.refScen},obj.metadata.nItera,'PyramidLevels',obj.metadata.pyramLevels,'AccumulatedFieldSmoothing',obj.metadata.smoothLevels);
+                        obj.ct.dvf{scen} = permute(obj.ct.dvf{scen},[4 1 2 3]);
                     end
             end
             
-            dij=obj.dij;
+            ct=obj.ct;
             
         end
 
@@ -151,7 +148,7 @@ classdef  matRad_ElasticImageRegistration < matRad_ImageRegistration
             end
             
             if ~isfield(obj.ct,'dvf') || ~isfield(obj.ct,'dvfType')
-                [obj.ct,obj.cst]=calcDVF(obj);
+                [obj.ct]=obj.calcDVF();
             end
             
             [numOfStruct, ~] = size(obj.cst);
@@ -172,7 +169,7 @@ classdef  matRad_ElasticImageRegistration < matRad_ImageRegistration
                     % The DVF transformation is applied and the linear values are found
                     fprintf('Propagating countorns of structure %d \n',structure);
                     for scen = 2:obj.ct.numOfCtScen
-                        cubeHU_estimated = imwarp(cubeHU_fixed, permute(obj.ct.dvf{scen_moving},[2 3 4 1]));
+                        cubeHU_estimated = imwarp(cubeHU_fixed, permute(obj.ct.dvf{scen},[2 3 4 1]));
                         obj.cst{structure,4}{1,scen} = find(cubeHU_estimated);
                     end
                 else

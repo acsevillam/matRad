@@ -69,7 +69,7 @@ for l = 1:numel(caSampRes)
     
     numCtScen = nnz(pln.multScen.scenMask(:,shiftScen,RangeScen));
     if(numCtScen>1)
-        vProb(l)=pln.multScen.scenProb(find(shiftScenMask==indProb))/phaseProb(ctScen);
+        vProb(l)=pln.multScen.scenProb(find(shiftScenMask==indProb))*phaseProb(ctScen);
     else
         vProb(l)=pln.multScen.scenProb(find(shiftScenMask==indProb));
     end
@@ -200,7 +200,7 @@ doseStat.robustnessAnalysis.refDose = refDose;
 doseStat.gammaAnalysis.distAgreement = meta.robustnessCriterion(1);
 doseStat.gammaAnalysis.distAgreement = meta.robustnessCriterion(2);
 
-[doseStat.robustnessAnalysis.robustnessCube, doseStat.robustnessAnalysis.robPassRate] = matRad_robustnessIndex(doseStat.meanCubeW,doseStat.stdCubeW,refDose,meta.robustnessCriterion,meta.slice,ct,cst,pln);
+[doseStat.robustnessAnalysis.robustnessCube, doseStat.robustnessAnalysis.robPassRate] = matRad_robustnessIndex(doseStat.meanCubeW,doseStat.stdCubeW,refDose,meta.robustnessCriterion,meta.slice,ct,cst);
 
 doseStat.robustnessAnalysis.robustnessIndex=doseStat.robustnessAnalysis.robPassRate/100;
 

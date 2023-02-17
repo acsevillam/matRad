@@ -58,7 +58,6 @@ cstInfo = cst(:,5);
 
 numOfVois = numel(cstNames);
 
-
 vProb = zeros(numel(caSamp),1);
 
 for l = 1:numel(caSamp)
@@ -69,7 +68,8 @@ for l = 1:numel(caSamp)
     
     numCtScen = nnz(pln.multScen.scenMask(:,shiftScen,RangeScen));
     if(numCtScen>1)
-        vProb(l)=pln.multScen.scenProb(find(shiftScenMask==indProb))/phaseProb(ctScen);
+        phaseProb=ones(1,numCtScen)/numCtScen;
+        vProb(l)=pln.multScen.scenProb(find(shiftScenMask==indProb))*phaseProb(ctScen);
     else
         vProb(l)=pln.multScen.scenProb(find(shiftScenMask==indProb));
     end

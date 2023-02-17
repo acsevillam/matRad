@@ -1,4 +1,4 @@
-function [dvfHandle] = matRad_plotDvfSlice(axesHandle,dvfCube,cubeIdx,plane,slice,colorLine)
+function [dvfHandle] = matRad_plotDvfSlice(axesHandle,dvfCube,ct,cubeIdx,plane,slice,colorLine)
 % matRad function that generates the plot for the CT in the GUI
 % The function can also be used in personal matlab figures by passing the
 % corresponding axes handle
@@ -45,25 +45,30 @@ function [dvfHandle] = matRad_plotDvfSlice(axesHandle,dvfCube,cubeIdx,plane,slic
 matRad_cfg = MatRad_Config.instance();
 
 %Use default color line
-if nargin < 6 || isempty(colorLine)
+if nargin < 7 || isempty(colorLine)
     colorLine = [1 1 1];
 end
 
+
 [~,xDim,yDim,zDim] = size(dvfCube{1});
+[xCtDim,yCtDim,zCtDim] = size(ct{1});
 
 %Prepare the slice and convert it to uint8
 if plane == 1 % Coronal plane
-    [mX,mZ] = meshgrid(1:zDim,1:xDim);
+    [mX,mZ] = meshgrid(1:zCtDim/zDim:zCtDim,1:xCtDim/xDim:xCtDim);
+    slice=round(slice*yDim/yCtDim);
     xVectorField = squeeze(dvfCube{cubeIdx}(1,:,slice,:));
     zVectorField = squeeze(dvfCube{cubeIdx}(3,:,slice,:));
     dvfHandle=quiver(mX,mZ,zVectorField,xVectorField,'color',colorLine,'Parent',axesHandle);
 elseif plane == 2 % sagittal plane
-    [mY,mZ] = meshgrid(1:zDim,1:yDim);
+    [mY,mZ] = meshgrid(1:zCtDim/zDim:zCtDim,1:yCtDim/yDim:yCtDim);
+    slice=round(slice*xDim/xCtDim);
     yVectorField = squeeze(dvfCube{cubeIdx}(2,:,slice,:));
     zVectorField = squeeze(dvfCube{cubeIdx}(3,:,slice,:));
     dvfHandle=quiver(mY,mZ,zVectorField,yVectorField,'color',colorLine,'Parent',axesHandle);
 elseif plane == 3 % Axial plane
-    [mX,mY] = meshgrid(1:yDim,1:xDim);
+    [mX,mY] = meshgrid(1:yCtDim/yDim:yCtDim,1:xCtDim/xDim:xCtDim);
+    slice=round(slice*zDim/zCtDim);
     xVectorField = squeeze(dvfCube{cubeIdx}(1,:,:,slice));
     yVectorField = squeeze(dvfCube{cubeIdx}(2,:,:,slice));
     dvfHandle=quiver(mX,mY,yVectorField,xVectorField,'color',colorLine,'Parent',axesHandle);

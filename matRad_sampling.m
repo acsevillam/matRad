@@ -143,7 +143,7 @@ if FlagParallToolBoxLicensed
         FlagParforProgressDisp = false;
     end
     
-    resultGUIsampledScen.physicalDose = cell(size(pln.multScen.scenMask));
+    resultGUIsampledScen.(pln.bioParam.quantityVis) = cell(size(pln.multScen.scenMask));
     
     for i = 1:pln.multScen.totNumScen
         
@@ -159,44 +159,70 @@ if FlagParallToolBoxLicensed
         plnSamp             = pln;
         plnSamp.multScen	= pln.multScen.extractSingleNomScen(1,find(shiftScenMask==indProb));
         ctSamp              = ct;
-        ctSamp.numOfCtScen	= 1;
-        %ctSamp.cubeHU       = [];
-        ctSamp.cubeHU{1}	= ct.cubeHU{ctScen};
-        cstSamp = cst;
-        
-        [numOfStruct, ~] = size(cstSamp);
-        for structure = 1:numOfStruct
-            cstSamp{structure,4}=[];
-            cstSamp{structure,4}=cst{1,4}(refScen);
+        ctSamp.numOfCtScen  = 1;
+        ctSamp.cubeHU       = [];
+        ctSamp.cubeHU{1}    = ct.cubeHU{ctScen};
+        if isfield(ct,'dvf')
+            ctSamp.dvf          = [];
+            ctSamp.dvf{1}       = ct.dvf{ctScen};
         end
-        
+        cstSamp             = cst;
+
+       [numOfStruct, ~] = size(cstSamp);
+       for structure = 1:numOfStruct
+            cstSamp{structure,4}=[];
+            cstSamp{structure,4}=cst{structure,4}(refScen);
+       end
+
         resultSamp                 = matRad_calcDoseDirect(ctSamp,stf,plnSamp,cstSamp,w);
         
-        if isfield(ct,'dvf')
-            %ctSamp.dvf = [];
-            ctSamp.dvf{1} = ct.dvf{ctScen};
-            resultSamp.physicalDose = imwarp(resultSamp.physicalDose, permute(ct.dvf{1},[2 3 4 1])); % Revisar el dvf{1} puede que falte definir el indice correcto
-            % Revisar el resize de la grilla de dosis y el dvf
+        if isfield(ctSamp,'dvf')
+
+            if ~isequal(size(resultSamp.(plnSamp.bioParam.quantityVis)),ctSamp.dvfDim) || ~isequal(ctSamp.dvfType,'pull')
+                matRad_cfg.dispWarning('Dose cube and deformation vector field dimensions are not equal. \n');
+
+                % Instantiate elastic registration
+                metadata.nItera = 100;
+                metadata.dvfType = 'pull';
+                register = matRad_ElasticImageRegistration(ct,cst,1,metadata);
+                clear 'metadata';
+                
+                % Calculate deformation vector field
+                [ct] = register.calcDVF();
+                ctSamp.dvfDim       = ct.dvfDim;
+                ctSamp.dvf{1}       = ct.dvf{ctScen};
+            end
+
+            resultSamp.([plnSamp.bioParam.quantityVis '_deformed']) = imwarp(resultSamp.(plnSamp.bioParam.quantityVis), permute(ctSamp.dvf{1},[2 3 4 1]));
+
         end
+
+        resultGUIsampledScen.(plnSamp.bioParam.quantityVis){ctScen,shiftScen,RangeScen} = resultSamp.(plnSamp.bioParam.quantityVis) ;
         
-        resultGUIsampledScen.physicalDose{ctScen,shiftScen,RangeScen} = resultSamp.physicalDose;
-        sampledDose                = resultSamp.(pln.bioParam.quantityVis)(subIx);
+
+        if isfield(resultSamp,[plnSamp.bioParam.quantityVis '_deformed'])
+            resultGUIsampledScen.([plnSamp.bioParam.quantityVis '_deformed']){ctScen,shiftScen,RangeScen} = resultSamp.([plnSamp.bioParam.quantityVis '_deformed']);
+            sampledDose                = resultSamp.([plnSamp.bioParam.quantityVis '_deformed'])(subIx);
+        else
+            sampledDose                = resultSamp.(plnSamp.bioParam.quantityVis)(subIx);
+        end
+
         mSampDose(:,i)             = single(reshape(sampledDose,[],1));
-        caSampRes(i).bioParam      = pln.bioParam;
+        caSampRes(i).bioParam      = plnSamp.bioParam;
         caSampRes(i).relRangeShift = plnSamp.multScen.relRangeShift;
         caSampRes(i).absRangeShift = plnSamp.multScen.absRangeShift;
         caSampRes(i).isoShift      = plnSamp.multScen.isoShift;
-        
-        caSampRes(i).dvh = matRad_calcDVH(cst,resultSamp.(pln.bioParam.quantityVis),'cum',dvhPoints);
-        caSampRes(i).qi  = matRad_calcQualityIndicators(cst,pln,resultSamp.(pln.bioParam.quantityVis),refGy,refVol);
-        
-        if FlagParforProgressDisp
-            parfor_progress;
+
+        if isfield(resultSamp,[plnSamp.bioParam.quantityVis '_deformed'])
+            caSampRes(i).dvh = matRad_calcDVH(cstSamp,resultSamp.([plnSamp.bioParam.quantityVis '_deformed']),'cum',dvhPoints);
+            caSampRes(i).qi  = matRad_calcQualityIndicators(cstSamp,plnSamp,resultSamp.([plnSamp.bioParam.quantityVis '_deformed']),refGy,refVol);
+        else
+            caSampRes(i).dvh = matRad_calcDVH(cstSamp,resultSamp.(plnSamp.bioParam.quantityVis),'cum',dvhPoints);
+            caSampRes(i).qi  = matRad_calcQualityIndicators(cstSamp,plnSamp,resultSamp.(plnSamp.bioParam.quantityVis),refGy,refVol);
         end
         
     end
-    
-    
+   
     if FlagParforProgressDisp
         parfor_progress(0);
     end
@@ -212,7 +238,7 @@ else
         matRad_cfg.dispInfo(['Approximate Total calculation time: ', num2str(round(totCompTime / 3600)), '\n']);
     end
     
-    resultGUIsampledScen.physicalDose = cell(size(pln.multScen.scenMask));
+    resultGUIsampledScen.(pln.bioParam.quantityVis) = cell(size(pln.multScen.scenMask));
     
     for i = 1:pln.multScen.totNumScen
         
@@ -225,37 +251,68 @@ else
             ' of ', num2str(pln.multScen.totNumScen), ' \n  \n']);
         
         % create nominal scenario
-        plnSamp          = pln;
-        plnSamp.multScen = pln.multScen.extractSingleNomScen(1,find(shiftScenMask==indProb));
-        ctSamp           = ct;
-        ctSamp.numOfCtScen = 1;
-        ctSamp.cubeHU = [];
-        ctSamp.cubeHU{1} = ct.cubeHU{ctScen};
-        ctSamp.dvf = [];
-        ctSamp.dvf{1} = ct.dvf{ctScen};
-        
-        cstSamp = cst;
-        
-        [numOfStruct, ~] = size(cstSamp);
-        for structure = 1:numOfStruct
-            
+        plnSamp             = pln;
+        plnSamp.multScen	= pln.multScen.extractSingleNomScen(1,find(shiftScenMask==indProb));
+        ctSamp              = ct;
+        ctSamp.numOfCtScen  = 1;
+        ctSamp.cubeHU       = [];
+        ctSamp.cubeHU{1}    = ct.cubeHU{ctScen};
+        ctSamp.dvf          = [];
+        ctSamp.dvf{1}       = ct.dvf{ctScen};
+        cstSamp             = cst;
+
+       [numOfStruct, ~] = size(cstSamp);
+       for structure = 1:numOfStruct
             cstSamp{structure,4}=[];
-            cstSamp{structure,4}=cst{1,4}(1);
-            
-        end
-        
+            cstSamp{structure,4}=cst{structure,4}(refScen);
+       end
+
         resultSamp                 = matRad_calcDoseDirect(ctSamp,stf,plnSamp,cstSamp,w);
-        resultSamp_estimated.physicalDose = imwarp(resultSamp.physicalDose, permute(ct.dvf{1},[2 3 4 1]));
-        resultGUIsampledScen.physicalDose{ctScen,shiftScen,RangeScen} = resultSamp_estimated.physicalDose;
-        sampledDose                = resultSamp_estimated.(pln.bioParam.quantityVis)(subIx);
+        
+        if isfield(ctSamp,'dvf')
+
+            if ~isequal(size(resultSamp.(plnSamp.bioParam.quantityVis)),ctSamp.dvfDim) || ~isequal(ctSamp.dvfType,'pull')
+                matRad_cfg.dispWarning('Dose cube and deformation vector field dimensions are not equal. \n');
+
+                % Instantiate elastic registration
+                metadata.nItera = 100;
+                metadata.dvfType = 'pull';
+                register = matRad_ElasticImageRegistration(ct,cst,1,metadata);
+                clear 'metadata';
+                
+                % Calculate deformation vector field
+                [ct] = register.calcDVF();
+                ctSamp.dvfDim       = ct.dvfDim;
+                ctSamp.dvf{1}       = ct.dvf{ctScen};
+            end
+
+            resultSamp.([plnSamp.bioParam.quantityVis '_deformed']) = imwarp(resultSamp.(plnSamp.bioParam.quantityVis), permute(ctSamp.dvf{1},[2 3 4 1]));
+
+        end
+
+        resultGUIsampledScen.(plnSamp.bioParam.quantityVis){ctScen,shiftScen,RangeScen} = resultSamp.(plnSamp.bioParam.quantityVis) ;
+        
+
+        if isfield(resultSamp,[plnSamp.bioParam.quantityVis '_deformed'])
+            resultGUIsampledScen.([plnSamp.bioParam.quantityVis '_deformed']){ctScen,shiftScen,RangeScen} = resultSamp.([plnSamp.bioParam.quantityVis '_deformed']);
+            sampledDose                = resultSamp.([plnSamp.bioParam.quantityVis '_deformed'])(subIx);
+        else
+            sampledDose                = resultSamp.(plnSamp.bioParam.quantityVis)(subIx);
+        end
+
         mSampDose(:,i)             = single(reshape(sampledDose,[],1));
-        caSampRes(i).bioParam      = pln.bioParam;
+        caSampRes(i).bioParam      = plnSamp.bioParam;
         caSampRes(i).relRangeShift = plnSamp.multScen.relRangeShift;
         caSampRes(i).absRangeShift = plnSamp.multScen.absRangeShift;
         caSampRes(i).isoShift      = plnSamp.multScen.isoShift;
-        
-        caSampRes(i).dvh = matRad_calcDVH(cst,resultSamp.(pln.bioParam.quantityVis),'cum',dvhPoints);
-        caSampRes(i).qi  = matRad_calcQualityIndicators(cst,pln,resultSamp.(pln.bioParam.quantityVis),refGy,refVol);
+
+        if isfield(resultSamp,[plnSamp.bioParam.quantityVis '_deformed'])
+            caSampRes(i).dvh = matRad_calcDVH(cstSamp,resultSamp.(plnSamp.bioParam.quantityVis),'cum',dvhPoints);
+            caSampRes(i).qi  = matRad_calcQualityIndicators(cstSamp,plnSamp,resultSamp.(plnSamp.bioParam.quantityVis),refGy,refVol);
+        else
+            caSampRes(i).dvh = matRad_calcDVH(cstSamp,resultSamp.([plnSamp.bioParam.quantityVis '_deformed']),'cum',dvhPoints);
+            caSampRes(i).qi  = matRad_calcQualityIndicators(cstSamp,plnSamp,resultSamp.([plnSamp.bioParam.quantityVis '_deformed']),refGy,refVol);
+        end
         
     end
     
