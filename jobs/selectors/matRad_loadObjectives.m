@@ -10,9 +10,9 @@ switch radiationMode
             case 'prostate'
                 % Body
                 ixBody = 1;
-                cst{ixBody,5}.Priority = 4; % overlap priority for optimization - a lower number corresponds to a higher priority
-                cst{ixBody,6}{1} = struct(DoseObjectives.matRad_SquaredOverdosing(600,76));
-                cst{ixBody,6}{1}.robustness  = 'none';
+                %cst{ixBody,5}.Priority = 4; % overlap priority for optimization - a lower number corresponds to a higher priority
+                %cst{ixBody,6}{1} = struct(DoseObjectives.matRad_SquaredOverdosing(600,76));
+                %cst{ixBody,6}{1}.robustness  = 'none';
                 
                 OARStructSel = {'BLADDER','RECTUM'};
                 
@@ -24,7 +24,7 @@ switch radiationMode
                     cst{ixCTV,5}.Priority = 1; % overlap priority for optimization - a lower number corresponds to a higher priority
                     cst{ixCTV,6}{1} = struct(DoseObjectives.matRad_MinDVH(200,78,99));
                     cst{ixCTV,6}{1}.robustness  = 'none';
-                    cst{ixCTV,6}{2} = struct(DoseObjectives.matRad_SquaredDeviation(800,p));
+                    cst{ixCTV,6}{2} = struct(DoseObjectives.matRad_SquaredDeviation(600,p));
                     cst{ixCTV,6}{2}.robustness  = 'none';
                     
                     % PTV
@@ -45,9 +45,9 @@ switch radiationMode
                     ixTarget = 7;
                     cst{ixTarget,3}  = 'TARGET';
                     cst{ixTarget,5}.Priority = 1; % overlap priority for optimization - a lower number corresponds to a higher priority
-                    cst{ixTarget,6}{1} = struct(DoseObjectives.matRad_MinDVH(200,78,99));
+                    cst{ixTarget,6}{1} = struct(DoseObjectives.matRad_MinDVH(350,78,99)); %
                     cst{ixTarget,6}{1}.robustness  = 'none';
-                    cst{ixTarget,6}{2} = struct(DoseObjectives.matRad_SquaredDeviation(800,p));
+                    cst{ixTarget,6}{2} = struct(DoseObjectives.matRad_SquaredDeviation(1050,p));
                     cst{ixTarget,6}{2}.robustness  = 'none';
                     %cst{ixTarget,6}{3} = struct(DoseConstraints.matRad_MinMaxDVH(p,95,100));
                     
@@ -138,9 +138,9 @@ switch radiationMode
                 
                 % Body
                 ixBody = 1;
-                cst{ixBody,5}.Priority = 4; % overlap priority for optimization - a lower number corresponds to a higher priority
-                cst{ixBody,6}{1} = struct(DoseObjectives.matRad_SquaredOverdosing(600,76));
-                cst{ixBody,6}{1}.robustness  = 'none';
+                %cst{ixBody,5}.Priority = 4; % overlap priority for optimization - a lower number corresponds to a higher priority
+                %cst{ixBody,6}{1} = struct(DoseObjectives.matRad_SquaredOverdosing(600,76));
+                %cst{ixBody,6}{1}.robustness  = 'none';
                 
                 OARStructSel = {'BLADDER','RECTUM'};
                 
@@ -275,9 +275,9 @@ switch radiationMode
                     end
                 end
                 % Body
-                cst{ixBody,5}.Priority = 3; % overlap priority for optimization - a lower number corresponds to a higher priority
-                cst{ixBody,6}{1} = struct(DoseObjectives.matRad_SquaredOverdosing(600,40.56));
-                cst{ixBody,6}{1}.robustness  = 'none';
+                %cst{ixBody,5}.Priority = 3; % overlap priority for optimization - a lower number corresponds to a higher priority
+                %cst{ixBody,6}{1} = struct(DoseObjectives.matRad_SquaredOverdosing(600,40.56));
+                %cst{ixBody,6}{1}.robustness  = 'none';
                 
                 OARStructSel = {'HEART','LEFT LUNG'};
                 
@@ -434,14 +434,14 @@ switch radiationMode
                 
                 % Body
                 ixBody = 1;
-                cst{ixBody,5}.Priority = 3; % overlap priority for optimization - a lower number corresponds to a higher priority
-                cst{ixBody,6}{1} = struct(DoseObjectives.matRad_SquaredOverdosing(600,48));
-                cst{ixBody,6}{1}.robustness  = 'none';
+                %cst{ixBody,5}.Priority = 3; % overlap priority for optimization - a lower number corresponds to a higher priority
+                %cst{ixBody,6}{1} = struct(DoseObjectives.matRad_SquaredOverdosing(600,48));
+                %cst{ixBody,6}{1}.robustness  = 'none';
                 
                 % Mandible
-                cst{2,5}.Priority = 2; % overlap priority for optimization - a lower number corresponds to a higher priority
-                cst{2,6}{1} = struct(DoseObjectives.matRad_MaxDVH(600,49,0));
-                cst{2,6}{1}.robustness  = 'none';
+                %cst{2,5}.Priority = 2; % overlap priority for optimization - a lower number corresponds to a higher priority
+                %cst{2,6}{1} = struct(DoseObjectives.matRad_MaxDVH(600,49,0));
+                %cst{2,6}{1}.robustness  = 'none';
                 
                 if(target=="PTV")
                     % CTV

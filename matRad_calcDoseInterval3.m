@@ -1,4 +1,4 @@
-function [dij_dummy, pln_dummy,dij_interval] = matRad_calcDoseInterval3(ct,cst,stf,pln,dij,targetStructSel,OARStructSel,k)
+function [dij_dummy, pln_dummy,dij,pln,dij_interval] = matRad_calcDoseInterval3(ct,cst,stf,pln,dij,targetStructSel,OARStructSel,k)
 
 matRad_cfg =  MatRad_Config.instance();
 [env,envver] = matRad_getEnvironment();

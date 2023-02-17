@@ -40,7 +40,8 @@ s.matlab.general.matfile.SaveFormat.TemporaryValue = 'v7.3';
 
 validRadiationModes = {'photons','protons'};
 validDescriptions = {'prostate','breast'};
-validPatientIDs = {'3482','3648','3782','3790','3840','3477','3749','3832','3833','3929'};
+validPatientIDs = {'3482','3648','3782','3790','3840','3477','3749','3832','3833','3929','1758'};
+validAcquisitionTypes = {'mat','dicom'};
 validPlanObjectives = {'1','2','3','4','5','6'};
 validPlanTargets = {'CTV','PTV'};
 validPlanBeams = {'5F','7F','9F'};
@@ -48,10 +49,11 @@ validRobustness = {'none','STOCH','COWC','c-COWC','INTERVAL1','INTERVAL2','INTER
 validScenModes = {'nomScen','wcScen','impScen','impScen_permuted','impScen_permuted_truncated','random','random_truncated'};
 
 defaultPatientID = '3482';
+defaultAcquisitionType = 'mat';
 defaultPlanObjective = '4';
 defaultPlanTarget = 'CTV';
 defaultPlanBeams = '9F';
-defaultShiftSD = [5 5 5]; % mm
+defaultShiftSD = [5 10 5]; % mm
 defaultRobustness = 'COWC';
 defaultScenMode = 'wcScen';
 defaultWCFactor = 1.0;
@@ -72,6 +74,7 @@ parser = inputParser;
 addRequired(parser,'radiationMode',@(x) any(validatestring(x,validRadiationModes)));
 addRequired(parser,'description',@(x) any(validatestring(x,validDescriptions)));
 addParameter(parser,'caseID',defaultPatientID,@(x) any(validatestring(x,validPatientIDs)));
+addParameter(parser,'AcquisitionType',defaultAcquisitionType,@(x) any(validatestring(x,validAcquisitionTypes)));
 addParameter(parser,'plan_objectives',defaultPlanObjective,@(x) any(validatestring(x,validPlanObjectives)));
 addParameter(parser,'plan_target',defaultPlanTarget,@(x) any(validatestring(x,validPlanTargets)));
 addParameter(parser,'plan_beams',defaultPlanBeams,@(x) any(validatestring(x,validPlanBeams)));
@@ -102,6 +105,7 @@ parse(parser,radiationMode,description,varargin{:});
 run_config.radiationMode = parser.Results.radiationMode;
 run_config.description = parser.Results.description;
 run_config.caseID = parser.Results.caseID;
+run_config.AcquisitionType = parser.Results.AcquisitionType;
 run_config.plan_objectives = parser.Results.plan_objectives;
 run_config.plan_target = parser.Results.plan_target;
 run_config.plan_beams = parser.Results.plan_beams;
@@ -137,7 +141,7 @@ switch run_config.robustness
         output_folder = ['output' filesep run_config.radiationMode filesep run_config.description filesep run_config.caseID filesep run_config.robustness filesep run_config.plan_target filesep run_config.plan_beams filesep run_config.plan_objectives filesep run_config.scen_mode filesep num2str(run_config.wcFactor) filesep num2str(run_config.theta1) filesep datestr(datetime,'yyyy-mm-dd HH-MM-SS')];
         dij_file = [run_config.rootPath  filesep 'jobs' filesep 'images' filesep run_config.description filesep run_config.caseID '_dij_interval2.mat'];
         if run_config.loadDij && isfile(dij_file)
-            load(dij_file,'pln_robust','dij_robust','dij_interval');
+            load(dij_file,'dij_dummy','pln_dummy','pln_robust','dij_robust','dij_interval');
         end
     case "INTERVAL3"
         run_config.theta1 = parser.Results.theta1;
@@ -146,15 +150,16 @@ switch run_config.robustness
         output_folder = ['output' filesep run_config.radiationMode filesep run_config.description filesep run_config.caseID filesep run_config.robustness filesep run_config.plan_target filesep run_config.plan_beams filesep run_config.plan_objectives filesep run_config.scen_mode filesep num2str(run_config.wcFactor) filesep num2str(run_config.theta1) filesep num2str(run_config.theta2) filesep datestr(datetime,'yyyy-mm-dd HH-MM-SS')];
         dij_file = [run_config.rootPath  filesep 'jobs' filesep 'images' filesep run_config.description filesep run_config.caseID '_dij_interval3.mat'];
         if run_config.loadDij && isfile(dij_file)
-            load(dij_file,'pln_robust','dij_robust','dij_interval');
+            load(dij_file,'dij_dummy','pln_dummy','pln_robust','dij_robust','dij_interval');
         end
     otherwise
         output_folder = ['output' filesep run_config.radiationMode filesep run_config.description filesep run_config.caseID filesep run_config.robustness filesep run_config.plan_target filesep run_config.plan_beams filesep run_config.plan_objectives filesep run_config.scen_mode filesep num2str(run_config.wcFactor) filesep datestr(datetime,'yyyy-mm-dd HH-MM-SS')];
 end
 
-run_config.resolution = '5x5x5';
+run_config.resolution = [3 3 3];
+run_config.doseResolution = [5 5 5];
 run_config.GammaCriterion = [3 3];
-run_config.robustnessCriterion = [10 10];
+run_config.robustnessCriterion = [5 5];
 run_config.sampling_size = 50;
 
 %Set up parent export folder and full file path
@@ -172,13 +177,8 @@ diary on
 matRad_rc
 param.logLevel=1;
 
-%% Import 3D CT
+%% Import CT
 [ct,cst] = matRad_loadGeometry(run_config);
-
-%% Import 4D CT
-metadata.resolution = [3 3 3]; % [mm]
-[ct,cst] = matRad_importMultipleDicomCt('/jobs/images/breast/patient2_4D/dicom',metadata);
-clear 'metadata';
 
 %%
 for  it = 1:size(cst,1)
@@ -205,15 +205,13 @@ for  it = 1:size(cst,1)
     end
 end
 
-
-%% Instantiate elastic registration
-metadata.nItera = 100;
-metadata.dvfType = 'pull';
-register = matRad_ElasticImageRegistration(ct,cst,1,metadata);
-clear 'metadata';
-
 %% Calculate deformation vector field
-[ct,cst] = register.calcDVF();
+if (ct.numOfCtScen>1)
+    metadata.nItera = 100;
+    metadata.dvfType = 'pull';
+    register = matRad_ElasticImageRegistration(ct,cst,1,metadata);
+    [ct] = register.calcDVF();
+end
 
 %% Print run config
 disp(run_config);
@@ -262,9 +260,35 @@ if (ct.numOfCtScen>1)
         'value',numScen, 'min',1, 'max',ct.numOfCtScen,'SliderStep', [1/(ct.numOfCtScen-1) , 1/(ct.numOfCtScen-1)]);
     b.Callback    = @(es,ed)  matRad_plotSliceWrapper(gca,ct,cst,round(es.Value),[],plane,slice);
 end
+
 clear  numScen plane slice ans f b;
 
 savefig([folderPath filesep 'ct.fig']);
+
+if (ct.numOfCtScen>1)
+    f          = figure; title('individual scenarios');
+    plane      = 3;
+    slice      = round(isocenter(2)./ct.resolution.y);
+    cubeIdx1=1;
+    cubeIdx2=2;
+    tmp_cube1=ct.cubeHU{cubeIdx1};
+    tmp_cube2=ct.cubeHU{cubeIdx2};
+    tmp_cube2_moved=imwarp(tmp_cube2, permute(ct.dvf{cubeIdx2},[2 3 4 1]));
+    subplot(2,2,1);
+    matRad_plotSliceWrapper(gca,ct,cst,cubeIdx1,[],plane,slice);
+    title(['Ct scenario No. ' int2str(cubeIdx1)]);%camroll(90);
+    subplot(2,2,2);
+    matRad_plotSliceWrapper(gca,ct,cst,cubeIdx2,[],plane,slice);
+    title([['Ct scenario No. ' int2str(cubeIdx2)]]);%camroll(90);
+    subplot(2,2,3);
+    matRad_compareCtSlice(gca,tmp_cube1,tmp_cube2,plane,slice);
+    title('comparison without correction');%camroll(90);
+    subplot(2,2,4);
+    matRad_compareCtSlice(gca,tmp_cube1,tmp_cube2_moved,plane,slice);
+    title('comparison with correction');%camroll(90);
+    savefig([folderPath filesep 'image_registration_1to2.fig']);
+   
+end
 
 %% Set plot and histograms window
 run_config.doseWindow = [0 p*1.25];
@@ -333,16 +357,10 @@ end
 
 %% Dose calculation settings
 % set resolution of dose calculation and optimization
-switch run_config.resolution
-    case '3x3x3'
-        pln.propDoseCalc.doseGrid.resolution.x = 3; % [mm]
-        pln.propDoseCalc.doseGrid.resolution.y = 3; % [mm]
-        pln.propDoseCalc.doseGrid.resolution.z = 3; % [mm]
-    case '5x5x5'
-        pln.propDoseCalc.doseGrid.resolution.x = 5; % [mm]
-        pln.propDoseCalc.doseGrid.resolution.y = 5; % [mm]
-        pln.propDoseCalc.doseGrid.resolution.z = 5; % [mm]
-end
+pln.propDoseCalc.doseGrid.resolution.x = run_config.doseResolution(1); % [mm]
+pln.propDoseCalc.doseGrid.resolution.y = run_config.doseResolution(2); % [mm]
+pln.propDoseCalc.doseGrid.resolution.z = run_config.doseResolution(3); % [mm]
+
 
 %% Enable sequencing and disable direct aperture optimization (DAO) for now.
 % A DAO optimization is shown in a seperate example.
@@ -382,9 +400,6 @@ end
 if run_config.radiationMode == "protons"
     dij = matRad_calcParticleDose(ct,stf,pln,cst);
 end
-
-%% Resize dvf according to dose grid
-[dij] = register.resizeDVF(dij);
 
 %% Inverse Optimization  for IMPT based on RBE-weighted dose
 % The goal of the fluence optimization is to find a set of bixel/spot
@@ -476,19 +491,19 @@ DCTime_robust = toc(now1);
 time1=sprintf('DCTime_robust: %.2f\n',DCTime_robust); disp(time1);
 results.performance.DCTime_robust=DCTime_robust;
 
-%% Resize dvf according to dose grid
-[dij_robust] = register.resizeDVF(dij_robust);
-
 %% Dose interval pre-computing
 
 switch run_config.robustness
     case 'INTERVAL2'
         targetStructSel = {'CTV'};
         now2 = tic();
-        [dij_robust,pln_robust,dij_interval] = matRad_calcDoseInterval2(ct,cst,stf_robust,pln_robust,dij_robust,targetStructSel);
-        dij_file = [run_config.rootPath  filesep 'jobs' filesep 'images' filesep run_config.description filesep run_config.caseID '_dij_interval2.mat'];
-        save(dij_file,'dij_robust','pln_robust','dij_interval', '-v7.3');
-        %load('dij_interval2.mat');
+        if ~exist('dij_interval','var') || isempty(dij_interval)
+            [dij_dummy, pln_dummy,dij_robust,pln_robust,dij_interval] = matRad_calcDoseInterval2(ct,cst,stf_robust,pln_robust,dij_robust,targetStructSel);
+            dij_file = [run_config.rootPath  filesep 'jobs' filesep 'images' filesep run_config.description filesep run_config.caseID '_dij_interval2.mat'];
+            save(dij_file,'dij_dummy','pln_dummy','dij_robust','pln_robust','dij_interval', '-v7.3');
+        end
+        dij_robust=dij_dummy;
+        pln_robust=pln_dummy;
         IDCTime_robust = toc(now2);
         time2=sprintf('IDCTime_robust: %.2f\n',IDCTime_robust); disp(time2);
         results.performance.IDCTime_robust=IDCTime_robust;
@@ -496,10 +511,12 @@ switch run_config.robustness
         targetStructSel = {'CTV'};
         now2 = tic();
         if ~exist('dij_interval','var') || isempty(dij_interval)
-            [dij_robust,pln_robust,dij_interval] = matRad_calcDoseInterval3(ct,cst,stf_robust,pln_robust,dij_robust,targetStructSel,OARStructSel,run_config.k);
+            [dij_dummy, pln_dummy,dij_robust,pln_robust,dij_interval] = matRad_calcDoseInterval3(ct,cst,stf_robust,pln_robust,dij_robust,targetStructSel,OARStructSel,run_config.k);
             dij_file = [run_config.rootPath  filesep 'jobs' filesep 'images' filesep run_config.description filesep run_config.caseID '_dij_interval3.mat'];
-            save(dij_file,'dij_robust','pln_robust','dij_interval', '-v7.3');
+            save(dij_file,'dij_dummy','pln_dummy','dij_robust','pln_robust','dij_interval', '-v7.3');
         end
+        dij_robust=dij_dummy;
+        pln_robust=pln_dummy;
         IDCTime_robust = toc(now2);
         time2=sprintf('IDCTime_robust: %.2f\n',IDCTime_robust); disp(time2);
         results.performance.IDCTime_robust=IDCTime_robust;
@@ -667,6 +684,7 @@ structSel = {};
 [multScen] = matRad_multiScenGenerator(run_config.sampling_mode,run_config,'sampling',ct);
 
 %% Perform sampling for nominal optimization results
+delete(gcp('nocreate'));
 [caSamp, mSampDose, plnSamp, resultGUInomScen,resultGUIsampledScen] = matRad_sampling(ct,stf,cst,pln,resultGUI.w,structSel,multScen);
 
 %% Perform sampling analysis
@@ -678,6 +696,32 @@ slice = round(isocenter(3)./ct.resolution.z);
 results.robustnessAnalysis_nominal=resultGUISamp.robustnessAnalysis;
 
 savefig([folderPath filesep 'sampling_analysis_nominal.fig']);
+
+%% 
+if (ct.numOfCtScen>1)
+    f          = figure; title('individual scenarios'); %camroll(90);
+    plane      = 3;
+    slice      = round(isocenter(2)./ct.resolution.y);
+    numScen    = 1;
+    matRad_plotSliceWrapper(gca,ct,cst,numScen, resultGUInomScen.([quantityMap '_' int2str(numScen)])*pln_robust.numOfFractions,plane,slice);
+    b             = uicontrol('Parent',f,'Style','slider','Position',[50,5,419,23],...
+        'value',numScen, 'min',1, 'max',ct.numOfCtScen,'SliderStep', [1/(ct.numOfCtScen-1) , 1/(ct.numOfCtScen-1)]);
+    b.Callback    = @(es,ed)  matRad_plotSliceWrapper(gca,ct,cst,round(es.Value),resultGUInomScen.([quantityMap '_' int2str(round(es.Value))])*pln_robust.numOfFractions,plane,slice);
+end
+clear  numScen plane slice ans f b;
+
+%%
+if (ct.numOfCtScen>1)
+    f          = figure; title('individual scenarios'); %camroll(90);
+    plane      = 3;
+    slice      = round(isocenter(2)./ct.resolution.y);
+    numScen    = 1;
+    matRad_plotSliceWrapper(gca,ct,cst,numScen, resultGUIsampledScen.(quantityMap){numScen}*pln_robust.numOfFractions,plane,slice);
+    b             = uicontrol('Parent',f,'Style','slider','Position',[50,5,419,23],...
+        'value',numScen, 'min',1, 'max',ct.numOfCtScen,'SliderStep', [1/(ct.numOfCtScen-1) , 1/(ct.numOfCtScen-1)]);
+    b.Callback    = @(es,ed)  matRad_plotSliceWrapper(gca,ct,cst,1,resultGUIsampledScen.(quantityMap){round(es.Value)}*pln_robust.numOfFractions,plane,slice);
+end
+clear  numScen plane slice ans f b;
 
 %% Create an mean dose interactive plot to slide through axial slices
 quantityMap='meanCubeW';
@@ -726,6 +770,7 @@ title('Multi-scenario DVH for nominal optimization results');
 savefig([folderPath filesep 'dvh_trustband_nominal.fig']);
 
 %% Perform sampling for robust optimization results
+delete(gcp('nocreate'));
 [caSampRob, mSampDoseRob, plnSampRob, resultGUIRobNomScen,resultGUIsampledScenRob] = matRad_sampling(ct,stf_robust,cst,pln_robust,resultGUI_robust.w,structSel,multScen);
 
 %% Perform sampling analysis
@@ -737,6 +782,45 @@ slice = round(isocenter(3)./ct.resolution.z);
 results.robustnessAnalysis_robust=resultGUISampRob.robustnessAnalysis;
 
 savefig([folderPath filesep 'sampling_analysis_robust.fig']);
+
+%%
+if (ct.numOfCtScen>1)
+    f          = figure; title('individual scenarios'); camroll(90);
+    plane      = 1;
+    slice      = round(isocenter(2)./ct.resolution.y);
+    numScen    = 1;
+    matRad_plotSliceWrapper(gca,ct,cst,numScen,[],plane,slice);
+    b             = uicontrol('Parent',f,'Style','slider','Position',[50,5,419,23],...
+        'value',numScen, 'min',1, 'max',ct.numOfCtScen,'SliderStep', [1/(ct.numOfCtScen-1) , 1/(ct.numOfCtScen-1)]);
+    b.Callback    = @(es,ed)  matRad_plotSliceWrapper(gca,ct,cst,round(es.Value),[],plane,slice);
+end
+clear  numScen plane slice ans f b;
+
+%% 
+if (ct.numOfCtScen>1)
+    f          = figure; title('individual scenarios'); %camroll(90);
+    plane      = 3;
+    slice      = round(isocenter(2)./ct.resolution.y);
+    numScen    = 1;
+    matRad_plotSliceWrapper(gca,ct,cst,numScen, resultGUIRobNomScen.([quantityMap '_' int2str(numScen)])*pln_robust.numOfFractions,plane,slice);
+    b             = uicontrol('Parent',f,'Style','slider','Position',[50,5,419,23],...
+        'value',numScen, 'min',1, 'max',ct.numOfCtScen,'SliderStep', [1/(ct.numOfCtScen-1) , 1/(ct.numOfCtScen-1)]);
+    b.Callback    = @(es,ed)  matRad_plotSliceWrapper(gca,ct,cst,round(es.Value),resultGUIRobNomScen.([quantityMap '_' int2str(round(es.Value))])*pln_robust.numOfFractions,plane,slice);
+end
+clear  numScen plane slice ans f b;
+
+%%
+if (ct.numOfCtScen>1)
+    f          = figure; title('individual scenarios'); %camroll(90);
+    plane      = 3;
+    slice      = round(isocenter(2)./ct.resolution.y);
+    numScen    = 1;
+    matRad_plotSliceWrapper(gca,ct,cst,numScen, resultGUIsampledScenRob.(quantityMap){numScen}*pln_robust.numOfFractions,plane,slice);
+    b             = uicontrol('Parent',f,'Style','slider','Position',[50,5,419,23],...
+        'value',numScen, 'min',1, 'max',ct.numOfCtScen,'SliderStep', [1/(ct.numOfCtScen-1) , 1/(ct.numOfCtScen-1)]);
+    b.Callback    = @(es,ed)  matRad_plotSliceWrapper(gca,ct,cst,1,resultGUIsampledScenRob.(quantityMap){round(es.Value)}*pln_robust.numOfFractions,plane,slice);
+end
+clear  numScen plane slice ans f b;
 
 %% Create an mean dose interactive plot to slide through axial slices
 quantityMap='meanCubeW';

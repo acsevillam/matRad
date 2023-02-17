@@ -107,7 +107,7 @@ hold on;
 
 % plot dvf
 if isfield(ct,'dvf') && ~isempty(ct.dvf)
-    hDvf = matRad_plotDvfSlice(axesHandle,ct.dvf,cubeIdx,plane,slice);
+    hDvf = matRad_plotDvfSlice(axesHandle,ct.dvf,ct.cubeHU,cubeIdx,plane,slice);
     hold on;
 end
 
