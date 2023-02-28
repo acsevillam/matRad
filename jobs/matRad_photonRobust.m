@@ -48,7 +48,7 @@ validDosePullingCriterion = {'COV_95','COV_98','COV_99','COV1'};
 validPlanTargets = {'CTV','PTV'};
 validPlanBeams = {'5F','7F','9F'};
 validRobustness = {'none','STOCH','COWC','COWC2','c-COWC','c-COWC2','INTERVAL1','INTERVAL2','INTERVAL3'};
-validScenModes = {'nomScen','wcScen','impScen','impScen_permuted','impScen_permuted_truncated','random','random_truncated'};
+validScenModes = {'nomScen','wcScen','impScen5','impScen7','impScen_permuted5','impScen_permuted7','impScen_permuted_truncated5','impScen_permuted_truncated7','random','random_truncated'};
 
 defaultPatientID = '3482';
 defaultAcquisitionType = 'dicom';
@@ -70,7 +70,7 @@ defaultK = 10;
 defaultTheta2 = 0.0;
 defaultLoadDij = true;
 defaultSampling = true;
-defaultSamplingMode = 'impScen_permuted_truncated';
+defaultSamplingMode = 'impScen_permuted_truncated5';
 defaultSamplingWCFactor = 1.5;
 defaultRootPath = matRad_cfg.matRadRoot;
 defaultNCores = feature('numcores');
@@ -139,9 +139,9 @@ switch run_config.robustness
         switch run_config.scen_mode
             case "wcScen"
                 run_config.numScens = 7;
-            case "impScen"
+            case "impScen5"
                 run_config.numScens = 13;
-            case "impScen_permuted_truncated"
+            case "impScen_permuted_truncated5"
                 run_config.numScens = 33;
         end
         run_config.p1 = parser.Results.p1;
