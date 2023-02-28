@@ -19,7 +19,7 @@ switch scen_mode
         multScen.numOfShiftScen = [3 3 3];
         multScen.shiftSD = shiftSD;
         multScen.includeNomScen=true;
-        multScen.numOfRangeShiftScen=6;
+        multScen.numOfRangeShiftScen=multScen.totNumShiftScen;
         multScen.rangeRelSD=0;
         multScen.rangeAbsSD=0;
         multScen.scenCombType = 'combined';
@@ -30,7 +30,7 @@ switch scen_mode
         multScen.shiftSD = shiftSD;
         multScen.shiftGenType = 'equidistant';
         multScen.shiftCombType='individual';
-        multScen.numOfRangeShiftScen=12;
+        multScen.numOfRangeShiftScen=multScen.totNumShiftScen;
         multScen.rangeRelSD=0;
         multScen.rangeAbsSD=0;
         multScen.scenCombType = 'combined';
@@ -42,7 +42,7 @@ switch scen_mode
         multScen.shiftSD = shiftSD;
         multScen.shiftGenType = 'equidistant';
         multScen.shiftCombType='individual';
-        multScen.numOfRangeShiftScen=12;
+        multScen.numOfRangeShiftScen=multScen.totNumShiftScen;
         multScen.rangeRelSD=0;
         multScen.rangeAbsSD=0;
         multScen.scenCombType = 'combined';
@@ -54,7 +54,7 @@ switch scen_mode
         multScen.shiftSD = shiftSD;
         multScen.shiftGenType = 'equidistant';
         multScen.shiftCombType='permuted';
-        multScen.numOfRangeShiftScen=124;
+        multScen.numOfRangeShiftScen=multScen.totNumShiftScen;
         multScen.rangeRelSD=0;
         multScen.rangeAbsSD=0;
         multScen.scenCombType = 'combined';
@@ -66,7 +66,7 @@ switch scen_mode
         multScen.shiftSD = shiftSD;
         multScen.shiftGenType = 'equidistant';
         multScen.shiftCombType='permuted';
-        multScen.numOfRangeShiftScen=342;
+        multScen.numOfRangeShiftScen=multScen.totNumShiftScen;
         multScen.rangeRelSD=0;
         multScen.rangeAbsSD=0;
         multScen.scenCombType = 'combined';
@@ -78,7 +78,7 @@ switch scen_mode
         multScen.shiftSD = shiftSD;
         multScen.shiftGenType = 'equidistant';
         multScen.shiftCombType='permuted_truncated';
-        multScen.numOfRangeShiftScen=32;
+        multScen.numOfRangeShiftScen=multScen.totNumShiftScen;
         multScen.rangeRelSD=0;
         multScen.rangeAbsSD=0;
         multScen.scenCombType = 'combined';
@@ -90,7 +90,7 @@ switch scen_mode
         multScen.shiftSD = shiftSD;
         multScen.shiftGenType = 'equidistant';
         multScen.shiftCombType='permuted_truncated';
-        multScen.numOfRangeShiftScen=122;
+        multScen.numOfRangeShiftScen=multScen.totNumShiftScen;
         multScen.rangeRelSD=0;
         multScen.rangeAbsSD=0;
         multScen.scenCombType = 'combined';
