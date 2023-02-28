@@ -48,7 +48,7 @@ validDosePullingCriterion = {'COV_95','COV_98','COV_99','COV1'};
 validPlanTargets = {'CTV','PTV'};
 validPlanBeams = {'5F','7F','9F'};
 validRobustness = {'none'};
-validScenModes = {'nomScen','wcScen','impScen','impScen_permuted','impScen_permuted_truncated','random','random_truncated'};
+validScenModes = {'nomScen','wcScen','impScen5','impScen7','impScen_permuted5','impScen_permuted7','impScen_permuted_truncated5','impScen_permuted_truncated7','random','random_truncated'};
 
 defaultPatientID = '3482';
 defaultAcquisitionType = 'dicom';
@@ -63,7 +63,7 @@ defaultShiftSD = [5 10 5]; % mm
 defaultRobustness = 'none';
 defaultScenMode = 'nomScen';
 defaultSampling = true;
-defaultSamplingMode = 'impScen_permuted_truncated';
+defaultSamplingMode = 'impScen_permuted_truncated5';
 defaultSamplingWCFactor = 1.5;
 defaultRootPath = matRad_cfg.matRadRoot;
 defaultNCores = feature('numcores');

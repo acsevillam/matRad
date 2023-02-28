@@ -23,7 +23,7 @@ switch scen_mode
         multScen.rangeRelSD=0;
         multScen.rangeAbsSD=0;
         multScen.scenCombType = 'combined';
-    case "impScen"
+    case "impScen5"
         multScen = matRad_multScen(ct,'impScen');
         multScen.wcFactor=wcFactor;
         multScen.numOfShiftScen = [5 5 5];
@@ -35,7 +35,19 @@ switch scen_mode
         multScen.rangeAbsSD=0;
         multScen.scenCombType = 'combined';
         multScen.includeNomScen=true;
-    case "impScen_permuted"
+    case "impScen7"
+        multScen = matRad_multScen(ct,'impScen');
+        multScen.wcFactor=wcFactor;
+        multScen.numOfShiftScen = [7 7 7];
+        multScen.shiftSD = shiftSD;
+        multScen.shiftGenType = 'equidistant';
+        multScen.shiftCombType='individual';
+        multScen.numOfRangeShiftScen=12;
+        multScen.rangeRelSD=0;
+        multScen.rangeAbsSD=0;
+        multScen.scenCombType = 'combined';
+        multScen.includeNomScen=true;
+    case "impScen_permuted5"
         multScen = matRad_multScen(ct,'impScen');
         multScen.wcFactor=wcFactor;
         multScen.numOfShiftScen = [5 5 5];
@@ -47,7 +59,19 @@ switch scen_mode
         multScen.rangeAbsSD=0;
         multScen.scenCombType = 'combined';
         multScen.includeNomScen=true;
-    case "impScen_permuted_truncated"
+    case "impScen_permuted7"
+        multScen = matRad_multScen(ct,'impScen');
+        multScen.wcFactor=wcFactor;
+        multScen.numOfShiftScen = [7 7 7];
+        multScen.shiftSD = shiftSD;
+        multScen.shiftGenType = 'equidistant';
+        multScen.shiftCombType='permuted';
+        multScen.numOfRangeShiftScen=342;
+        multScen.rangeRelSD=0;
+        multScen.rangeAbsSD=0;
+        multScen.scenCombType = 'combined';
+        multScen.includeNomScen=true;
+    case "impScen_permuted_truncated5"
         multScen = matRad_multScen(ct,'impScen');
         multScen.wcFactor=wcFactor;
         multScen.numOfShiftScen = [5 5 5];
@@ -55,6 +79,18 @@ switch scen_mode
         multScen.shiftGenType = 'equidistant';
         multScen.shiftCombType='permuted_truncated';
         multScen.numOfRangeShiftScen=32;
+        multScen.rangeRelSD=0;
+        multScen.rangeAbsSD=0;
+        multScen.scenCombType = 'combined';
+        multScen.includeNomScen=true; 
+    case "impScen_permuted_truncated7"
+        multScen = matRad_multScen(ct,'impScen');
+        multScen.wcFactor=wcFactor;
+        multScen.numOfShiftScen = [7 7 7];
+        multScen.shiftSD = shiftSD;
+        multScen.shiftGenType = 'equidistant';
+        multScen.shiftCombType='permuted_truncated';
+        multScen.numOfRangeShiftScen=122;
         multScen.rangeRelSD=0;
         multScen.rangeAbsSD=0;
         multScen.scenCombType = 'combined';
