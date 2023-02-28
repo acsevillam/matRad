@@ -151,7 +151,7 @@ for runVoi = 1:size(cst,1)
                end
                
                %if strcmp(cst{runVoi,6}(runObjective).type,'square deviation') > 0 || strcmp(cst{runVoi,6}(runObjective).type,'square underdosing') > 0
-               if isa(obj,'DoseObjectives.matRad_SquaredDeviation') || isa(obj,'DoseObjectives.matRad_SquaredUnderdosing')
+               if isa(obj,'DoseObjectives.matRad_SquaredDeviation') || isa(obj,'DoseObjectives.matRad_SquaredUnderdosing') || isa(obj,'DoseObjectives.matRad_MinDVH')
                    referenceDose = (min(obj.getDoseParameters(),referenceDose));%/pln.numOfFractions;
                end            
             end
@@ -161,16 +161,33 @@ for runVoi = 1:size(cst,1)
             else
  
                 StringReferenceDose = regexprep(num2str(round(referenceDose*100)/100),'\D','_');
+                StringDose95 = regexprep(num2str(round(0.95*referenceDose*100)/100),'\D','_');
+
                 % Conformity Index, fieldname contains reference dose
                 VTarget95 = sum(doseInVoi >= 0.95*referenceDose); % number of target voxels recieving dose >= 0.95 dPres
                 VTreated95 = sum(doseCube(:) >= 0.95*referenceDose);  %number of all voxels recieving dose >= 0.95 dPres ("treated volume")
-                qi(runVoi).(['CI_' StringReferenceDose 'Gy']) = VTarget95^2/(numOfVoxels * VTreated95); 
+                qi(runVoi).(['CI_' StringReferenceDose 'Gy']) = VTarget95^2/(numOfVoxels * VTreated95);
 
                 % Homogeneity Index (one out of many), fieldname contains reference dose        
                 qi(runVoi).(['HI_' StringReferenceDose 'Gy']) = (DX(5) - DX(95))/referenceDose * 100;
+                
+                % Coverture 95%, fieldname contains reference dose
+                qi(runVoi).(['COV_95']) = VTarget95/numOfVoxels;
 
-                voiPrint = sprintf('%sCI = %6.4f, HI = %5.2f for reference dose of %3.1f Gy\n',voiPrint,...
-                                   qi(runVoi).(['CI_' StringReferenceDose 'Gy']),qi(runVoi).(['HI_' StringReferenceDose 'Gy']),referenceDose);
+                % Coverture 100%, fieldname contains reference dose
+                VTarget98 = sum(doseInVoi >= 0.98*referenceDose); % number of target voxels recieving dose >= dPres
+                qi(runVoi).(['COV_98']) = VTarget98/numOfVoxels;
+
+                % Coverture 100%, fieldname contains reference dose
+                VTarget99 = sum(doseInVoi >= 0.99*referenceDose); % number of target voxels recieving dose >= dPres
+                qi(runVoi).(['COV_99']) = VTarget99/numOfVoxels;
+
+                % Coverture 100%, fieldname contains reference dose
+                VTarget100 = sum(doseInVoi >= referenceDose); % number of target voxels recieving dose >= dPres
+                qi(runVoi).(['COV1']) = VTarget100/numOfVoxels;
+
+                voiPrint = sprintf('%sCI = %6.4f, HI = %5.2f, coverture 0.95 = %5.2f, coverture 0.98 = %5.2f, coverture 0.99 = %5.2f, coverture 1 = %5.2f,  for reference dose of %3.1f Gy\n',voiPrint,...
+                                   qi(runVoi).(['CI_' StringReferenceDose 'Gy']),qi(runVoi).(['HI_' StringReferenceDose 'Gy']),qi(runVoi).(['COV_95']),qi(runVoi).(['COV_98']),qi(runVoi).(['COV_99']),qi(runVoi).(['COV1']),referenceDose);
             end
         end
         %We do it this way so the percentages in the string are not interpreted as format specifiers
