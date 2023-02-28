@@ -361,9 +361,9 @@ for i=1:size(run_config.dose_pulling_target,2)
     end
 end
 
-numIteration=0;
+numIteration=1;
 
-while(run_config.dose_pulling && numIteration<50 && any(arrayfun(@(ixTarget,criterion,limit) qi(ixTarget).([criterion])<limit,ixTargetQi,run_config.dose_pulling_criterion,run_config.dose_pulling_limit)))
+while(run_config.dose_pulling && numIteration<=100 && any(arrayfun(@(ixTarget,criterion,limit) qi(ixTarget).([criterion])<limit,ixTargetQi,run_config.dose_pulling_criterion,run_config.dose_pulling_limit)))
 
     [cst,optimization_flag] = matRad_pullDose(cst);
 
@@ -394,8 +394,18 @@ while(run_config.dose_pulling && numIteration<50 && any(arrayfun(@(ixTarget,crit
         b.Callback = @(es,ed)  matRad_plotSliceWrapper(gca,ct,cst,1,resultGUI.(quantityMap)*pln.numOfFractions,plane,round(es.Value),[],[],colorcube,[],doseWindow,doseIsoLevels,[],'Dose [Gy]',[],'LineWidth',1.2);
         savefig(f,[folderPath filesep 'dose_' quantityMap '.fig']);
 
+        sprintf("!!--####################### ITERATION No. %d #######################--!!",numIteration);
+
         for i=1:size(run_config.dose_pulling_target,2)
             sprintf('%s (%s) = %5.3f %% ', run_config.dose_pulling_criterion(i),qi(ixTargetQi(i)).name,qi(ixTargetQi(i)).(run_config.dose_pulling_criterion(i)) )
+        end
+
+        % Print target objectives
+        for  structure = 1:size(cst,1)
+            display(cst{structure,2});
+            for i=1:length(cst{structure,6})
+                display(cst{structure,6}{i});
+            end
         end
 
         numIteration=numIteration+1;
@@ -404,14 +414,6 @@ while(run_config.dose_pulling && numIteration<50 && any(arrayfun(@(ixTarget,crit
         break;
     end
 
-end
-
-%% Print target objectives
-for  structure = 1:size(cst,1)
-    display(cst{structure,2});
-    for i=1:length(cst{structure,6})
-        display(cst{structure,6}{i});
-    end
 end
 
 %% Plot nominal fluence

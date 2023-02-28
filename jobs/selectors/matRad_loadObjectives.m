@@ -94,6 +94,11 @@ switch description
                     cst{ixBladder,6}{1}.objectivePullingRate{1}  = 0.0;
                     cst{ixBladder,6}{1}.objectivePullingRate{2}  = +0.375;
                     cst{ixBladder,6}{1}.robustness  = 'none';
+                    cst{ixBladder,6}{2} = struct(DoseObjectives.matRad_MaxDVH(100,p*1.00,0));
+                    cst{ixBladder,6}{2}.penaltyPullingRate  = 0.0;
+                    cst{ixBladder,6}{2}.objectivePullingRate{1}  = 0.0;
+                    cst{ixBladder,6}{2}.objectivePullingRate{2}  = 0.0;
+                    cst{ixBladder,6}{2}.robustness  = 'none';
                 end
 
                 % Rectum
@@ -104,6 +109,11 @@ switch description
                     cst{ixRectum,6}{1}.objectivePullingRate{1}  = 0.0;
                     cst{ixRectum,6}{1}.objectivePullingRate{2}  = +0.5;
                     cst{ixRectum,6}{1}.robustness  = 'none';
+                    cst{ixRectum,6}{2} = struct(DoseObjectives.matRad_MaxDVH(100,p*1.00,0));
+                    cst{ixRectum,6}{2}.penaltyPullingRate  = 0.0;
+                    cst{ixRectum,6}{2}.objectivePullingRate{1}  = 0.0;
+                    cst{ixRectum,6}{2}.objectivePullingRate{2}  = 0.0;
+                    cst{ixRectum,6}{2}.robustness  = 'none';
                 end
 
         end
@@ -194,6 +204,11 @@ switch description
                     cst{ixLeftLung,6}{1}.objectivePullingRate{1}  = 0.0;
                     cst{ixLeftLung,6}{1}.objectivePullingRate{2}  = 0.5;
                     cst{ixLeftLung,6}{1}.robustness  = 'none';
+                    cst{ixLeftLung,6}{2} = struct(DoseObjectives.matRad_MaxDVH(100,p*1.00,0));
+                    cst{ixLeftLung,6}{2}.penaltyPullingRate  = 0.0;
+                    cst{ixLeftLung,6}{2}.objectivePullingRate{1}  = 0.0;
+                    cst{ixLeftLung,6}{2}.objectivePullingRate{2}  = 0.0;
+                    cst{ixLeftLung,6}{2}.robustness  = 'none';
                     %cst{ixLeftLung,6}{2} = struct(DoseConstraints.matRad_MinMaxDVH(20,0,20));
                 end
 
@@ -205,6 +220,11 @@ switch description
                     cst{ixHeart,6}{1}.objectivePullingRate{1}  = 0.1;
                     cst{ixHeart,6}{1}.objectivePullingRate{2}  = 0.0;
                     cst{ixHeart,6}{1}.robustness  = 'none';
+                    cst{ixHeart,6}{2} = struct(DoseObjectives.matRad_MaxDVH(100,p*1.00,0));
+                    cst{ixHeart,6}{2}.penaltyPullingRate  = 0.0;
+                    cst{ixHeart,6}{2}.objectivePullingRate{1}  = 0.0;
+                    cst{ixHeart,6}{2}.objectivePullingRate{2}  = 0.0;
+                    cst{ixHeart,6}{2}.robustness  = 'none';
                 end
 
         end
