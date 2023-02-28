@@ -1,4 +1,4 @@
-function matRad_photonRobust4D(radiationMode,description,varargin)
+function matRad_photonRobust(radiationMode,description,varargin)
 
 %% Example: 4D robust Treatment Planning with photons
 %
@@ -43,14 +43,20 @@ validDescriptions = {'prostate','breast'};
 validPatientIDs = {'3482','3648','3782','3790','3840','3477','3749','3832','3833','3929','1758'};
 validAcquisitionTypes = {'mat','dicom'};
 validPlanObjectives = {'1','2','3','4','5','6'};
+validDosePullingTargets = {'CTV','PTV'};
+validDosePullingCriterion = {'COV_95','COV_98','COV_99','COV1'};
 validPlanTargets = {'CTV','PTV'};
 validPlanBeams = {'5F','7F','9F'};
-validRobustness = {'none','STOCH','COWC','c-COWC','INTERVAL1','INTERVAL2','INTERVAL3'};
+validRobustness = {'none','STOCH','COWC','COWC2','c-COWC','c-COWC2','INTERVAL1','INTERVAL2','INTERVAL3'};
 validScenModes = {'nomScen','wcScen','impScen','impScen_permuted','impScen_permuted_truncated','random','random_truncated'};
 
 defaultPatientID = '3482';
-defaultAcquisitionType = 'mat';
+defaultAcquisitionType = 'dicom';
 defaultPlanObjective = '4';
+defaultDosePulling = false;
+defaultDosePullingTarget = 'CTV';
+defaultDosePullingCriterion = 'COV_95';
+defaultDosePullingLimit = 2.0;
 defaultPlanTarget = 'CTV';
 defaultPlanBeams = '9F';
 defaultShiftSD = [5 10 5]; % mm
@@ -76,6 +82,10 @@ addRequired(parser,'description',@(x) any(validatestring(x,validDescriptions)));
 addParameter(parser,'caseID',defaultPatientID,@(x) any(validatestring(x,validPatientIDs)));
 addParameter(parser,'AcquisitionType',defaultAcquisitionType,@(x) any(validatestring(x,validAcquisitionTypes)));
 addParameter(parser,'plan_objectives',defaultPlanObjective,@(x) any(validatestring(x,validPlanObjectives)));
+addParameter(parser,'dose_pulling',defaultDosePulling,@islogical);
+addParameter(parser,'dose_pulling_target',defaultDosePullingTarget,@(x) numel(x) >= 1 && all(ismember(x,validDosePullingTargets)));
+addParameter(parser,'dose_pulling_criterion',defaultDosePullingCriterion,@(x) numel(x) >= 1 && all(ismember(x,validDosePullingCriterion)));
+addOptional(parser,'dose_pulling_limit',defaultDosePullingLimit,@(x) numel(x) >= 1 && isnumeric(x) && all(x > 0));
 addParameter(parser,'plan_target',defaultPlanTarget,@(x) any(validatestring(x,validPlanTargets)));
 addParameter(parser,'plan_beams',defaultPlanBeams,@(x) any(validatestring(x,validPlanBeams)));
 addParameter(parser,'shiftSD',defaultShiftSD,@(x) numel(x) == 3 && isnumeric(x) && all(x > 0));
@@ -107,6 +117,10 @@ run_config.description = parser.Results.description;
 run_config.caseID = parser.Results.caseID;
 run_config.AcquisitionType = parser.Results.AcquisitionType;
 run_config.plan_objectives = parser.Results.plan_objectives;
+run_config.dose_pulling = parser.Results.dose_pulling;
+run_config.dose_pulling_target = parser.Results.dose_pulling_target;
+run_config.dose_pulling_criterion = parser.Results.dose_pulling_criterion;
+run_config.dose_pulling_limit = parser.Results.dose_pulling_limit;
 run_config.plan_target = parser.Results.plan_target;
 run_config.plan_beams = parser.Results.plan_beams;
 run_config.shiftSD = parser.Results.shiftSD;
@@ -121,7 +135,7 @@ run_config.rootPath = parser.Results.rootPath;
 run_config.n_cores = parser.Results.n_cores;
 
 switch run_config.robustness
-    case "c-COWC"
+    case {"c-COWC","c-COWC2"}
         switch run_config.scen_mode
             case "wcScen"
                 run_config.numScens = 7;
@@ -134,11 +148,11 @@ switch run_config.robustness
         run_config.p2 = parser.Results.p2;
         run_config.beta1 = run_config.p1/run_config.numScens;
         run_config.beta2 = run_config.p2/run_config.numScens;
-        output_folder = ['output' filesep run_config.radiationMode filesep run_config.description filesep run_config.caseID filesep run_config.robustness filesep run_config.plan_target filesep run_config.plan_beams filesep run_config.plan_objectives filesep run_config.scen_mode filesep num2str(run_config.wcFactor) filesep num2str(run_config.beta1) '_to_' num2str(run_config.beta2) filesep datestr(datetime,'yyyy-mm-dd HH-MM-SS')];
+        output_folder = ['output' filesep run_config.radiationMode filesep run_config.description filesep run_config.caseID filesep run_config.robustness filesep run_config.plan_target filesep run_config.plan_beams filesep run_config.plan_objectives filesep num2str(run_config.shiftSD(1)) 'x' num2str(run_config.shiftSD(2)) 'x' num2str(run_config.shiftSD(3)) filesep run_config.scen_mode filesep num2str(run_config.wcFactor) filesep num2str(run_config.beta1) '_to_' num2str(run_config.beta2) filesep datestr(datetime,'yyyy-mm-dd HH-MM-SS')];
 
     case "INTERVAL2"
         run_config.theta1 = parser.Results.theta1;
-        output_folder = ['output' filesep run_config.radiationMode filesep run_config.description filesep run_config.caseID filesep run_config.robustness filesep run_config.plan_target filesep run_config.plan_beams filesep run_config.plan_objectives filesep run_config.scen_mode filesep num2str(run_config.wcFactor) filesep num2str(run_config.theta1) filesep datestr(datetime,'yyyy-mm-dd HH-MM-SS')];
+        output_folder = ['output' filesep run_config.radiationMode filesep run_config.description filesep run_config.caseID filesep run_config.robustness filesep run_config.plan_target filesep run_config.plan_beams filesep run_config.plan_objectives filesep num2str(run_config.shiftSD(1)) 'x' num2str(run_config.shiftSD(2)) 'x' num2str(run_config.shiftSD(3)) filesep run_config.scen_mode filesep num2str(run_config.wcFactor) filesep num2str(run_config.theta1) filesep datestr(datetime,'yyyy-mm-dd HH-MM-SS')];
         dij_file = [run_config.rootPath  filesep 'jobs' filesep 'images' filesep run_config.description filesep run_config.caseID '_dij_interval2.mat'];
         if run_config.loadDij && isfile(dij_file)
             load(dij_file,'dij_dummy','pln_dummy','pln_robust','dij_robust','dij_interval');
@@ -147,13 +161,13 @@ switch run_config.robustness
         run_config.theta1 = parser.Results.theta1;
         run_config.k = parser.Results.k;
         run_config.theta2 = parser.Results.theta2;
-        output_folder = ['output' filesep run_config.radiationMode filesep run_config.description filesep run_config.caseID filesep run_config.robustness filesep run_config.plan_target filesep run_config.plan_beams filesep run_config.plan_objectives filesep run_config.scen_mode filesep num2str(run_config.wcFactor) filesep num2str(run_config.theta1) filesep num2str(run_config.theta2) filesep datestr(datetime,'yyyy-mm-dd HH-MM-SS')];
+        output_folder = ['output' filesep run_config.radiationMode filesep run_config.description filesep run_config.caseID filesep run_config.robustness filesep run_config.plan_target filesep run_config.plan_beams filesep run_config.plan_objectives filesep num2str(run_config.shiftSD(1)) 'x' num2str(run_config.shiftSD(2)) 'x' num2str(run_config.shiftSD(3)) filesep run_config.scen_mode filesep num2str(run_config.wcFactor) filesep num2str(run_config.theta1) filesep num2str(run_config.theta2) filesep datestr(datetime,'yyyy-mm-dd HH-MM-SS')];
         dij_file = [run_config.rootPath  filesep 'jobs' filesep 'images' filesep run_config.description filesep run_config.caseID '_dij_interval3.mat'];
         if run_config.loadDij && isfile(dij_file)
             load(dij_file,'dij_dummy','pln_dummy','pln_robust','dij_robust','dij_interval');
         end
     otherwise
-        output_folder = ['output' filesep run_config.radiationMode filesep run_config.description filesep run_config.caseID filesep run_config.robustness filesep run_config.plan_target filesep run_config.plan_beams filesep run_config.plan_objectives filesep run_config.scen_mode filesep num2str(run_config.wcFactor) filesep datestr(datetime,'yyyy-mm-dd HH-MM-SS')];
+        output_folder = ['output' filesep run_config.radiationMode filesep run_config.description filesep run_config.caseID filesep run_config.robustness filesep run_config.plan_target filesep run_config.plan_beams filesep run_config.plan_objectives filesep num2str(run_config.shiftSD(1)) 'x' num2str(run_config.shiftSD(2)) 'x' num2str(run_config.shiftSD(3)) filesep run_config.scen_mode filesep num2str(run_config.wcFactor) filesep datestr(datetime,'yyyy-mm-dd HH-MM-SS')];
 end
 
 run_config.resolution = [3 3 3];
@@ -177,33 +191,9 @@ diary on
 matRad_rc
 param.logLevel=1;
 
-%% Import CT
+%% Import CT and rename structures
 [ct,cst] = matRad_loadGeometry(run_config);
-
-%%
-for  it = 1:size(cst,1)
-    switch cst{it,2}
-        case 'Skin'
-            cst{it,2}='BODY';
-        case 'PTV'
-            cst{it,2}='PTV';
-        case 'CTV'
-            cst{it,2}='CTV';
-        case 'CORAZON'
-            cst{it,2}='HEART';
-        case 'PULMON IZQUIERDO'
-            cst{it,2}='LEFT LUNG';
-        case 'PULMON DERECHO'
-            cst{it,2}='RIGTH LUNG';
-        case 'SENO CONTRALATERAL'
-           cst{it,2}='CONTRALATERAL BREAST';
-    end
-    if isempty(cst{it,4}{1,1}) == true
-        fprintf(' %s is an empty structure. \n',cst{it,2});
-        fprintf('Deleting %s structure. \n',cst{it,2});
-        cst(it,:) = [];
-    end
-end
+cst = matRad_renameStructures(cst,run_config);
 
 %% Calculate deformation vector field
 if (ct.numOfCtScen>1)
@@ -219,13 +209,51 @@ disp(run_config);
 %% Create the VOI data for the phantom
 % Now we define structures a contour for the phantom and a target
 % define optimization parameter for both VOIs
-[cst,ixTarget,p,ixBody,ixCTV,OARStructSel] = matRad_loadObjectives(run_config,'CTV',cst);
+[cst,ixTarget,p,ixBody,ixCTV,~] = matRad_loadObjectives(run_config,'CTV',cst);
 
-%% Print target objectives
-display(cst{ixTarget,2});
-for i=1:length(cst{ixTarget,6})
-    display(cst{ixTarget,6}{i});
-end
+%% Check target visibility 
+cst{ixTarget,5}.Visible=true;
+
+%% Add 0 - 10 mm ring 
+vInnerMargin.x=0;
+vInnerMargin.y=0;
+vInnerMargin.z=0;
+
+vOuterMargin.x=10;
+vOuterMargin.y=10;
+vOuterMargin.z=10;
+
+metadata.name='RING 0 - 10 mm';
+metadata.type='OAR';
+metadata.visibleColor=[0,1,0.501960784313726];
+[cst,ixRing1] = matRad_createRing(ixTarget,ixBody,cst,ct,vOuterMargin,vInnerMargin,metadata);
+clear metadata;
+
+% Add 10 - 50 mm ring 
+vOuterMargin.x=40;
+vOuterMargin.y=40;
+vOuterMargin.z=40;
+
+metadata.name='RING 10 - 50 mm';
+metadata.type='OAR';
+metadata.visibleColor=[0,1,0.501960784313726];
+[cst,ixRing2] = matRad_createRing(ixRing1,ixBody,cst,ct,vOuterMargin,vInnerMargin,metadata);
+clear metadata;
+
+%% Define ring objectives
+cst{ixRing1,5}.Priority = 4; % overlap priority for optimization - a lower number corresponds to a higher priority
+cst{ixRing1,6}{1} = struct(DoseObjectives.matRad_MaxDVH(100,p*1.07,0));
+cst{ixRing1,6}{1}.robustness  = 'none';
+cst{ixRing1,6}{1}.penaltyPullingRate  = 0.0;
+cst{ixRing1,6}{1}.objectivePullingRate{1}  = 0.0;
+cst{ixRing1,6}{1}.objectivePullingRate{2}  = 0.0;
+
+cst{ixRing2,5}.Priority = 4; % overlap priority for optimization - a lower number corresponds to a higher priority
+cst{ixRing2,6}{1} = struct(DoseObjectives.matRad_MaxDVH(100,p*1.00,0));
+cst{ixRing2,6}{1}.robustness  = 'none';
+cst{ixRing2,6}{1}.penaltyPullingRate  = 0.0;
+cst{ixRing2,6}{1}.objectivePullingRate{1}  = 0.0;
+cst{ixRing2,6}{1}.objectivePullingRate{2}  = 0.0;
 
 %% Plot CT slice
 if param.logLevel == 1
@@ -411,6 +439,74 @@ resultGUI_nominal = matRad_fluenceOptimization(dij,cst,pln);
 % add resultGUI_nominal dose cubes to resultGUI structure to allow the visualization in the GUI
 resultGUI = resultGUI_nominal;
 
+%% Indicator calculation and show DVH and QI
+[~,qi] = matRad_indicatorWrapper(cst,pln,resultGUI_nominal,[],pln.numOfFractions,[],[],run_config.doseWindow_dvh);
+savefig([folderPath filesep 'dvh_nominal.fig']);
+
+%% Dose pulling
+
+ixTargetQi=zeros(size(run_config.dose_pulling_target));
+for i=1:size(run_config.dose_pulling_target,2)
+    for j=1:size(qi,2)
+        if strcmp(qi(j).name,run_config.dose_pulling_target(i))
+            ixTargetQi(i)=j;
+        end
+    end
+end
+
+numIteration=0;
+
+while(run_config.dose_pulling && numIteration<50 && any(arrayfun(@(ixTarget,criterion,limit) qi(ixTarget).([criterion])<limit,ixTargetQi,run_config.dose_pulling_criterion,run_config.dose_pulling_limit)))
+
+    [cst,optimization_flag] = matRad_pullDose(cst);
+
+    if(optimization_flag)
+        % optimize using the new objectives and penalties
+        resultGUI_nominal = matRad_fluenceOptimization(dij,cst,pln);
+
+        % Indicator calculation and show DVH and QI
+        [dvh,qi] = matRad_indicatorWrapper(cst,pln,resultGUI_nominal,[],pln.numOfFractions,[],[],run_config.doseWindow_dvh);
+        savefig([folderPath filesep 'dvh_nominal.fig']);
+
+        % add resultGUI_nominal dose cubes to resultGUI structure to allow the visualization in the GUI
+        resultGUI = resultGUI_nominal;
+
+        % Create an interactive plot to slide through axial slices
+        quantityMap=quantityOpt;
+        plane      = 3;
+        doseWindow = [0 max([max([resultGUI.physicalDose(:)*pln.numOfFractions]) run_config.doseWindow(2)])];
+        doseIsoLevels = 0; %linspace(0.1 * maxDose,maxDose,10);
+        f = figure;
+        title([quantityMap]);
+        set(gcf,'position',[10,10,550,400]);
+        numSlices = ct.cubeDim(3);
+        slice = round(pln.propStf.isoCenter(1,3)./ct.resolution.z);
+        matRad_plotSliceWrapper(gca,ct,cst,1,resultGUI.(quantityMap)*pln.numOfFractions,plane,slice,[],[],colorcube,[],doseWindow,doseIsoLevels,[],'Dose [Gy]',[],'LineWidth',1.2);
+        b = uicontrol('Parent',f,'Style','slider','Position',[50,5,420,23],...
+            'value',slice, 'min',1, 'max',numSlices,'SliderStep', [1/(numSlices-1) , 1/(numSlices-1)]);
+        b.Callback = @(es,ed)  matRad_plotSliceWrapper(gca,ct,cst,1,resultGUI.(quantityMap)*pln.numOfFractions,plane,round(es.Value),[],[],colorcube,[],doseWindow,doseIsoLevels,[],'Dose [Gy]',[],'LineWidth',1.2);
+        savefig(f,[folderPath filesep 'dose_' quantityMap '.fig']);
+
+        for i=1:size(run_config.dose_pulling_target,2)
+            sprintf('%s (%s) = %5.3f %% ', run_config.dose_pulling_criterion(i),qi(ixTargetQi(i)).name,qi(ixTargetQi(i)).(run_config.dose_pulling_criterion(i)) )
+        end
+
+        numIteration=numIteration+1;
+
+    else
+        break;
+    end
+
+end
+
+%% Print target objectives
+for  structure = 1:size(cst,1)
+    display(cst{structure,2});
+    for i=1:length(cst{structure,6})
+        display(cst{structure,6}{i});
+    end
+end
+
 %% Plot nominal fluence
 matRad_visSpotWeights(stf,resultGUI.w);
 savefig([folderPath filesep 'fluence_nominal.fig']);
@@ -447,13 +543,14 @@ savefig([folderPath filesep 'dvh_nominal.fig']);
 % Now we define structures a contour for the phantom and a target
 % define optimization parameter for both VOIs
 cst_robust=cst;
-[cst_robust,ixTarget,p,ixBody,ixCTV,OARStructSel] = matRad_loadObjectives(run_config,run_config.plan_target,cst_robust);
 
-%% Print target objectives
-display(cst_robust{ixTarget,2});
-for i=1:length(cst_robust{ixTarget,6})
-    display(cst_robust{ixTarget,6}{i});
-end
+%% Load objectives
+[cst_robust,ixTarget,p,ixBody,ixCTV,OARStructSel] = matRad_loadObjectives(run_config,run_config.plan_target,cst_robust);
+cst_robust{ixRing,5}.Priority = 4; % overlap priority for optimization - a lower number corresponds to a higher priority
+cst_robust{ixRing,6}{1} = struct(DoseObjectives.matRad_SquaredOverdosing(10,1.00*p));
+cst_robust{ixRing,6}{1}.robustness  = 'none';
+cst_robust{ixRing,6}{1}.pullingRate{1} = 0;
+
 
 %% Copy reference plan
 pln_robust=pln;
@@ -528,6 +625,48 @@ end
 
 % Target
 switch run_config.robustness
+    case 'STOCH'
+        for i=1:length(cst_robust{ixTarget,6})
+            cst_robust{ixTarget,6}{i}.robustness  = 'STOCH';
+        end
+
+    case 'STOCH2'        
+        for i=1:length(cst_robust{ixTarget,6})
+            cst_robust{ixTarget,6}{i}.robustness  = 'STOCH';
+        end
+        for i=1:size(cst,1)
+            for j = 1:numel(OARStructSel)
+                if strcmp(OARStructSel{j}, cst{i,2})
+                    for k = 1:numel(cst{i,6})
+                        cst_robust{i,6}{k}.robustness  = 'STOCH';
+                    end
+                end
+            end
+        end
+
+    case 'COWC'
+        pln_robust.propOpt.useMaxApprox='logsumexp';
+        
+        for i=1:length(cst_robust{ixTarget,6})
+            cst_robust{ixTarget,6}{i}.robustness  = 'COWC';
+        end
+
+    case 'COWC2'
+        pln_robust.propOpt.useMaxApprox='logsumexp';
+        
+        for i=1:length(cst_robust{ixTarget,6})
+            cst_robust{ixTarget,6}{i}.robustness  = 'COWC';
+        end
+        for i=1:size(cst,1)
+            for j = 1:numel(OARStructSel)
+                if strcmp(OARStructSel{j}, cst{i,2})
+                    for k = 1:numel(cst{i,6})
+                        cst_robust{i,6}{k}.robustness  = 'COWC';
+                    end
+                end
+            end
+        end
+
     case 'c-COWC'
         
         pln_robust.propOpt.p1=run_config.p1;
@@ -537,7 +676,26 @@ switch run_config.robustness
         for i=1:length(cst_robust{ixTarget,6})
             cst_robust{ixTarget,6}{i}.robustness  = 'COWC';
         end
+
+    case 'c-COWC2'
         
+        pln_robust.propOpt.p1=run_config.p1;
+        pln_robust.propOpt.p2=run_config.p2;
+        pln_robust.propOpt.useMaxApprox='cheapCOWC';
+        
+        for i=1:length(cst_robust{ixTarget,6})
+            cst_robust{ixTarget,6}{i}.robustness  = 'COWC';
+        end
+        for i=1:size(cst,1)
+            for j = 1:numel(OARStructSel)
+                if strcmp(OARStructSel{j}, cst{i,2})
+                    for k = 1:numel(cst{i,6})
+                        cst_robust{i,6}{k}.robustness  = 'COWC';
+                    end
+                end
+            end
+        end
+
     case 'INTERVAL2'
         
         pln_robust.propOpt.dij_interval=dij_interval;
@@ -568,6 +726,14 @@ switch run_config.robustness
 
 end
 
+%% Print target objectives
+for  structure = 1:size(cst_robust,1)
+    display(cst_robust{structure,2});
+    for i=1:length(cst_robust{structure,6})
+        display(cst_robust{structure,6}{i});
+    end
+end
+
 %% Inverse Optimization for IMRT
 % The goal of the fluence optimization is to find a set of beamlet/pencil
 % beam weights which yield the best possible dose distribution according to
@@ -588,7 +754,7 @@ results.performance.OPTTime_robust=OPTTime_robust;
 profiler = profile('info');
 save([folderPath filesep 'profiler'],'profiler');
 
-delete(gcp('nocreate'))
+delete(gcp('nocreate'));
 parallel.internal.ui.MatlabProfileManager.removeProfile('profile1');
 
 %% Plot robust fluence
@@ -898,3 +1064,6 @@ save([folderPath filesep 'results.mat'],'results');
 
 %%
 diary off
+
+%%
+delete(gcp('nocreate'));
