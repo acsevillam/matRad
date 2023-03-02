@@ -2,6 +2,7 @@ function [cst,ixTarget,p,ixBody,ixCTV,OARStructSel] = matRad_loadObjectives(run_
 
 description=run_config.description;
 plan_objectives = run_config.plan_objectives;
+dp_start = run_config.dose_pulling_start;
 
 for  structure = 1:size(cst,1)
     cst{structure,6}=[];
@@ -89,7 +90,9 @@ switch description
                 % Bladder
                 if exist('ixBladder','var') && ixBladder~=0
                     cst{ixBladder,5}.Priority = 3; % overlap priority for optimization - a lower number corresponds to a higher priority
-                    cst{ixBladder,6}{1} = struct(DoseObjectives.matRad_MaxDVH(2,60,0));
+                    tmpPullingRate{2}  = +0.375;
+                    cst{ixBladder,6}{1} = struct(DoseObjectives.matRad_MaxDVH(2,60,0+dp_start*tmpPullingRate{2}));
+                    clear tmpPullingRate;
                     cst{ixBladder,6}{1}.penaltyPullingRate  = 0.0;
                     cst{ixBladder,6}{1}.objectivePullingRate{1}  = 0.0;
                     cst{ixBladder,6}{1}.objectivePullingRate{2}  = +0.375;
@@ -104,7 +107,9 @@ switch description
                 % Rectum
                 if exist('ixRectum','var') && ixRectum~=0
                     cst{ixRectum,5}.Priority = 3; % overlap priority for optimization - a lower number corresponds to a higher priority
-                    cst{ixRectum,6}{1} = struct(DoseObjectives.matRad_MaxDVH(2,40,0));
+                    tmpPullingRate{2}  = +0.5;
+                    cst{ixRectum,6}{1} = struct(DoseObjectives.matRad_MaxDVH(2,40,dp_start*tmpPullingRate{2}));
+                    clear tmpPullingRate;
                     cst{ixRectum,6}{1}.penaltyPullingRate  = 0.0;
                     cst{ixRectum,6}{1}.objectivePullingRate{1}  = 0.0;
                     cst{ixRectum,6}{1}.objectivePullingRate{2}  = +0.5;
@@ -199,7 +204,9 @@ switch description
                 % Ipsilateral Lung
                 if exist('ixLeftLung','var') && ixLeftLung~=0
                     cst{ixLeftLung,5}.Priority = 3; % overlap priority for optimization - a lower number corresponds to a higher priority
-                    cst{ixLeftLung,6}{1} = struct(DoseObjectives.matRad_MaxDVH(2,20,0));
+                    tmpPullingRate{2}  = 0.5;
+                    cst{ixLeftLung,6}{1} = struct(DoseObjectives.matRad_MaxDVH(2,20,dp_start*tmpPullingRate{2}));
+                    clear tmpPullingRate;
                     cst{ixLeftLung,6}{1}.penaltyPullingRate  = 0.0;
                     cst{ixLeftLung,6}{1}.objectivePullingRate{1}  = 0.0;
                     cst{ixLeftLung,6}{1}.objectivePullingRate{2}  = 0.5;
@@ -215,7 +222,9 @@ switch description
                 % Heart
                 if exist('ixHeart','var') && ixHeart~=0
                     cst{ixHeart,5}.Priority = 3; % overlap priority for optimization - a lower number corresponds to a higher priority
-                    cst{ixHeart,6}{1} = struct(DoseObjectives.matRad_MeanDose(2,0,'Quadratic'));
+                    tmpPullingRate{1}  = 0.1;
+                    cst{ixHeart,6}{1} = struct(DoseObjectives.matRad_MeanDose(2,dp_start*tmpPullingRate{1},'Quadratic'));
+                    clear tmpPullingRate;
                     cst{ixHeart,6}{1}.penaltyPullingRate  = 0.0;
                     cst{ixHeart,6}{1}.objectivePullingRate{1}  = 0.1;
                     cst{ixHeart,6}{1}.objectivePullingRate{2}  = 0.0;
