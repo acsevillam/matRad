@@ -55,8 +55,9 @@ defaultAcquisitionType = 'dicom';
 defaultPlanObjective = '4';
 defaultDosePulling = false;
 defaultDosePullingTarget = 'CTV';
-defaultDosePullingCriterion = 'COV_95';
-defaultDosePullingLimit = 2.0;
+defaultDosePullingCriterion = 'COV1';
+defaultDosePullingLimit = 0.98;
+defaultDosePullingStart = 0;
 defaultPlanTarget = 'CTV';
 defaultPlanBeams = '9F';
 defaultShiftSD = [5 10 5]; % mm
@@ -86,6 +87,8 @@ addParameter(parser,'dose_pulling',defaultDosePulling,@islogical);
 addParameter(parser,'dose_pulling_target',defaultDosePullingTarget,@(x) numel(x) >= 1 && all(ismember(x,validDosePullingTargets)));
 addParameter(parser,'dose_pulling_criterion',defaultDosePullingCriterion,@(x) numel(x) >= 1 && all(ismember(x,validDosePullingCriterion)));
 addOptional(parser,'dose_pulling_limit',defaultDosePullingLimit,@(x) numel(x) >= 1 && isnumeric(x) && all(x > 0));
+addOptional(parser,'dose_pulling_start',defaultDosePullingStart,@(x) validateattributes(x,{'numeric'},...
+            {'nonempty','integer','positive'}));
 addParameter(parser,'plan_target',defaultPlanTarget,@(x) any(validatestring(x,validPlanTargets)));
 addParameter(parser,'plan_beams',defaultPlanBeams,@(x) any(validatestring(x,validPlanBeams)));
 addParameter(parser,'shiftSD',defaultShiftSD,@(x) numel(x) == 3 && isnumeric(x) && all(x > 0));
@@ -121,6 +124,7 @@ run_config.dose_pulling = parser.Results.dose_pulling;
 run_config.dose_pulling_target = parser.Results.dose_pulling_target;
 run_config.dose_pulling_criterion = parser.Results.dose_pulling_criterion;
 run_config.dose_pulling_limit = parser.Results.dose_pulling_limit;
+run_config.dose_pulling_start = parser.Results.dose_pulling_start;
 run_config.plan_target = parser.Results.plan_target;
 run_config.plan_beams = parser.Results.plan_beams;
 run_config.shiftSD = parser.Results.shiftSD;
@@ -230,14 +234,18 @@ metadata.visibleColor=[0,1,0.501960784313726];
 clear metadata;
 
 % Add 10 - 50 mm ring 
-vOuterMargin.x=40;
-vOuterMargin.y=40;
-vOuterMargin.z=40;
+vInnerMargin.x=10;
+vInnerMargin.y=10;
+vInnerMargin.z=10;
+
+vOuterMargin.x=50;
+vOuterMargin.y=50;
+vOuterMargin.z=50;
 
 metadata.name='RING 10 - 50 mm';
 metadata.type='OAR';
 metadata.visibleColor=[0,1,0.501960784313726];
-[cst,ixRing2] = matRad_createRing(ixRing1,ixBody,cst,ct,vOuterMargin,vInnerMargin,metadata);
+[cst,ixRing2] = matRad_createRing(ixTarget,ixBody,cst,ct,vOuterMargin,vInnerMargin,metadata);
 clear metadata;
 
 %% Define ring objectives
@@ -454,7 +462,7 @@ for i=1:size(run_config.dose_pulling_target,2)
     end
 end
 
-numIteration=1;
+numIteration=run_config.dose_pulling_start+1;
 
 while(run_config.dose_pulling && numIteration<=100 && any(arrayfun(@(ixTarget,criterion,limit) qi(ixTarget).([criterion])<limit,ixTargetQi,run_config.dose_pulling_criterion,run_config.dose_pulling_limit)))
 
@@ -487,7 +495,7 @@ while(run_config.dose_pulling && numIteration<=100 && any(arrayfun(@(ixTarget,cr
         b.Callback = @(es,ed)  matRad_plotSliceWrapper(gca,ct,cst,1,resultGUI.(quantityMap)*pln.numOfFractions,plane,round(es.Value),[],[],colorcube,[],doseWindow,doseIsoLevels,[],'Dose [Gy]',[],'LineWidth',1.2);
         savefig(f,[folderPath filesep 'dose_' quantityMap '.fig']);
 
-        sprintf("!!--####################### ITERATION No. %d #######################--!!",numIteration);
+        disp(['!!--####################### ITERATION No. ' num2str(numIteration) ' #######################--!!']);
 
         for i=1:size(run_config.dose_pulling_target,2)
             sprintf('%s (%s) = %5.3f %% ', run_config.dose_pulling_criterion(i),qi(ixTargetQi(i)).name,qi(ixTargetQi(i)).(run_config.dose_pulling_criterion(i)) )
@@ -932,8 +940,16 @@ savefig([folderPath filesep 'std_dose_nominal.fig']);
 %% Multi-scenario dose volume histogram (DVH)
 f = figure;
 set(gcf,'Color',[1 1 1],'position',[10,10,600,400]);
-matRad_showDVHFromSampling(caSamp,pln.numOfFractions,cst,plnSamp,[1:plnSamp.multScen.totNumScen],run_config.doseWindow_dvh,'trustband',1);
+matRad_showDVHFromSampling(caSamp,pln.numOfFractions,cst,plnSamp,[1:plnSamp.multScen.totNumScen],run_config.doseWindow_dvh,'multiscenario',1);
 title('Multi-scenario DVH for nominal optimization results');
+
+savefig([folderPath filesep 'dvh_multiscenario_nominal.fig']);
+
+%% Trust band dose volume histogram (DVH)
+f = figure;
+set(gcf,'Color',[1 1 1],'position',[10,10,600,400]);
+matRad_showDVHFromSampling(caSamp,pln.numOfFractions,cst,plnSamp,[1:plnSamp.multScen.totNumScen],run_config.doseWindow_dvh,'trustband',1);
+title('Trust band DVH for nominal optimization results');
 
 savefig([folderPath filesep 'dvh_trustband_nominal.fig']);
 
@@ -1031,8 +1047,16 @@ savefig([folderPath filesep 'std_dose_robust.fig']);
 %% Multi-scenario dose volume histogram (DVH)
 f = figure;
 set(gcf,'Color',[1 1 1],'position',[10,10,600,400]);
-matRad_showDVHFromSampling(caSampRob,pln_robust.numOfFractions,cst,plnSampRob,[1:plnSampRob.multScen.totNumScen],run_config.doseWindow_dvh,'trustband',1);
+matRad_showDVHFromSampling(caSampRob,pln_robust.numOfFractions,cst,plnSampRob,[1:plnSampRob.multScen.totNumScen],run_config.doseWindow_dvh,'multiscenario',1);
 title('Multi-scenario DVH for robust optimization results');
+
+savefig([folderPath filesep 'dvh_multiscenario_robust.fig']);
+
+%% Trust band dose volume histogram (DVH)
+f = figure;
+set(gcf,'Color',[1 1 1],'position',[10,10,600,400]);
+matRad_showDVHFromSampling(caSampRob,pln_robust.numOfFractions,cst,plnSampRob,[1:plnSampRob.multScen.totNumScen],run_config.doseWindow_dvh,'trustband',1);
+title('Trust band DVH for robust optimization results');
 
 savefig([folderPath filesep 'dvh_trustband_robust.fig']);
 
