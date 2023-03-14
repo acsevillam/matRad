@@ -4,7 +4,7 @@ description=run_config.description;
 plan_objectives = run_config.plan_objectives;
 dp_start = run_config.dose_pulling_start;
 
-for  structure = 1:size(cst,1)
+for structure = 1:size(cst,1)
     cst{structure,6}=[];
 end
 
