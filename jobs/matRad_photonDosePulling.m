@@ -143,15 +143,6 @@ param.logLevel=1;
 [ct,cst] = matRad_loadGeometry(run_config);
 cst = matRad_renameStructures(cst,run_config);
 
-%% Calculate deformation vector field
-if (ct.numOfCtScen>1)
-    metadata.nItera = 100;
-    metadata.dvfType = 'pull';
-    register = matRad_ElasticImageRegistration(ct,cst,1,metadata);
-    [ct] = register.calcDVF();
-    clear metadata;
-end
-
 %% Print run config
 disp(run_config);
 
@@ -523,3 +514,6 @@ save([folderPath filesep 'results.mat'],'results');
 
 %%
 diary off
+
+%%
+delete(gcp('nocreate'));

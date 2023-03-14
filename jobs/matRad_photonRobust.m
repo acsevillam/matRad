@@ -175,7 +175,7 @@ switch run_config.robustness
 end
 
 run_config.resolution = [3 3 3];
-run_config.doseResolution = [5 5 5];
+run_config.doseResolution = [3 3 3];
 run_config.GammaCriterion = [3 3];
 run_config.robustnessCriterion = [5 5];
 run_config.sampling_size = 50;
@@ -205,6 +205,7 @@ if (ct.numOfCtScen>1)
     metadata.dvfType = 'pull';
     register = matRad_ElasticImageRegistration(ct,cst,1,metadata);
     [ct] = register.calcDVF();
+    clear metadata;
 end
 
 %% Print run config
@@ -213,7 +214,7 @@ disp(run_config);
 %% Create the VOI data for the phantom
 % Now we define structures a contour for the phantom and a target
 % define optimization parameter for both VOIs
-[cst,ixTarget,p,ixBody,ixCTV,~] = matRad_loadObjectives(run_config,'CTV',cst);
+[cst,ixTarget,p,ixBody,ixCTV,~] = matRad_loadObjectives(run_config,run_config.dose_pulling_target{end},cst);
 
 %% Check target visibility 
 cst{ixTarget,5}.Visible=true;
@@ -397,7 +398,6 @@ pln.propDoseCalc.doseGrid.resolution.x = run_config.doseResolution(1); % [mm]
 pln.propDoseCalc.doseGrid.resolution.y = run_config.doseResolution(2); % [mm]
 pln.propDoseCalc.doseGrid.resolution.z = run_config.doseResolution(3); % [mm]
 
-
 %% Enable sequencing and disable direct aperture optimization (DAO) for now.
 % A DAO optimization is shown in a seperate example.
 pln.propOpt.runSequencing = 0;
@@ -522,32 +522,28 @@ matRad_visSpotWeights(stf,resultGUI.w);
 savefig([folderPath filesep 'fluence_nominal.fig']);
 
 %% Plot dose distribution
-figure;
-matRad_geo3DWrapper(gca,ct,cst,resultGUI.physicalDose*pln.numOfFractions,run_config.doseWindow,[0.002 0.00005],colorcube,[],'Dose [Gy]');
+%figure;
+%matRad_geo3DWrapper(gca,ct,cst,resultGUI.physicalDose*pln.numOfFractions,run_config.doseWindow,[0.002 0.00005],colorcube,[],'Dose [Gy]');
 %savefig([folderPath filesep 'dose3d_nominal.fig']);
 
 %% Create target mask
-target_mask = zeros(size(resultGUI.physicalDose));
-target_mask(cst{ixCTV,4}{1,1}) = 1;
+%target_mask = zeros(size(resultGUI.physicalDose));
+%target_mask(cst{ixCTV,4}{1,1}) = 1;
 
 %% Create OAR mask
-OAR_mask = zeros(size(resultGUI.physicalDose));
-OAR_mask(cst{ixBody,4}{1,1}) = 1;
-OAR_mask(cst{ixCTV,4}{1,1}) = 0;
+%OAR_mask = zeros(size(resultGUI.physicalDose));
+%OAR_mask(cst{ixBody,4}{1,1}) = 1;
+%OAR_mask(cst{ixCTV,4}{1,1}) = 0;
 
 %% Plot target dose distribution
-figure;
-matRad_geo3DWrapper(gca,ct,cst,resultGUI.physicalDose.*target_mask*pln.numOfFractions,run_config.doseWindow,[0.002 0.00005],colorcube,[],'Dose [Gy]');
+%figure;
+%matRad_geo3DWrapper(gca,ct,cst,resultGUI.physicalDose.*target_mask*pln.numOfFractions,run_config.doseWindow,[0.002 0.00005],colorcube,[],'Dose [Gy]');
 %savefig([folderPath filesep 'target_dose3d_nominal.fig']);
 
 %% Plot OAR dose distribution
-figure;
-matRad_geo3DWrapper(gca,ct,cst,resultGUI.physicalDose.*OAR_mask*pln.numOfFractions,run_config.doseWindow,[0.002 0.00005],colorcube,[],'Dose [Gy]');
+%figure;
+%matRad_geo3DWrapper(gca,ct,cst,resultGUI.physicalDose.*OAR_mask*pln.numOfFractions,run_config.doseWindow,[0.002 0.00005],colorcube,[],'Dose [Gy]');
 %savefig([folderPath filesep 'OAR_dose3d_nominal.fig']);
-
-%% Indicator calculation and show DVH and QI
-[dvh,qi] = matRad_indicatorWrapper(cst,pln,resultGUI_nominal,[],pln.numOfFractions,[],[],run_config.doseWindow_dvh);
-savefig([folderPath filesep 'dvh_nominal.fig']);
 
 %% Create the VOI data for the phantom
 % Now we define structures a contour for the phantom and a target
@@ -556,11 +552,30 @@ cst_robust=cst;
 
 %% Load objectives
 [cst_robust,ixTarget,p,ixBody,ixCTV,OARStructSel] = matRad_loadObjectives(run_config,run_config.plan_target,cst_robust);
-cst_robust{ixRing,5}.Priority = 4; % overlap priority for optimization - a lower number corresponds to a higher priority
-cst_robust{ixRing,6}{1} = struct(DoseObjectives.matRad_SquaredOverdosing(10,1.00*p));
-cst_robust{ixRing,6}{1}.robustness  = 'none';
-cst_robust{ixRing,6}{1}.pullingRate{1} = 0;
 
+%% Copy OAR objectives from nominal dose pulling
+for itOARStructure = 1:size(OARStructSel,2)
+    for  itStructure = 1:size(cst_robust,1)
+        if (strcmp(cst{itStructure,2},OARStructSel{itOARStructure}))
+            cst_robust{itStructure,6}=cst{itStructure,6};
+        end
+    end
+end
+
+%% Define ring objectives
+cst_robust{ixRing1,5}.Priority = 4; % overlap priority for optimization - a lower number corresponds to a higher priority
+cst_robust{ixRing1,6}{1} = struct(DoseObjectives.matRad_MaxDVH(100,p*1.07,0));
+cst_robust{ixRing1,6}{1}.robustness  = 'none';
+cst_robust{ixRing1,6}{1}.penaltyPullingRate  = 0.0;
+cst_robust{ixRing1,6}{1}.objectivePullingRate{1}  = 0.0;
+cst_robust{ixRing1,6}{1}.objectivePullingRate{2}  = 0.0;
+
+cst_robust{ixRing2,5}.Priority = 4; % overlap priority for optimization - a lower number corresponds to a higher priority
+cst_robust{ixRing2,6}{1} = struct(DoseObjectives.matRad_MaxDVH(100,p*1.00,0));
+cst_robust{ixRing2,6}{1}.robustness  = 'none';
+cst_robust{ixRing2,6}{1}.penaltyPullingRate  = 0.0;
+cst_robust{ixRing2,6}{1}.objectivePullingRate{1}  = 0.0;
+cst_robust{ixRing2,6}{1}.objectivePullingRate{2}  = 0.0;
 
 %% Copy reference plan
 pln_robust=pln;
@@ -644,10 +659,10 @@ switch run_config.robustness
         for i=1:length(cst_robust{ixTarget,6})
             cst_robust{ixTarget,6}{i}.robustness  = 'STOCH';
         end
-        for i=1:size(cst,1)
+        for i=1:size(cst_robust,1)
             for j = 1:numel(OARStructSel)
-                if strcmp(OARStructSel{j}, cst{i,2})
-                    for k = 1:numel(cst{i,6})
+                if strcmp(OARStructSel{j}, cst_robust{i,2})
+                    for k = 1:numel(cst_robust{i,6})
                         cst_robust{i,6}{k}.robustness  = 'STOCH';
                     end
                 end
@@ -667,10 +682,10 @@ switch run_config.robustness
         for i=1:length(cst_robust{ixTarget,6})
             cst_robust{ixTarget,6}{i}.robustness  = 'COWC';
         end
-        for i=1:size(cst,1)
+        for i=1:size(cst_robust,1)
             for j = 1:numel(OARStructSel)
-                if strcmp(OARStructSel{j}, cst{i,2})
-                    for k = 1:numel(cst{i,6})
+                if strcmp(OARStructSel{j}, cst_robust{i,2})
+                    for k = 1:numel(cst_robust{i,6})
                         cst_robust{i,6}{k}.robustness  = 'COWC';
                     end
                 end
@@ -773,36 +788,14 @@ savefig([folderPath filesep 'fluence_robust.fig']);
 
 %% Create an interactive plot to slide through axial slices
 
-if run_config.radiationMode == "photons" && false
-    for numScen=1:pln_robust.multScen.totNumScen
-        
-        if(pln_robust.multScen.totNumScen>1)
-            quantityMap=[quantityOpt '_' num2str(round(numScen))];
-        else
-            quantityMap=quantityOpt;
-        end
-        
-        plane      = 3;
-        doseWindow = [0 max([max([resultGUI_robust.physicalDose(:)*pln_robust.numOfFractions]) run_config.doseWindow(2)])];
-        doseIsoLevels = 0; %linspace(0.1 * maxDose,maxDose,10);
-        f = figure;
-        title([quantityMap]);
-        set(gcf,'position',[10,10,550,400]);
-        numSlices = ct.cubeDim(3);
-        slice = round(pln_robust.propStf.isoCenter(1,3)./ct.resolution.z);
-        matRad_plotSliceWrapper(gca,ct,cst_robust,1,resultGUI_robust.(quantityMap)*pln_robust.numOfFractions,plane,slice,[],[],colorcube,[],doseWindow,doseIsoLevels,[],'Dose [Gy]',[],'LineWidth',1.2);
-        b = uicontrol('Parent',f,'Style','slider','Position',[50,5,420,23],...
-            'value',slice, 'min',1, 'max',numSlices,'SliderStep', [1/(numSlices-1) , 1/(numSlices-1)]);
-        b.Callback = @(es,ed)  matRad_plotSliceWrapper(gca,ct,cst_robust,1,resultGUI_robust.(quantityMap)*pln_robust.numOfFractions,plane,round(es.Value),[],[],colorcube,[],doseWindow,doseIsoLevels,[],'Dose [Gy]',[],'LineWidth',1.2);
-        
-        savefig([folderPath filesep 'dose_robust_' quantityMap '.fig']);
-    end
-end
+for numScen=1:pln_robust.multScen.totNumScen
 
-if run_config.radiationMode == "protons" || true
-    
-    quantityMap=quantityOpt;
-    
+    if(pln_robust.multScen.totNumScen>1)
+        quantityMap=[quantityOpt '_' num2str(round(numScen))];
+    else
+        quantityMap=quantityOpt;
+    end
+
     plane      = 3;
     doseWindow = [0 max([max([resultGUI_robust.physicalDose(:)*pln_robust.numOfFractions]) run_config.doseWindow(2)])];
     doseIsoLevels = 0; %linspace(0.1 * maxDose,maxDose,10);
@@ -815,42 +808,46 @@ if run_config.radiationMode == "protons" || true
     b = uicontrol('Parent',f,'Style','slider','Position',[50,5,420,23],...
         'value',slice, 'min',1, 'max',numSlices,'SliderStep', [1/(numSlices-1) , 1/(numSlices-1)]);
     b.Callback = @(es,ed)  matRad_plotSliceWrapper(gca,ct,cst_robust,1,resultGUI_robust.(quantityMap)*pln_robust.numOfFractions,plane,round(es.Value),[],[],colorcube,[],doseWindow,doseIsoLevels,[],'Dose [Gy]',[],'LineWidth',1.2);
-    
-    savefig(f,[folderPath filesep 'dose_robust_' quantityMap '.fig']);
-    
+
+    savefig([folderPath filesep 'dose_robust_' quantityMap '.fig']);
 end
 
 %% Plot dose distribution
-figure;
-matRad_geo3DWrapper(gca,ct,cst_robust,resultGUI_robust.physicalDose*pln_robust.numOfFractions,run_config.doseWindow,[0.002 0.00005],colorcube,[],'Dose [Gy]');
+%figure;
+%matRad_geo3DWrapper(gca,ct,cst_robust,resultGUI_robust.physicalDose*pln_robust.numOfFractions,run_config.doseWindow,[0.002 0.00005],colorcube,[],'Dose [Gy]');
 %savefig([folderPath filesep 'dose3d_robust.fig']);
 
 %% Create target mask
-target_mask = zeros(size(resultGUI.physicalDose));
-target_mask(cst_robust{ixCTV,4}{1,1}) = 1;
+%target_mask = zeros(size(resultGUI.physicalDose));
+%target_mask(cst_robust{ixCTV,4}{1,1}) = 1;
 
 %% Create OAR mask
-OAR_mask = zeros(size(resultGUI.physicalDose));
-OAR_mask(cst_robust{ixBody,4}{1,1}) = 1;
-OAR_mask(cst_robust{ixCTV,4}{1,1}) = 0;
+%OAR_mask = zeros(size(resultGUI.physicalDose));
+%OAR_mask(cst_robust{ixBody,4}{1,1}) = 1;
+%OAR_mask(cst_robust{ixCTV,4}{1,1}) = 0;
 
 %% Plot target dose distribution
-figure;
-matRad_geo3DWrapper(gca,ct,cst_robust,resultGUI_robust.physicalDose.*target_mask*pln_robust.numOfFractions,run_config.doseWindow,[0.002 0.00005],colorcube,[],'Dose [Gy]');
+%figure;
+%matRad_geo3DWrapper(gca,ct,cst_robust,resultGUI_robust.physicalDose.*target_mask*pln_robust.numOfFractions,run_config.doseWindow,[0.002 0.00005],colorcube,[],'Dose [Gy]');
 %savefig([folderPath filesep 'target_dose3d_robust.fig']);
 
 %% Plot OAR dose distribution
-figure;
-matRad_geo3DWrapper(gca,ct,cst_robust,resultGUI_robust.physicalDose.*OAR_mask*pln_robust.numOfFractions,run_config.doseWindow,[0.002 0.00005],colorcube,[],'Dose [Gy]');
+%figure;
+%matRad_geo3DWrapper(gca,ct,cst_robust,resultGUI_robust.physicalDose.*OAR_mask*pln_robust.numOfFractions,run_config.doseWindow,[0.002 0.00005],colorcube,[],'Dose [Gy]');
 %savefig([folderPath filesep 'OAR_dose3d_robust.fig']);
 
 %% Indicator calculation and show DVH and QI
-[dvh_robust,dqi_robust] = matRad_indicatorWrapper(cst,pln,resultGUI_robust,[],pln_robust.numOfFractions,[],[],run_config.doseWindow_dvh);
+[dvh_robust,dqi_robust] = matRad_indicatorWrapper(cst_robust,pln_robust,resultGUI_robust,[],pln_robust.numOfFractions,[],[],run_config.doseWindow_dvh);
 savefig([folderPath filesep 'dvh_robust.fig']);
 
 %% check sampling option is activated
 if ~run_config.sampling
     return;
+end
+
+if(run_config.plan_target=="PTV")
+    cst{ixTarget,3}='OAR';
+    cst_robust{ixTarget,3}='OAR';
 end
 
 %% Define sampling parameters
@@ -859,110 +856,16 @@ end
 structSel = {};
 [multScen] = matRad_multiScenGenerator(run_config.sampling_mode,run_config,'sampling',ct);
 
-%% Perform sampling for nominal optimization results
-delete(gcp('nocreate'));
-[caSamp, mSampDose, plnSamp, resultGUInomScen,resultGUIsampledScen] = matRad_sampling(ct,stf,cst,pln,resultGUI.w,structSel,multScen);
-
-%% Perform sampling analysis
-phaseProb = ones(1,ct.numOfCtScen)/ct.numOfCtScen;
-robustnessCriterion = run_config.robustnessCriterion;
-GammaCriterion = run_config.GammaCriterion;
-slice = round(isocenter(3)./ct.resolution.z);
-[cstStat, resultGUISamp, meta] = matRad_samplingAnalysis(ct,cst,plnSamp,caSamp, mSampDose, resultGUInomScen,phaseProb,'robustnessCriterion',robustnessCriterion,'GammaCriterion',GammaCriterion,'slice',slice);
-results.robustnessAnalysis_nominal=resultGUISamp.robustnessAnalysis;
-
-savefig([folderPath filesep 'sampling_analysis_nominal.fig']);
-
-%% 
-if (ct.numOfCtScen>1)
-    f          = figure; title('individual scenarios'); %camroll(90);
-    plane      = 3;
-    slice      = round(isocenter(2)./ct.resolution.y);
-    numScen    = 1;
-    matRad_plotSliceWrapper(gca,ct,cst,numScen, resultGUInomScen.([quantityMap '_' int2str(numScen)])*pln_robust.numOfFractions,plane,slice);
-    b             = uicontrol('Parent',f,'Style','slider','Position',[50,5,419,23],...
-        'value',numScen, 'min',1, 'max',ct.numOfCtScen,'SliderStep', [1/(ct.numOfCtScen-1) , 1/(ct.numOfCtScen-1)]);
-    b.Callback    = @(es,ed)  matRad_plotSliceWrapper(gca,ct,cst,round(es.Value),resultGUInomScen.([quantityMap '_' int2str(round(es.Value))])*pln_robust.numOfFractions,plane,slice);
-end
-clear  numScen plane slice ans f b;
-
-%%
-if (ct.numOfCtScen>1)
-    f          = figure; title('individual scenarios'); %camroll(90);
-    plane      = 3;
-    slice      = round(isocenter(2)./ct.resolution.y);
-    numScen    = 1;
-    matRad_plotSliceWrapper(gca,ct,cst,numScen, resultGUIsampledScen.(quantityMap){numScen}*pln_robust.numOfFractions,plane,slice);
-    b             = uicontrol('Parent',f,'Style','slider','Position',[50,5,419,23],...
-        'value',numScen, 'min',1, 'max',ct.numOfCtScen,'SliderStep', [1/(ct.numOfCtScen-1) , 1/(ct.numOfCtScen-1)]);
-    b.Callback    = @(es,ed)  matRad_plotSliceWrapper(gca,ct,cst,1,resultGUIsampledScen.(quantityMap){round(es.Value)}*pln_robust.numOfFractions,plane,slice);
-end
-clear  numScen plane slice ans f b;
-
-%% Create an mean dose interactive plot to slide through axial slices
-quantityMap='meanCubeW';
-plane      = 3;
-doseWindow = [0 max([max(resultGUISamp.(quantityMap)(:)) p*1.25])];
-maxDose       = max(resultGUISamp.(quantityMap)(:));
-doseIsoLevels = linspace(0.1 * maxDose,maxDose,10);
-f = figure;
-title([quantityMap 'for nominal optimization results']);
-set(gcf,'position',[10,10,550,400]);
-numSlices = ct.cubeDim(3);
-
-slice = round(pln.propStf.isoCenter(1,3)./ct.resolution.z);
-matRad_plotSliceWrapper(gca,ct,cst,1,resultGUISamp.(quantityMap)*pln_robust.numOfFractions,plane,slice,[],[],colorcube,[],doseWindow,doseIsoLevels,[],'Dose uncertainty [Gy]',[],'LineWidth',1.2);
-b = uicontrol('Parent',f,'Style','slider','Position',[50,5,420,23],...
-    'value',slice, 'min',1, 'max',numSlices,'SliderStep', [1/(numSlices-1) , 1/(numSlices-1)]);
-b.Callback = @(es,ed)  matRad_plotSliceWrapper(gca,ct,cst,1,resultGUISamp.(quantityMap)*pln_robust.numOfFractions,plane,round(es.Value),[],[],colorcube,[],doseWindow,doseIsoLevels,[],'Dose uncertainty [Gy]',[],'LineWidth',1.2);
-
-savefig([folderPath filesep 'mean_dose_nominal.fig']);
-
-%% Create an std dose interactive plot to slide through axial slices
-quantityMap='stdCubeW';
-plane      = 3;
-doseWindow = [0 max([max(resultGUISamp.(quantityMap)(:)) p*0.5])];
-maxDose       = max(resultGUISamp.(quantityMap)(:));
-doseIsoLevels = linspace(0.1 * maxDose,maxDose,10);
-f = figure;
-title([quantityMap 'for nominal optimization results']);
-set(gcf,'position',[10,10,550,400]);
-numSlices = ct.cubeDim(3);
-
-slice = round(pln.propStf.isoCenter(1,3)./ct.resolution.z);
-matRad_plotSliceWrapper(gca,ct,cst,1,resultGUISamp.(quantityMap)*pln_robust.numOfFractions,plane,slice,[],[],colorcube,[],doseWindow,doseIsoLevels,[],'Dose uncertainty [Gy]',[],'LineWidth',1.2);
-b = uicontrol('Parent',f,'Style','slider','Position',[50,5,420,23],...
-    'value',slice, 'min',1, 'max',numSlices,'SliderStep', [1/(numSlices-1) , 1/(numSlices-1)]);
-b.Callback = @(es,ed)  matRad_plotSliceWrapper(gca,ct,cst,1,resultGUISamp.(quantityMap)*pln_robust.numOfFractions,plane,round(es.Value),[],[],colorcube,[],doseWindow,doseIsoLevels,[],'Dose uncertainty [Gy]',[],'LineWidth',1.2);
-
-savefig([folderPath filesep 'std_dose_nominal.fig']);
-
-%% Multi-scenario dose volume histogram (DVH)
-f = figure;
-set(gcf,'Color',[1 1 1],'position',[10,10,600,400]);
-matRad_showDVHFromSampling(caSamp,pln.numOfFractions,cst,plnSamp,[1:plnSamp.multScen.totNumScen],run_config.doseWindow_dvh,'multiscenario',1);
-title('Multi-scenario DVH for nominal optimization results');
-
-savefig([folderPath filesep 'dvh_multiscenario_nominal.fig']);
-
-%% Trust band dose volume histogram (DVH)
-f = figure;
-set(gcf,'Color',[1 1 1],'position',[10,10,600,400]);
-matRad_showDVHFromSampling(caSamp,pln.numOfFractions,cst,plnSamp,[1:plnSamp.multScen.totNumScen],run_config.doseWindow_dvh,'trustband',1);
-title('Trust band DVH for nominal optimization results');
-
-savefig([folderPath filesep 'dvh_trustband_nominal.fig']);
-
 %% Perform sampling for robust optimization results
 delete(gcp('nocreate'));
-[caSampRob, mSampDoseRob, plnSampRob, resultGUIRobNomScen,resultGUIsampledScenRob] = matRad_sampling(ct,stf_robust,cst,pln_robust,resultGUI_robust.w,structSel,multScen);
+[caSampRob, mSampDoseRob, plnSampRob, resultGUIRobNomScen,resultGUIsampledScenRob] = matRad_sampling(ct,stf_robust,cst_robust,pln_robust,resultGUI_robust.w,structSel,multScen);
 
 %% Perform sampling analysis
 phaseProb = ones(1,ct.numOfCtScen)/ct.numOfCtScen;
 robustnessCriterion = run_config.robustnessCriterion;
 GammaCriterion = run_config.GammaCriterion; 
 slice = round(isocenter(3)./ct.resolution.z);
-[cstStatRob, resultGUISampRob, metaRob] = matRad_samplingAnalysis(ct,cst,plnSampRob,caSampRob, mSampDoseRob, resultGUIRobNomScen,phaseProb,'robustnessCriterion',robustnessCriterion,'GammaCriterion',GammaCriterion,'slice',slice);
+[cstStatRob, resultGUISampRob, metaRob] = matRad_samplingAnalysis(ct,cst_robust,plnSampRob,caSampRob, mSampDoseRob, resultGUIRobNomScen,phaseProb,'robustnessCriterion',robustnessCriterion,'GammaCriterion',GammaCriterion,'slice',slice);
 results.robustnessAnalysis_robust=resultGUISampRob.robustnessAnalysis;
 
 savefig([folderPath filesep 'sampling_analysis_robust.fig']);
@@ -973,10 +876,10 @@ if (ct.numOfCtScen>1)
     plane      = 1;
     slice      = round(isocenter(2)./ct.resolution.y);
     numScen    = 1;
-    matRad_plotSliceWrapper(gca,ct,cst,numScen,[],plane,slice);
+    matRad_plotSliceWrapper(gca,ct,cst_robust,numScen,[],plane,slice);
     b             = uicontrol('Parent',f,'Style','slider','Position',[50,5,419,23],...
         'value',numScen, 'min',1, 'max',ct.numOfCtScen,'SliderStep', [1/(ct.numOfCtScen-1) , 1/(ct.numOfCtScen-1)]);
-    b.Callback    = @(es,ed)  matRad_plotSliceWrapper(gca,ct,cst,round(es.Value),[],plane,slice);
+    b.Callback    = @(es,ed)  matRad_plotSliceWrapper(gca,ct,cst_robust,round(es.Value),[],plane,slice);
 end
 clear  numScen plane slice ans f b;
 
@@ -986,10 +889,10 @@ if (ct.numOfCtScen>1)
     plane      = 3;
     slice      = round(isocenter(2)./ct.resolution.y);
     numScen    = 1;
-    matRad_plotSliceWrapper(gca,ct,cst,numScen, resultGUIRobNomScen.([quantityMap '_' int2str(numScen)])*pln_robust.numOfFractions,plane,slice);
+    matRad_plotSliceWrapper(gca,ct,cst_robust,numScen, resultGUIRobNomScen.([quantityMap '_' int2str(numScen)])*pln_robust.numOfFractions,plane,slice);
     b             = uicontrol('Parent',f,'Style','slider','Position',[50,5,419,23],...
         'value',numScen, 'min',1, 'max',ct.numOfCtScen,'SliderStep', [1/(ct.numOfCtScen-1) , 1/(ct.numOfCtScen-1)]);
-    b.Callback    = @(es,ed)  matRad_plotSliceWrapper(gca,ct,cst,round(es.Value),resultGUIRobNomScen.([quantityMap '_' int2str(round(es.Value))])*pln_robust.numOfFractions,plane,slice);
+    b.Callback    = @(es,ed)  matRad_plotSliceWrapper(gca,ct,cst_robust,round(es.Value),resultGUIRobNomScen.([quantityMap '_' int2str(round(es.Value))])*pln_robust.numOfFractions,plane,slice);
 end
 clear  numScen plane slice ans f b;
 
@@ -999,10 +902,10 @@ if (ct.numOfCtScen>1)
     plane      = 3;
     slice      = round(isocenter(2)./ct.resolution.y);
     numScen    = 1;
-    matRad_plotSliceWrapper(gca,ct,cst,numScen, resultGUIsampledScenRob.(quantityMap){numScen}*pln_robust.numOfFractions,plane,slice);
+    matRad_plotSliceWrapper(gca,ct,cst_robust,numScen, resultGUIsampledScenRob.(quantityMap){numScen}*pln_robust.numOfFractions,plane,slice);
     b             = uicontrol('Parent',f,'Style','slider','Position',[50,5,419,23],...
         'value',numScen, 'min',1, 'max',ct.numOfCtScen,'SliderStep', [1/(ct.numOfCtScen-1) , 1/(ct.numOfCtScen-1)]);
-    b.Callback    = @(es,ed)  matRad_plotSliceWrapper(gca,ct,cst,1,resultGUIsampledScenRob.(quantityMap){round(es.Value)}*pln_robust.numOfFractions,plane,slice);
+    b.Callback    = @(es,ed)  matRad_plotSliceWrapper(gca,ct,cst_robust,1,resultGUIsampledScenRob.(quantityMap){round(es.Value)}*pln_robust.numOfFractions,plane,slice);
 end
 clear  numScen plane slice ans f b;
 
@@ -1018,10 +921,10 @@ set(gcf,'position',[10,10,550,400]);
 numSlices = ct.cubeDim(3);
 
 slice = round(pln.propStf.isoCenter(1,3)./ct.resolution.z);
-matRad_plotSliceWrapper(gca,ct,cst,1,resultGUISampRob.(quantityMap)*pln_robust.numOfFractions,plane,slice,[],[],colorcube,[],doseWindow,doseIsoLevels,[],'Dose uncertainty [Gy]',[],'LineWidth',1.2);
+matRad_plotSliceWrapper(gca,ct,cst_robust,1,resultGUISampRob.(quantityMap)*pln_robust.numOfFractions,plane,slice,[],[],colorcube,[],doseWindow,doseIsoLevels,[],'Dose uncertainty [Gy]',[],'LineWidth',1.2);
 b = uicontrol('Parent',f,'Style','slider','Position',[50,5,420,23],...
     'value',slice, 'min',1, 'max',numSlices,'SliderStep', [1/(numSlices-1) , 1/(numSlices-1)]);
-b.Callback = @(es,ed)  matRad_plotSliceWrapper(gca,ct,cst,1,resultGUISampRob.(quantityMap)*pln_robust.numOfFractions,plane,round(es.Value),[],[],colorcube,[],doseWindow,doseIsoLevels,[],'Dose uncertainty [Gy]',[],'LineWidth',1.2);
+b.Callback = @(es,ed)  matRad_plotSliceWrapper(gca,ct,cst_robust,1,resultGUISampRob.(quantityMap)*pln_robust.numOfFractions,plane,round(es.Value),[],[],colorcube,[],doseWindow,doseIsoLevels,[],'Dose uncertainty [Gy]',[],'LineWidth',1.2);
 
 savefig([folderPath filesep 'mean_dose_robust.fig']);
 
@@ -1037,17 +940,17 @@ set(gcf,'position',[10,10,550,400]);
 numSlices = ct.cubeDim(3);
 
 slice = round(pln.propStf.isoCenter(1,3)./ct.resolution.z);
-matRad_plotSliceWrapper(gca,ct,cst,1,resultGUISampRob.(quantityMap)*pln_robust.numOfFractions,plane,slice,[],[],colorcube,[],doseWindow,doseIsoLevels,[],'Dose uncertainty [Gy]',[],'LineWidth',1.2);
+matRad_plotSliceWrapper(gca,ct,cst_robust,1,resultGUISampRob.(quantityMap)*pln_robust.numOfFractions,plane,slice,[],[],colorcube,[],doseWindow,doseIsoLevels,[],'Dose uncertainty [Gy]',[],'LineWidth',1.2);
 b = uicontrol('Parent',f,'Style','slider','Position',[50,5,420,23],...
     'value',slice, 'min',1, 'max',numSlices,'SliderStep', [1/(numSlices-1) , 1/(numSlices-1)]);
-b.Callback = @(es,ed)  matRad_plotSliceWrapper(gca,ct,cst,1,resultGUISampRob.(quantityMap)*pln_robust.numOfFractions,plane,round(es.Value),[],[],colorcube,[],doseWindow,doseIsoLevels,[],'Dose uncertainty [Gy]',[],'LineWidth',1.2);
+b.Callback = @(es,ed)  matRad_plotSliceWrapper(gca,ct,cst_robust,1,resultGUISampRob.(quantityMap)*pln_robust.numOfFractions,plane,round(es.Value),[],[],colorcube,[],doseWindow,doseIsoLevels,[],'Dose uncertainty [Gy]',[],'LineWidth',1.2);
 
 savefig([folderPath filesep 'std_dose_robust.fig']);
 
 %% Multi-scenario dose volume histogram (DVH)
 f = figure;
 set(gcf,'Color',[1 1 1],'position',[10,10,600,400]);
-matRad_showDVHFromSampling(caSampRob,pln_robust.numOfFractions,cst,plnSampRob,[1:plnSampRob.multScen.totNumScen],run_config.doseWindow_dvh,'multiscenario',1);
+matRad_showDVHFromSampling(caSampRob,pln_robust.numOfFractions,cst_robust,plnSampRob,[1:plnSampRob.multScen.totNumScen],run_config.doseWindow_dvh,'multiscenario',1);
 title('Multi-scenario DVH for robust optimization results');
 
 savefig([folderPath filesep 'dvh_multiscenario_robust.fig']);
@@ -1055,37 +958,21 @@ savefig([folderPath filesep 'dvh_multiscenario_robust.fig']);
 %% Trust band dose volume histogram (DVH)
 f = figure;
 set(gcf,'Color',[1 1 1],'position',[10,10,600,400]);
-matRad_showDVHFromSampling(caSampRob,pln_robust.numOfFractions,cst,plnSampRob,[1:plnSampRob.multScen.totNumScen],run_config.doseWindow_dvh,'trustband',1);
+matRad_showDVHFromSampling(caSampRob,pln_robust.numOfFractions,cst_robust,plnSampRob,[1:plnSampRob.multScen.totNumScen],run_config.doseWindow_dvh,'trustband',1);
 title('Trust band DVH for robust optimization results');
 
 savefig([folderPath filesep 'dvh_trustband_robust.fig']);
 
-%% Perform price of robustness analysis in nominal scenario
-slice = round(pln.propStf.isoCenter(1,3)./ct.resolution.z);
-[resultGUISampRob] = matRad_priceOfRobustnessIndex(resultGUISampRob,resultGUI_nominal.(quantityOpt),resultGUIRobNomScen.(quantityOpt),ct,cst,pln_robust,[],[],[],[-5 5],'relative',slice);
-savefig([folderPath filesep 'price_in_nominal.fig']);
-
-%% Perform price of robustness analysis using mean dose
-slice = round(pln.propStf.isoCenter(1,3)./ct.resolution.z);
-[resultGUISampRob] = matRad_priceOfRobustnessIndex(resultGUISampRob,resultGUISamp.meanCubeW,resultGUISampRob.meanCubeW,ct,cst,pln_robust,[],[],[],[-5 5],'relative',slice);
-results.priceOfRobustnesAnalysis=resultGUISampRob.priceOfRobustnesAnalysis;
-
-savefig([folderPath filesep 'price_in_mean.fig']);
-
 %% print results
 disp('Performance:');
 disp(results.performance);
-disp('Robustness analysis (nominal plan):');
-disp(results.robustnessAnalysis_nominal);
 disp('Robustness analysis (robust plan):');
 disp(results.robustnessAnalysis_robust);
-disp('Price of Robustness analysis (robust plan):');
-disp(results.priceOfRobustnesAnalysis.priceOfRobustness);
 
 %% Save outputs
 save([folderPath filesep 'resultGUI.mat'],'resultGUI','resultGUI_robust');
 save([folderPath filesep 'plan.mat'],'ct','cst','cst_robust','pln','pln_robust','stf','stf_robust','run_config');
-save([folderPath filesep 'sampling.mat'],'caSamp', 'mSampDose', 'plnSamp', 'resultGUInomScen', 'resultGUISampRob','cstStat','resultGUISamp','meta','dvh','dvh_robust');
+save([folderPath filesep 'sampling.mat'],'caSampRob', 'mSampDoseRob', 'plnSampRob', 'resultGUIRobNomScen', 'resultGUISampRob','cstStatRob','metaRob','dvh','dvh_robust','qi','dqi_robust');
 save([folderPath filesep 'results.mat'],'results');
 
 %%
