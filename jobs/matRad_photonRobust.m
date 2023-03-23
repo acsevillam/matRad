@@ -569,6 +569,7 @@ cst_robust{ixRing1,6}{1}.robustness  = 'none';
 cst_robust{ixRing1,6}{1}.penaltyPullingRate  = 0.0;
 cst_robust{ixRing1,6}{1}.objectivePullingRate{1}  = 0.0;
 cst_robust{ixRing1,6}{1}.objectivePullingRate{2}  = 0.0;
+OARStructSel{length(OARStructSel)+1}='RING 0 - 10 mm';
 
 cst_robust{ixRing2,5}.Priority = 4; % overlap priority for optimization - a lower number corresponds to a higher priority
 cst_robust{ixRing2,6}{1} = struct(DoseObjectives.matRad_MaxDVH(100,p*1.00,0));
@@ -576,6 +577,7 @@ cst_robust{ixRing2,6}{1}.robustness  = 'none';
 cst_robust{ixRing2,6}{1}.penaltyPullingRate  = 0.0;
 cst_robust{ixRing2,6}{1}.objectivePullingRate{1}  = 0.0;
 cst_robust{ixRing2,6}{1}.objectivePullingRate{2}  = 0.0;
+OARStructSel{length(OARStructSel)+1}='RING 10 - 50 mm';
 
 %% Copy reference plan
 pln_robust=pln;
