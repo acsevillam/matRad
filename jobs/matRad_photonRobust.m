@@ -74,7 +74,7 @@ defaultSampling = true;
 defaultSamplingMode = 'impScen_permuted_truncated5';
 defaultSamplingWCFactor = 1.5;
 defaultRootPath = matRad_cfg.matRadRoot;
-defaultNCores = feature('numcores');
+defaultNProcessors = getenv('NUMBER_OF_PROCESSORS');
 
 parser = inputParser;
 
@@ -110,7 +110,7 @@ addParameter(parser,'sampling',defaultSampling,@islogical);
 addOptional(parser,'sampling_mode',defaultSamplingMode,@(x) any(validatestring(x,validScenModes)));
 addOptional(parser,'sampling_wcFactor',defaultSamplingWCFactor,@(x) isnumeric(x) && isscalar(x) && (x > 0));
 addParameter(parser,'rootPath',defaultRootPath,@isfolder);
-addParameter(parser,'n_cores',defaultNCores,@(x) validateattributes(x,{'numeric'},...
+addParameter(parser,'n_cores',defaultNProcessors,@(x) validateattributes(x,{'numeric'},...
             {'nonempty','integer','positive'}));
 
 parse(parser,radiationMode,description,varargin{:});
