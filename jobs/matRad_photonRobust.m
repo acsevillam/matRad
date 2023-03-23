@@ -790,29 +790,29 @@ savefig([folderPath filesep 'fluence_robust.fig']);
 
 %% Create an interactive plot to slide through axial slices
 
-for numScen=1:pln_robust.multScen.totNumScen
+%for numScen=1:pln_robust.multScen.totNumScen
+%
+%    if(pln_robust.multScen.totNumScen>1)
+%        quantityMap=[quantityOpt '_' num2str(round(numScen))];
+%    else
+%        quantityMap=quantityOpt;
+%    end
+%
+%    plane      = 3;
+%    doseWindow = [0 max([max([resultGUI_robust.physicalDose(:)*pln_robust.numOfFractions]) run_config.doseWindow(2)])];
+%    doseIsoLevels = 0; %linspace(0.1 * maxDose,maxDose,10);
+%    f = figure;
+%    title([quantityMap]);
+%    set(gcf,'position',[10,10,550,400]);
+%    numSlices = ct.cubeDim(3);
+%    slice = round(pln_robust.propStf.isoCenter(1,3)./ct.resolution.z);
+%    matRad_plotSliceWrapper(gca,ct,cst_robust,1,resultGUI_robust.(quantityMap)*pln_robust.numOfFractions,plane,slice,[],[],colorcube,[],doseWindow,doseIsoLevels,[],'Dose [Gy]',[],'LineWidth',1.2);
+%    b = uicontrol('Parent',f,'Style','slider','Position',[50,5,420,23],...
+%        'value',slice, 'min',1, 'max',numSlices,'SliderStep', [1/(numSlices-1) , 1/(numSlices-1)]);
+%    b.Callback = @(es,ed)  matRad_plotSliceWrapper(gca,ct,cst_robust,1,resultGUI_robust.(quantityMap)*pln_robust.numOfFractions,plane,round(es.Value),[],[],colorcube,[],doseWindow,doseIsoLevels,[],'Dose [Gy]',[],'LineWidth',1.2);
 
-    if(pln_robust.multScen.totNumScen>1)
-        quantityMap=[quantityOpt '_' num2str(round(numScen))];
-    else
-        quantityMap=quantityOpt;
-    end
-
-    plane      = 3;
-    doseWindow = [0 max([max([resultGUI_robust.physicalDose(:)*pln_robust.numOfFractions]) run_config.doseWindow(2)])];
-    doseIsoLevels = 0; %linspace(0.1 * maxDose,maxDose,10);
-    f = figure;
-    title([quantityMap]);
-    set(gcf,'position',[10,10,550,400]);
-    numSlices = ct.cubeDim(3);
-    slice = round(pln_robust.propStf.isoCenter(1,3)./ct.resolution.z);
-    matRad_plotSliceWrapper(gca,ct,cst_robust,1,resultGUI_robust.(quantityMap)*pln_robust.numOfFractions,plane,slice,[],[],colorcube,[],doseWindow,doseIsoLevels,[],'Dose [Gy]',[],'LineWidth',1.2);
-    b = uicontrol('Parent',f,'Style','slider','Position',[50,5,420,23],...
-        'value',slice, 'min',1, 'max',numSlices,'SliderStep', [1/(numSlices-1) , 1/(numSlices-1)]);
-    b.Callback = @(es,ed)  matRad_plotSliceWrapper(gca,ct,cst_robust,1,resultGUI_robust.(quantityMap)*pln_robust.numOfFractions,plane,round(es.Value),[],[],colorcube,[],doseWindow,doseIsoLevels,[],'Dose [Gy]',[],'LineWidth',1.2);
-
-    savefig([folderPath filesep 'dose_robust_' quantityMap '.fig']);
-end
+%    savefig([folderPath filesep 'dose_robust_' quantityMap '.fig']);
+%end
 
 %% Plot dose distribution
 %figure;
@@ -859,7 +859,6 @@ structSel = {};
 [multScen] = matRad_multiScenGenerator(run_config.sampling_mode,run_config,'sampling',ct);
 
 %% Perform sampling for robust optimization results
-delete(gcp('nocreate'));
 [caSampRob, mSampDoseRob, plnSampRob, resultGUIRobNomScen,resultGUIsampledScenRob] = matRad_sampling(ct,stf_robust,cst_robust,pln_robust,resultGUI_robust.w,structSel,multScen);
 
 %% Perform sampling analysis
