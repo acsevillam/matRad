@@ -214,7 +214,9 @@ disp(run_config);
 %% Create the VOI data for the phantom
 % Now we define structures a contour for the phantom and a target
 % define optimization parameter for both VOIs
-[cst,ixTarget,p,ixBody,ixCTV,~] = matRad_loadObjectives(run_config,run_config.dose_pulling_target{end},cst);
+run_config_tmp=run_config;
+run_config_tmp.plan_objectives='4';
+[cst,ixTarget,p,ixBody,ixCTV,~] = matRad_loadObjectives(run_config_tmp,run_config_tmp.dose_pulling_target{end},cst);
 
 %% Check target visibility 
 cst{ixTarget,5}.Visible=true;
