@@ -174,8 +174,8 @@ switch run_config.robustness
         output_folder = ['output' filesep run_config.radiationMode filesep run_config.description filesep run_config.caseID filesep run_config.robustness filesep run_config.plan_target filesep run_config.plan_beams filesep run_config.plan_objectives filesep num2str(run_config.shiftSD(1)) 'x' num2str(run_config.shiftSD(2)) 'x' num2str(run_config.shiftSD(3)) filesep run_config.scen_mode filesep num2str(run_config.wcFactor) filesep datestr(datetime,'yyyy-mm-dd HH-MM-SS')];
 end
 
-run_config.resolution = [3 3 3];
-run_config.doseResolution = [3 3 3];
+run_config.resolution = [10 10 10];
+run_config.doseResolution = [10 10 10];
 run_config.GammaCriterion = [3 3];
 run_config.robustnessCriterion = [5 5];
 run_config.sampling_size = 50;
@@ -453,13 +453,13 @@ resultGUI = resultGUI_nominal;
 [~,qi] = matRad_indicatorWrapper(cst,pln,resultGUI_nominal,[],pln.numOfFractions,[],[],run_config.doseWindow_dvh);
 savefig([folderPath filesep 'dvh_nominal.fig']);
 
-%% Dose pulling
+%% Dose pulling Step 1
 
 ixTargetQi=zeros(size(run_config.dose_pulling_target));
-for i=1:size(run_config.dose_pulling_target,2)
+for iX=1:size(run_config.dose_pulling_target,2)
     for j=1:size(qi,2)
-        if strcmp(qi(j).name,run_config.dose_pulling_target(i))
-            ixTargetQi(i)=j;
+        if strcmp(qi(j).name,run_config.dose_pulling_target(iX))
+            ixTargetQi(iX)=j;
         end
     end
 end
@@ -499,15 +499,15 @@ while(run_config.dose_pulling && numIteration<=100 && any(arrayfun(@(ixTarget,cr
 
         disp(['!!--####################### ITERATION No. ' num2str(numIteration) ' #######################--!!']);
 
-        for i=1:size(run_config.dose_pulling_target,2)
-            sprintf('%s (%s) = %5.3f %% ', run_config.dose_pulling_criterion(i),qi(ixTargetQi(i)).name,qi(ixTargetQi(i)).(run_config.dose_pulling_criterion(i)) )
+        for iX=1:size(run_config.dose_pulling_target,2)
+            sprintf('%s (%s) = %5.3f %% ', run_config.dose_pulling_criterion(iX),qi(ixTargetQi(iX)).name,qi(ixTargetQi(iX)).(run_config.dose_pulling_criterion(iX)) )
         end
 
         % Print target objectives
         for  structure = 1:size(cst,1)
             display(cst{structure,2});
-            for i=1:length(cst{structure,6})
-                display(cst{structure,6}{i});
+            for iX=1:length(cst{structure,6})
+                display(cst{structure,6}{iX});
             end
         end
 
@@ -555,14 +555,18 @@ cst_robust=cst;
 %% Load objectives
 [cst_robust,ixTarget,p,ixBody,ixCTV,OARStructSel] = matRad_loadObjectives(run_config,run_config.plan_target,cst_robust);
 
-%% Copy OAR objectives from nominal dose pulling
+%% Copy OAR objectives from nominal dose pulling and relax them by 20%
+
 for itOARStructure = 1:size(OARStructSel,2)
     for  itStructure = 1:size(cst_robust,1)
-        if (strcmp(cst{itStructure,2},OARStructSel{itOARStructure}))
+        if(strcmp(cst{itStructure,2},OARStructSel{itOARStructure}))
             cst_robust{itStructure,6}=cst{itStructure,6};
         end
     end
 end
+
+scale_factor=1.2;
+cst_robust = matRad_scaleDoseObjectives(cst_robust,OARStructSel,scale_factor);
 
 %% Define ring objectives
 cst_robust{ixRing1,5}.Priority = 4; % overlap priority for optimization - a lower number corresponds to a higher priority
@@ -655,19 +659,19 @@ end
 % Target
 switch run_config.robustness
     case 'STOCH'
-        for i=1:length(cst_robust{ixTarget,6})
-            cst_robust{ixTarget,6}{i}.robustness  = 'STOCH';
+        for iX=1:length(cst_robust{ixTarget,6})
+            cst_robust{ixTarget,6}{iX}.robustness  = 'STOCH';
         end
 
     case 'STOCH2'        
-        for i=1:length(cst_robust{ixTarget,6})
-            cst_robust{ixTarget,6}{i}.robustness  = 'STOCH';
+        for iX=1:length(cst_robust{ixTarget,6})
+            cst_robust{ixTarget,6}{iX}.robustness  = 'STOCH';
         end
-        for i=1:size(cst_robust,1)
+        for iX=1:size(cst_robust,1)
             for j = 1:numel(OARStructSel)
-                if strcmp(OARStructSel{j}, cst_robust{i,2})
-                    for k = 1:numel(cst_robust{i,6})
-                        cst_robust{i,6}{k}.robustness  = 'STOCH';
+                if strcmp(OARStructSel{j}, cst_robust{iX,2})
+                    for k = 1:numel(cst_robust{iX,6})
+                        cst_robust{iX,6}{k}.robustness  = 'STOCH';
                     end
                 end
             end
@@ -676,21 +680,21 @@ switch run_config.robustness
     case 'COWC'
         pln_robust.propOpt.useMaxApprox='logsumexp';
         
-        for i=1:length(cst_robust{ixTarget,6})
-            cst_robust{ixTarget,6}{i}.robustness  = 'COWC';
+        for iX=1:length(cst_robust{ixTarget,6})
+            cst_robust{ixTarget,6}{iX}.robustness  = 'COWC';
         end
 
     case 'COWC2'
         pln_robust.propOpt.useMaxApprox='logsumexp';
         
-        for i=1:length(cst_robust{ixTarget,6})
-            cst_robust{ixTarget,6}{i}.robustness  = 'COWC';
+        for iX=1:length(cst_robust{ixTarget,6})
+            cst_robust{ixTarget,6}{iX}.robustness  = 'COWC';
         end
-        for i=1:size(cst_robust,1)
+        for iX=1:size(cst_robust,1)
             for j = 1:numel(OARStructSel)
-                if strcmp(OARStructSel{j}, cst_robust{i,2})
-                    for k = 1:numel(cst_robust{i,6})
-                        cst_robust{i,6}{k}.robustness  = 'COWC';
+                if strcmp(OARStructSel{j}, cst_robust{iX,2})
+                    for k = 1:numel(cst_robust{iX,6})
+                        cst_robust{iX,6}{k}.robustness  = 'COWC';
                     end
                 end
             end
@@ -702,8 +706,8 @@ switch run_config.robustness
         pln_robust.propOpt.p2=run_config.p2;
         pln_robust.propOpt.useMaxApprox='cheapCOWC';
         
-        for i=1:length(cst_robust{ixTarget,6})
-            cst_robust{ixTarget,6}{i}.robustness  = 'COWC';
+        for iX=1:length(cst_robust{ixTarget,6})
+            cst_robust{ixTarget,6}{iX}.robustness  = 'COWC';
         end
 
     case 'c-COWC2'
@@ -712,14 +716,14 @@ switch run_config.robustness
         pln_robust.propOpt.p2=run_config.p2;
         pln_robust.propOpt.useMaxApprox='cheapCOWC';
         
-        for i=1:length(cst_robust{ixTarget,6})
-            cst_robust{ixTarget,6}{i}.robustness  = 'COWC';
+        for iX=1:length(cst_robust{ixTarget,6})
+            cst_robust{ixTarget,6}{iX}.robustness  = 'COWC';
         end
-        for i=1:size(cst,1)
+        for iX=1:size(cst,1)
             for j = 1:numel(OARStructSel)
-                if strcmp(OARStructSel{j}, cst{i,2})
-                    for k = 1:numel(cst{i,6})
-                        cst_robust{i,6}{k}.robustness  = 'COWC';
+                if strcmp(OARStructSel{j}, cst{iX,2})
+                    for k = 1:numel(cst{iX,6})
+                        cst_robust{iX,6}{k}.robustness  = 'COWC';
                     end
                 end
             end
@@ -743,11 +747,11 @@ switch run_config.robustness
         cst_robust{ixCTV,6}{1} = struct(DoseObjectives.matRad_SquaredBertoluzzaDeviation2(800,p));
         cst_robust{ixCTV,6}{1}.robustness  = 'INTERVAL3';
         
-        for i=1:size(cst,1)
+        for iX=1:size(cst,1)
             for j = 1:numel(OARStructSel)
-                if strcmp(OARStructSel{j}, cst{i,2})
-                    for k = 1:numel(cst{i,6})
-                        cst_robust{i,6}{k}.robustness  = 'INTERVAL3';
+                if strcmp(OARStructSel{j}, cst{iX,2})
+                    for k = 1:numel(cst{iX,6})
+                        cst_robust{iX,6}{k}.robustness  = 'INTERVAL3';
                     end
                 end
             end
@@ -758,8 +762,8 @@ end
 %% Print target objectives
 for  structure = 1:size(cst_robust,1)
     display(cst_robust{structure,2});
-    for i=1:length(cst_robust{structure,6})
-        display(cst_robust{structure,6}{i});
+    for iX=1:length(cst_robust{structure,6})
+        display(cst_robust{structure,6}{iX});
     end
 end
 
@@ -841,8 +845,27 @@ savefig([folderPath filesep 'fluence_robust.fig']);
 %savefig([folderPath filesep 'OAR_dose3d_robust.fig']);
 
 %% Indicator calculation and show DVH and QI
-[dvh_robust,dqi_robust] = matRad_indicatorWrapper(cst_robust,pln_robust,resultGUI_robust,[],pln_robust.numOfFractions,[],[],run_config.doseWindow_dvh);
-savefig([folderPath filesep 'dvh_robust.fig']);
+
+for scenIt = 1:pln_robust.multScen.totNumScen
+    qi_robust{scenIt} = matRad_calcQualityIndicators(cst_robust,pln_robust,resultGUI_robust.([pln_robust.bioParam.quantityVis '_' num2str(scenIt)])*pln_robust.numOfFractions,[],[]);
+end
+
+for iX=1:size(run_config.dose_pulling_target,2)
+    for scenIt = 1:pln_robust.multScen.totNumScen
+        qiTarget{scenIt,iX}=qi_robust{scenIt}(ixTarget(iX)).([run_config.dose_pulling_criterion(iX)]);
+    end
+end
+
+minQiTarget = min(cell2mat( qiTarget ),[],1);
+
+results.dosePulling.qiTarget=minQiTarget;
+results.dosePulling.minQiTarget=minQiTarget;
+
+%% print results
+disp('minQiTarget:');
+disp(results.dosePulling.minQiTarget);
+
+%% Dose pulling Step 2
 
 %% check sampling option is activated
 if ~run_config.sampling
@@ -975,7 +998,7 @@ disp(results.robustnessAnalysis_robust);
 %% Save outputs
 save([folderPath filesep 'resultGUI.mat'],'resultGUI','resultGUI_robust');
 save([folderPath filesep 'plan.mat'],'ct','cst','cst_robust','pln','pln_robust','stf','stf_robust','run_config');
-save([folderPath filesep 'sampling.mat'],'caSampRob', 'mSampDoseRob', 'plnSampRob', 'resultGUIRobNomScen', 'resultGUISampRob','cstStatRob','metaRob','dvh','dvh_robust','qi','dqi_robust');
+save([folderPath filesep 'sampling.mat'],'caSampRob', 'mSampDoseRob', 'plnSampRob', 'resultGUIRobNomScen', 'resultGUISampRob','cstStatRob','metaRob','qi','qi_robust');
 save([folderPath filesep 'results.mat'],'results');
 
 %%
