@@ -115,7 +115,7 @@ refGy = linspace(0,max(resultGUInomScen.(pln.bioParam.quantityVis)(:)),6);
 
 resultGUInomScen.dvh = matRad_calcDVH(cst,resultGUInomScen.(pln.bioParam.quantityVis),'cum');
 dvhPoints            = resultGUInomScen.dvh(1).doseGrid;
-nomQi                = matRad_calcQualityIndicators(cst,pln,resultGUInomScen.(pln.bioParam.quantityVis),refGy,refVol);
+nomQi                = matRad_calcQualityIndicators(cst,pln,resultGUInomScen.(pln.bioParam.quantityVis)*pln.numOfFractions,refGy,refVol);
 
 resultGUInomScen.qi  = nomQi;
 resultGUInomScen.cst = cst;
@@ -215,10 +215,10 @@ if FlagParallToolBoxLicensed
 
         if isfield(resultSamp,[plnSamp.bioParam.quantityVis '_deformed'])
             caSampRes(i).dvh = matRad_calcDVH(cstSamp,resultSamp.([plnSamp.bioParam.quantityVis '_deformed']),'cum',dvhPoints);
-            caSampRes(i).qi  = matRad_calcQualityIndicators(cstSamp,plnSamp,resultSamp.([plnSamp.bioParam.quantityVis '_deformed']),refGy,refVol);
+            caSampRes(i).qi  = matRad_calcQualityIndicators(cstSamp,plnSamp,resultSamp.([plnSamp.bioParam.quantityVis '_deformed'])*plnSamp.numOfFractions,refGy,refVol);
         else
             caSampRes(i).dvh = matRad_calcDVH(cstSamp,resultSamp.(plnSamp.bioParam.quantityVis),'cum',dvhPoints);
-            caSampRes(i).qi  = matRad_calcQualityIndicators(cstSamp,plnSamp,resultSamp.(plnSamp.bioParam.quantityVis),refGy,refVol);
+            caSampRes(i).qi  = matRad_calcQualityIndicators(cstSamp,plnSamp,resultSamp.(plnSamp.bioParam.quantityVis)*plnSamp.numOfFractions,refGy,refVol);
         end
         
     end
@@ -308,10 +308,10 @@ else
 
         if isfield(resultSamp,[plnSamp.bioParam.quantityVis '_deformed'])
             caSampRes(i).dvh = matRad_calcDVH(cstSamp,resultSamp.(plnSamp.bioParam.quantityVis),'cum',dvhPoints);
-            caSampRes(i).qi  = matRad_calcQualityIndicators(cstSamp,plnSamp,resultSamp.(plnSamp.bioParam.quantityVis),refGy,refVol);
+            caSampRes(i).qi  = matRad_calcQualityIndicators(cstSamp,plnSamp,resultSamp.(plnSamp.bioParam.quantityVis)*plnSamp.numOfFractions,refGy,refVol);
         else
             caSampRes(i).dvh = matRad_calcDVH(cstSamp,resultSamp.([plnSamp.bioParam.quantityVis '_deformed']),'cum',dvhPoints);
-            caSampRes(i).qi  = matRad_calcQualityIndicators(cstSamp,plnSamp,resultSamp.([plnSamp.bioParam.quantityVis '_deformed']),refGy,refVol);
+            caSampRes(i).qi  = matRad_calcQualityIndicators(cstSamp,plnSamp,resultSamp.([plnSamp.bioParam.quantityVis '_deformed'])*plnSamp.numOfFractions,refGy,refVol);
         end
         
     end
