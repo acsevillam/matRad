@@ -174,8 +174,8 @@ switch run_config.robustness
         output_folder = ['output' filesep run_config.radiationMode filesep run_config.description filesep run_config.caseID filesep run_config.robustness filesep run_config.plan_target filesep run_config.plan_beams filesep run_config.plan_objectives filesep num2str(run_config.shiftSD(1)) 'x' num2str(run_config.shiftSD(2)) 'x' num2str(run_config.shiftSD(3)) filesep run_config.scen_mode filesep num2str(run_config.wcFactor) filesep datestr(datetime,'yyyy-mm-dd HH-MM-SS')];
 end
 
-run_config.resolution = [10 10 10];
-run_config.doseResolution = [10 10 10];
+run_config.resolution = [3 3 3];
+run_config.doseResolution = [3 3 3];
 run_config.GammaCriterion = [3 3];
 run_config.robustnessCriterion = [5 5];
 run_config.sampling_size = 50;
