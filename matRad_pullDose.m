@@ -1,4 +1,4 @@
-function [cst,flag] = matRad_pullDose(cst)
+function [cst,flag] = matRad_pullDose(cst,pullingStep)
 % matRad add margin function
 %
 % call
@@ -35,26 +35,29 @@ flag=false;
 
 % compute for every VOI.
 for  i = 1:size(cst,1)
-    % Only take OAR VOI.
-    if ~isempty(cst{i,4}{1}) && isequal(cst{i,3},'OAR')
+    if ~isempty(cst{i,4}{1}) % && isequal(cst{i,3},'OAR')
         % loop over the number of constraints for the current VOI
         for j = 1:numel(cst{i,6})
             % Get current objective
             objective = cst{i,6}{j};
-
-            % Dose pulling
-            for k = 1:numel(objective.parameters)
-                if ~isempty(objective.objectivePullingRate{k}) && ((objective.objectivePullingRate{k}>0 && objective.parameters{k}>=0) || (objective.objectivePullingRate{k}<0 && objective.parameters{k}>0) )
-                    objective.parameters{k}=objective.parameters{k}+objective.objectivePullingRate{k};
-                    flag=true;
-                end
-                if ~isempty(objective.penaltyPullingRate) && objective.penaltyPullingRate~=0
-                    objective.penalty=objective.penalty+objective.penaltyPullingRate;
-                    flag=true;
+            if(objective.dosePulling)
+                if(objective.pullingStep==pullingStep)
+                    % Dose pulling
+                    for k = 1:numel(objective.parameters)
+                        if ~isempty(objective.objectivePullingRate{k}) && ((objective.objectivePullingRate{k}>0 && objective.parameters{k}>=0) || (objective.objectivePullingRate{k}<0 && objective.parameters{k}>0) )
+                            objective.parameters{k}=objective.parameters{k}+objective.objectivePullingRate{k};
+                            flag=true;
+                        end
+                    end
+        
+                    if ~isempty(objective.penaltyPullingRate) && objective.penaltyPullingRate~=0
+                        objective.penalty=objective.penalty+objective.penaltyPullingRate;
+                        flag=true;
+                    end
+                    
+                    cst{i,6}{j}=objective;
                 end
             end
-            
-            cst{i,6}{j}=objective;
 
         end
     end
