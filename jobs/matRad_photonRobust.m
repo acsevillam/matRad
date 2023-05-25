@@ -43,8 +43,9 @@ validDescriptions = {'prostate','breast'};
 validPatientIDs = {'3482','3648','3782','3790','3840','3477','3749','3832','3833','3929','1758'};
 validAcquisitionTypes = {'mat','dicom'};
 validPlanObjectives = {'1','2','3','4','5','6'};
-validDosePullingTargets = {'CTV','PTV'};
-validDosePullingCriterion = {'COV_95','COV_98','COV_99','COV1'};
+validDosePulling1Targets = {'CTV','PTV'};
+validDosePulling1Criteria = {'COV_95','COV_98','COV_99','COV1'};
+validDosePulling2Criteria = {'minQiTarget','meanQiTarget'};
 validPlanTargets = {'CTV','PTV'};
 validPlanBeams = {'5F','7F','9F'};
 validRobustness = {'none','STOCH','COWC','COWC2','c-COWC','c-COWC2','INTERVAL1','INTERVAL2','INTERVAL3'};
@@ -53,11 +54,15 @@ validScenModes = {'nomScen','wcScen','impScen5','impScen7','impScen_permuted5','
 defaultPatientID = '3482';
 defaultAcquisitionType = 'dicom';
 defaultPlanObjective = '4';
-defaultDosePulling = false;
-defaultDosePullingTarget = 'CTV';
-defaultDosePullingCriterion = 'COV1';
-defaultDosePullingLimit = 0.98;
-defaultDosePullingStart = 0;
+defaultDosePulling1 = false;
+defaultDosePulling1Target = 'CTV';
+defaultDosePulling1Criteria = 'COV1';
+defaultDosePulling1Limit = 0.98;
+defaultDosePulling1Start = 0;
+defaultDosePulling2 = false;
+defaultDosePulling2Criteria = 'meanQiTarget';
+defaultDosePulling2Limit = 0.90;
+defaultDosePulling2Start = 0;
 defaultPlanTarget = 'CTV';
 defaultPlanBeams = '9F';
 defaultShiftSD = [5 10 5]; % mm
@@ -83,11 +88,16 @@ addRequired(parser,'description',@(x) any(validatestring(x,validDescriptions)));
 addParameter(parser,'caseID',defaultPatientID,@(x) any(validatestring(x,validPatientIDs)));
 addParameter(parser,'AcquisitionType',defaultAcquisitionType,@(x) any(validatestring(x,validAcquisitionTypes)));
 addParameter(parser,'plan_objectives',defaultPlanObjective,@(x) any(validatestring(x,validPlanObjectives)));
-addParameter(parser,'dose_pulling',defaultDosePulling,@islogical);
-addParameter(parser,'dose_pulling_target',defaultDosePullingTarget,@(x) numel(x) >= 1 && all(ismember(x,validDosePullingTargets)));
-addParameter(parser,'dose_pulling_criterion',defaultDosePullingCriterion,@(x) numel(x) >= 1 && all(ismember(x,validDosePullingCriterion)));
-addOptional(parser,'dose_pulling_limit',defaultDosePullingLimit,@(x) numel(x) >= 1 && isnumeric(x) && all(x > 0));
-addOptional(parser,'dose_pulling_start',defaultDosePullingStart,@(x) validateattributes(x,{'numeric'},...
+addParameter(parser,'dose_pulling1',defaultDosePulling1,@islogical);
+addParameter(parser,'dose_pulling1_target',defaultDosePulling1Target,@(x) numel(x) >= 1 && all(ismember(x,validDosePulling1Targets)));
+addParameter(parser,'dose_pulling1_criteria',defaultDosePulling1Criteria,@(x) numel(x) >= 1 && all(ismember(x,validDosePulling1Criteria)));
+addOptional(parser,'dose_pulling1_limit',defaultDosePulling1Limit,@(x) numel(x) >= 1 && isnumeric(x) && all(x > 0));
+addOptional(parser,'dose_pulling1_start',defaultDosePulling1Start,@(x) validateattributes(x,{'numeric'},...
+            {'nonempty','integer','positive'}));
+addParameter(parser,'dose_pulling2',defaultDosePulling2,@islogical);
+addParameter(parser,'dose_pulling2_criteria',defaultDosePulling2Criteria,@(x) numel(x) >= 1 && all(ismember(x,validDosePulling2Criteria)));
+addOptional(parser,'dose_pulling2_limit',defaultDosePulling2Limit,@(x) numel(x) >= 1 && isnumeric(x) && all(x > 0));
+addOptional(parser,'dose_pulling2_start',defaultDosePulling2Start,@(x) validateattributes(x,{'numeric'},...
             {'nonempty','integer','positive'}));
 addParameter(parser,'plan_target',defaultPlanTarget,@(x) any(validatestring(x,validPlanTargets)));
 addParameter(parser,'plan_beams',defaultPlanBeams,@(x) any(validatestring(x,validPlanBeams)));
@@ -120,11 +130,15 @@ run_config.description = parser.Results.description;
 run_config.caseID = parser.Results.caseID;
 run_config.AcquisitionType = parser.Results.AcquisitionType;
 run_config.plan_objectives = parser.Results.plan_objectives;
-run_config.dose_pulling = parser.Results.dose_pulling;
-run_config.dose_pulling_target = parser.Results.dose_pulling_target;
-run_config.dose_pulling_criterion = parser.Results.dose_pulling_criterion;
-run_config.dose_pulling_limit = parser.Results.dose_pulling_limit;
-run_config.dose_pulling_start = parser.Results.dose_pulling_start;
+run_config.dose_pulling1 = parser.Results.dose_pulling1;
+run_config.dose_pulling1_target = parser.Results.dose_pulling1_target;
+run_config.dose_pulling1_criteria = parser.Results.dose_pulling1_criteria;
+run_config.dose_pulling1_limit = parser.Results.dose_pulling1_limit;
+run_config.dose_pulling1_start = parser.Results.dose_pulling1_start;
+run_config.dose_pulling2 = parser.Results.dose_pulling2;
+run_config.dose_pulling2_criteria = parser.Results.dose_pulling2_criteria;
+run_config.dose_pulling2_limit = parser.Results.dose_pulling2_limit;
+run_config.dose_pulling2_start = parser.Results.dose_pulling2_start;
 run_config.plan_target = parser.Results.plan_target;
 run_config.plan_beams = parser.Results.plan_beams;
 run_config.shiftSD = parser.Results.shiftSD;
@@ -176,8 +190,8 @@ end
 
 run_config.resolution = [3 3 3];
 run_config.doseResolution = [3 3 3];
-run_config.GammaCriterion = [3 3];
-run_config.robustnessCriterion = [5 5];
+run_config.GammaCriteria = [3 3];
+run_config.robustnessCriteria = [5 5];
 run_config.sampling_size = 50;
 
 %Set up parent export folder and full file path
@@ -216,7 +230,7 @@ disp(run_config);
 % define optimization parameter for both VOIs
 run_config_tmp=run_config;
 run_config_tmp.plan_objectives='4';
-[cst,ixTarget,p,ixBody,ixCTV,~] = matRad_loadObjectives(run_config_tmp,run_config_tmp.dose_pulling_target{end},cst);
+[cst,ixTarget,p,ixBody,ixCTV,~] = matRad_loadObjectives(run_config_tmp,run_config_tmp.dose_pulling1_target{end},run_config_tmp.dose_pulling1_start,cst);
 
 %% Check target visibility 
 cst{ixTarget,5}.Visible=true;
@@ -255,16 +269,12 @@ clear metadata;
 cst{ixRing1,5}.Priority = 4; % overlap priority for optimization - a lower number corresponds to a higher priority
 cst{ixRing1,6}{1} = struct(DoseObjectives.matRad_MaxDVH(100,p*1.07,0));
 cst{ixRing1,6}{1}.robustness  = 'none';
-cst{ixRing1,6}{1}.penaltyPullingRate  = 0.0;
-cst{ixRing1,6}{1}.objectivePullingRate{1}  = 0.0;
-cst{ixRing1,6}{1}.objectivePullingRate{2}  = 0.0;
+cst{ixRing1,6}{1}.dosePulling  = false;
 
 cst{ixRing2,5}.Priority = 4; % overlap priority for optimization - a lower number corresponds to a higher priority
 cst{ixRing2,6}{1} = struct(DoseObjectives.matRad_MaxDVH(100,p*1.00,0));
 cst{ixRing2,6}{1}.robustness  = 'none';
-cst{ixRing2,6}{1}.penaltyPullingRate  = 0.0;
-cst{ixRing2,6}{1}.objectivePullingRate{1}  = 0.0;
-cst{ixRing2,6}{1}.objectivePullingRate{2}  = 0.0;
+cst{ixRing2,6}{1}.dosePulling  = false;
 
 %% Plot CT slice
 if param.logLevel == 1
@@ -318,7 +328,7 @@ if (ct.numOfCtScen>1)
     title(['Ct scenario No. ' int2str(cubeIdx1)]);%camroll(90);
     subplot(2,2,2);
     matRad_plotSliceWrapper(gca,ct,cst,cubeIdx2,[],plane,slice);
-    title([['Ct scenario No. ' int2str(cubeIdx2)]]);%camroll(90);
+    title(['Ct scenario No. ' int2str(cubeIdx2)]);%camroll(90);
     subplot(2,2,3);
     matRad_compareCtSlice(gca,tmp_cube1,tmp_cube2,plane,slice);
     title('comparison without correction');%camroll(90);
@@ -455,20 +465,20 @@ savefig([folderPath filesep 'dvh_nominal.fig']);
 
 %% Dose pulling Step 1
 
-ixTargetQi=zeros(size(run_config.dose_pulling_target));
-for iX=1:size(run_config.dose_pulling_target,2)
+ixTargetQi=zeros(size(run_config.dose_pulling1_target));
+for iX=1:size(run_config.dose_pulling1_target,2)
     for j=1:size(qi,2)
-        if strcmp(qi(j).name,run_config.dose_pulling_target(iX))
+        if strcmp(qi(j).name,run_config.dose_pulling1_target(iX))
             ixTargetQi(iX)=j;
         end
     end
 end
 
-numIteration=run_config.dose_pulling_start+1;
+numIteration=run_config.dose_pulling1_start+1;
 
-while(run_config.dose_pulling && numIteration<=100 && any(arrayfun(@(ixTarget,criterion,limit) qi(ixTarget).([criterion])<limit,ixTargetQi,run_config.dose_pulling_criterion,run_config.dose_pulling_limit)))
+while(run_config.dose_pulling1 && numIteration<=100 && any(arrayfun(@(ixTarget,criteria,limit) qi(ixTarget).(criteria)<limit,ixTargetQi,run_config.dose_pulling1_criteria,run_config.dose_pulling1_limit)))
 
-    [cst,optimization_flag] = matRad_pullDose(cst);
+    [cst,optimization_flag] = matRad_pullDose(cst,1);
 
     if(optimization_flag)
         % optimize using the new objectives and penalties
@@ -497,10 +507,10 @@ while(run_config.dose_pulling && numIteration<=100 && any(arrayfun(@(ixTarget,cr
         b.Callback = @(es,ed)  matRad_plotSliceWrapper(gca,ct,cst,1,resultGUI.(quantityMap)*pln.numOfFractions,plane,round(es.Value),[],[],colorcube,[],doseWindow,doseIsoLevels,[],'Dose [Gy]',[],'LineWidth',1.2);
         savefig(f,[folderPath filesep 'dose_' quantityMap '.fig']);
 
-        disp(['!!--####################### ITERATION No. ' num2str(numIteration) ' #######################--!!']);
+        disp(['!!--####################### ITERATION No. ' num2str(numIteration) ' (STEP 1) #######################--!!']);
 
-        for iX=1:size(run_config.dose_pulling_target,2)
-            sprintf('%s (%s) = %5.3f %% ', run_config.dose_pulling_criterion(iX),qi(ixTargetQi(iX)).name,qi(ixTargetQi(iX)).(run_config.dose_pulling_criterion(iX)) )
+        for iX=1:size(run_config.dose_pulling1_target,2)
+            sprintf('%s (%s) = %5.3f %% ', run_config.dose_pulling1_criteria(iX),qi(ixTargetQi(iX)).name,qi(ixTargetQi(iX)).(run_config.dose_pulling1_criteria(iX)) )
         end
 
         % Print target objectives
@@ -553,7 +563,7 @@ savefig([folderPath filesep 'fluence_nominal.fig']);
 cst_robust=cst;
 
 %% Load objectives
-[cst_robust,ixTarget,p,ixBody,ixCTV,OARStructSel] = matRad_loadObjectives(run_config,run_config.plan_target,cst_robust);
+[cst_robust,ixTarget,p,ixBody,ixCTV,OARStructSel] = matRad_loadObjectives(run_config,run_config.plan_target,run_config_tmp.dose_pulling2_start,cst_robust);
 
 %% Copy OAR objectives from nominal dose pulling and relax them by 20%
 
@@ -572,17 +582,13 @@ cst_robust = matRad_scaleDoseObjectives(cst_robust,OARStructSel,scale_factor);
 cst_robust{ixRing1,5}.Priority = 4; % overlap priority for optimization - a lower number corresponds to a higher priority
 cst_robust{ixRing1,6}{1} = struct(DoseObjectives.matRad_MaxDVH(100,p*1.07,0));
 cst_robust{ixRing1,6}{1}.robustness  = 'none';
-cst_robust{ixRing1,6}{1}.penaltyPullingRate  = 0.0;
-cst_robust{ixRing1,6}{1}.objectivePullingRate{1}  = 0.0;
-cst_robust{ixRing1,6}{1}.objectivePullingRate{2}  = 0.0;
+cst_robust{ixRing1,6}{1}.dosePulling  = false;
 OARStructSel{length(OARStructSel)+1}='RING 0 - 10 mm';
 
 cst_robust{ixRing2,5}.Priority = 4; % overlap priority for optimization - a lower number corresponds to a higher priority
 cst_robust{ixRing2,6}{1} = struct(DoseObjectives.matRad_MaxDVH(100,p*1.00,0));
 cst_robust{ixRing2,6}{1}.robustness  = 'none';
-cst_robust{ixRing2,6}{1}.penaltyPullingRate  = 0.0;
-cst_robust{ixRing2,6}{1}.objectivePullingRate{1}  = 0.0;
-cst_robust{ixRing2,6}{1}.objectivePullingRate{2}  = 0.0;
+cst_robust{ixRing2,6}{1}.dosePulling  = false;
 OARStructSel{length(OARStructSel)+1}='RING 10 - 50 mm';
 
 %% Copy reference plan
@@ -773,12 +779,84 @@ end
 % the clinical objectives and constraints underlying the radiation
 % treatment. Once the optimization has finished, trigger once the GUI to
 % visualize the optimized dose cubes.
+resultGUI_robust = matRad_fluenceOptimization(dij_robust,cst_robust,pln_robust);
+
+%% Indicator calculation and show DVH and QI
+
+for scenIt = 1:pln_robust.multScen.totNumScen
+    qi_robust{scenIt} = matRad_calcQualityIndicators(cst_robust,pln_robust,resultGUI_robust.([pln_robust.bioParam.quantityVis '_' num2str(scenIt)])*pln_robust.numOfFractions,[],[]);
+end
+
+for iX=1:size(run_config.dose_pulling1_target,2)
+    for scenIt = 1:pln_robust.multScen.totNumScen
+        qiTarget{scenIt,iX}=qi_robust{scenIt}(ixTarget(iX)).([run_config.dose_pulling1_criteria(iX)]);
+    end
+    minQiTarget{iX} = min(cell2mat(qiTarget(:,iX)),[],1);
+    meanQiTarget{iX} = sum(cell2mat(qiTarget(:,iX)).*multScen.scenProb);
+    results.dosePulling.meanQiTarget{1,iX}=meanQiTarget{iX};
+    results.dosePulling.minQiTarget{1,iX}=minQiTarget{iX};
+end
+
+%% print results
+for iX=1:size(run_config.dose_pulling1_target,2)
+    fprintf('meanQiTarget = %5.3f %% \n', meanQiTarget{end,iX}*100);
+    fprintf('minQiTarget = %5.3f %% \n', minQiTarget{end,iX}*100);
+end
+
+%% Dose pulling Step 2
 profile_master = parallel.importProfile('profile1.mlsettings');
 pool=parpool(profile_master,run_config.n_cores);
 
 profile on;
 now3 = tic();
-resultGUI_robust = matRad_fluenceOptimization(dij_robust,cst_robust,pln_robust);
+
+numIteration=run_config.dose_pulling2_start+1;
+
+criteria_array = eval(run_config.dose_pulling2_criteria);
+while(run_config.dose_pulling2 && numIteration<=100 && any(arrayfun(@(criteria,limit) criteria<limit,cell2mat(criteria_array),run_config.dose_pulling2_limit)))
+
+    [cst_robust,optimization_flag] = matRad_pullDose(cst_robust,2);
+
+    if(optimization_flag)
+        resultGUI_robust = matRad_fluenceOptimization(dij_robust,cst_robust,pln_robust);
+    
+        for scenIt = 1:pln_robust.multScen.totNumScen
+            qi_robust{scenIt} = matRad_calcQualityIndicators(cst_robust,pln_robust,resultGUI_robust.([pln_robust.bioParam.quantityVis '_' num2str(scenIt)])*pln_robust.numOfFractions,[],[]);
+        end
+        
+        for iX=1:size(run_config.dose_pulling1_target,2)
+            for scenIt = 1:pln_robust.multScen.totNumScen
+                qiTarget{scenIt,iX}=qi_robust{scenIt}(ixTarget(iX)).([run_config.dose_pulling1_criteria(iX)]);
+            end
+            meanQiTarget{iX}=sum(cell2mat( qiTarget(:,iX) ).*multScen.scenProb);
+            minQiTarget{iX} = min(cell2mat( qiTarget(:,iX) ),[],1);
+            results.dosePulling.meanQiTarget{end+1,iX}=meanQiTarget{iX};
+            results.dosePulling.minQiTarget{end+1,iX}=minQiTarget{iX};
+        end
+        
+        disp(['!!--####################### ITERATION No. ' num2str(numIteration) ' (STEP 2) #######################--!!']);
+
+        for iX=1:size(run_config.dose_pulling1_target,2)
+            fprintf('meanQiTarget = %5.3f %% \n', meanQiTarget{end,iX}*100);
+            fprintf('minQiTarget = %5.3f %% \n', minQiTarget{end,iX}*100);
+        end
+
+        % Print target objectives
+        for  structure = 1:size(cst_robust,1)
+            display(cst_robust{structure,2});
+            for iX=1:length(cst_robust{structure,6})
+                display(cst_robust{structure,6}{iX});
+            end
+        end
+
+        numIteration=numIteration+1;
+
+    else
+        break;
+    end
+
+end
+
 % add resultGUI_robust dose cubes to the existing resultGUI structure to allow the visualization in the GUI
 resultGUI = matRad_appendResultGUI(resultGUI,resultGUI_robust,0,'robust');
 OPTTime_robust = toc(now3);
@@ -844,29 +922,6 @@ savefig([folderPath filesep 'fluence_robust.fig']);
 %matRad_geo3DWrapper(gca,ct,cst_robust,resultGUI_robust.physicalDose.*OAR_mask*pln_robust.numOfFractions,run_config.doseWindow,[0.002 0.00005],colorcube,[],'Dose [Gy]');
 %savefig([folderPath filesep 'OAR_dose3d_robust.fig']);
 
-%% Indicator calculation and show DVH and QI
-
-for scenIt = 1:pln_robust.multScen.totNumScen
-    qi_robust{scenIt} = matRad_calcQualityIndicators(cst_robust,pln_robust,resultGUI_robust.([pln_robust.bioParam.quantityVis '_' num2str(scenIt)])*pln_robust.numOfFractions,[],[]);
-end
-
-for iX=1:size(run_config.dose_pulling_target,2)
-    for scenIt = 1:pln_robust.multScen.totNumScen
-        qiTarget{scenIt,iX}=qi_robust{scenIt}(ixTarget(iX)).([run_config.dose_pulling_criterion(iX)]);
-    end
-end
-
-minQiTarget = min(cell2mat( qiTarget ),[],1);
-
-results.dosePulling.qiTarget=minQiTarget;
-results.dosePulling.minQiTarget=minQiTarget;
-
-%% print results
-disp('minQiTarget:');
-disp(results.dosePulling.minQiTarget);
-
-%% Dose pulling Step 2
-
 %% check sampling option is activated
 if ~run_config.sampling
     return;
@@ -888,13 +943,15 @@ structSel = {};
 
 %% Perform sampling analysis
 phaseProb = ones(1,ct.numOfCtScen)/ct.numOfCtScen;
-robustnessCriterion = run_config.robustnessCriterion;
-GammaCriterion = run_config.GammaCriterion; 
+robustnessCriteria = run_config.robustnessCriteria;
+GammaCriteria = run_config.GammaCriteria; 
 slice = round(isocenter(3)./ct.resolution.z);
-[cstStatRob, resultGUISampRob, metaRob] = matRad_samplingAnalysis(ct,cst_robust,plnSampRob,caSampRob, mSampDoseRob, resultGUIRobNomScen,phaseProb,'robustnessCriterion',robustnessCriterion,'GammaCriterion',GammaCriterion,'slice',slice);
+[cstStatRob, resultGUISampRob, metaRob, gammaFig, robustnessFig1, robustnessFig2] = matRad_samplingAnalysis(ct,cst_robust,plnSampRob,caSampRob, mSampDoseRob, resultGUIRobNomScen,phaseProb,'robustnessCriteria',robustnessCriteria,'GammaCriteria',GammaCriteria,'slice',slice);
 results.robustnessAnalysis_robust=resultGUISampRob.robustnessAnalysis;
 
-savefig([folderPath filesep 'sampling_analysis_robust.fig']);
+savefig(gammaFig, [folderPath filesep 'gamma_analysis_robust.fig']);
+savefig(robustnessFig1, [folderPath filesep 'robustness_analysis1_robust.fig']);
+savefig(robustnessFig2, [folderPath filesep 'robustness_analysis2_robust.fig']);
 
 %%
 if (ct.numOfCtScen>1)

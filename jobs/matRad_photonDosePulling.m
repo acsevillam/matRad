@@ -44,7 +44,7 @@ validPatientIDs = {'3482','3648','3782','3790','3840','3477','3749','3832','3833
 validAcquisitionTypes = {'mat','dicom'};
 validPlanObjectives = {'1','2','3','4','5','6'};
 validDosePullingTargets = {'CTV','PTV'};
-validDosePullingCriterion = {'COV_95','COV_98','COV_99','COV1'};
+validDosePullingCriteria = {'COV_95','COV_98','COV_99','COV1'};
 validPlanTargets = {'CTV','PTV'};
 validPlanBeams = {'5F','7F','9F'};
 validRobustness = {'none'};
@@ -55,7 +55,7 @@ defaultAcquisitionType = 'dicom';
 defaultPlanObjective = '4';
 defaultDosePulling = false;
 defaultDosePullingTarget = 'CTV';
-defaultDosePullingCriterion = 'COV1';
+defaultDosePullingCriteria = 'COV1';
 defaultDosePullingLimit = 0.98;
 defaultDosePullingStart = 0;
 defaultPlanTarget = 'CTV';
@@ -78,7 +78,7 @@ addParameter(parser,'AcquisitionType',defaultAcquisitionType,@(x) any(validatest
 addParameter(parser,'plan_objectives',defaultPlanObjective,@(x) any(validatestring(x,validPlanObjectives)));
 addParameter(parser,'dose_pulling',defaultDosePulling,@islogical);
 addOptional(parser,'dose_pulling_target',defaultDosePullingTarget,@(x) numel(x) >= 1 && all(ismember(x,validDosePullingTargets)));
-addOptional(parser,'dose_pulling_criterion',defaultDosePullingCriterion,@(x) numel(x) >= 1 && all(ismember(x,validDosePullingCriterion)));
+addOptional(parser,'dose_pulling_criteria',defaultDosePullingCriteria,@(x) numel(x) >= 1 && all(ismember(x,validDosePullingCriteria)));
 addOptional(parser,'dose_pulling_limit',defaultDosePullingLimit,@(x) numel(x) >= 1 && isnumeric(x) && all(x > 0));
 addOptional(parser,'dose_pulling_start',defaultDosePullingStart,@(x) validateattributes(x,{'numeric'},...
             {'nonempty','integer','positive'}));
@@ -103,7 +103,7 @@ run_config.AcquisitionType = parser.Results.AcquisitionType;
 run_config.plan_objectives = parser.Results.plan_objectives;
 run_config.dose_pulling = parser.Results.dose_pulling;
 run_config.dose_pulling_target = parser.Results.dose_pulling_target;
-run_config.dose_pulling_criterion = parser.Results.dose_pulling_criterion;
+run_config.dose_pulling_criteria = parser.Results.dose_pulling_criteria;
 run_config.dose_pulling_limit = parser.Results.dose_pulling_limit;
 run_config.dose_pulling_start = parser.Results.dose_pulling_start;
 run_config.plan_target = parser.Results.plan_target;
@@ -120,8 +120,8 @@ output_folder = ['output' filesep run_config.radiationMode filesep run_config.de
 
 run_config.resolution = [3 3 3];
 run_config.doseResolution = [3 3 3];
-run_config.GammaCriterion = [3 3];
-run_config.robustnessCriterion = [5 5];
+run_config.GammaCriteria = [3 3];
+run_config.robustnessCriteria = [5 5];
 run_config.sampling_size = 50;
 
 %Set up parent export folder and full file path
@@ -149,7 +149,7 @@ disp(run_config);
 %% Create the VOI data for the phantom
 % Now we define structures a contour for the phantom and a target
 % define optimization parameter for both VOIs
-[cst,ixTarget,p,ixBody,~,~] = matRad_loadObjectives(run_config,run_config.plan_target,cst);
+[cst,ixTarget,p,ixBody,~,~] = matRad_loadObjectives(run_config,run_config.plan_target,run_config.dose_pulling_start,cst);
 
 %% Check target visibility 
 cst{ixTarget,5}.Visible=true;
@@ -188,16 +188,12 @@ clear metadata;
 cst{ixRing1,5}.Priority = 4; % overlap priority for optimization - a lower number corresponds to a higher priority
 cst{ixRing1,6}{1} = struct(DoseObjectives.matRad_MaxDVH(100,p*1.07,0));
 cst{ixRing1,6}{1}.robustness  = 'none';
-cst{ixRing1,6}{1}.penaltyPullingRate  = 0.0;
-cst{ixRing1,6}{1}.objectivePullingRate{1}  = 0.0;
-cst{ixRing1,6}{1}.objectivePullingRate{2}  = 0.0;
+cst{ixRing1,6}{1}.dosePulling  = false;
 
 cst{ixRing2,5}.Priority = 4; % overlap priority for optimization - a lower number corresponds to a higher priority
 cst{ixRing2,6}{1} = struct(DoseObjectives.matRad_MaxDVH(100,p*1.00,0));
 cst{ixRing2,6}{1}.robustness  = 'none';
-cst{ixRing2,6}{1}.penaltyPullingRate  = 0.0;
-cst{ixRing2,6}{1}.objectivePullingRate{1}  = 0.0;
-cst{ixRing2,6}{1}.objectivePullingRate{2}  = 0.0;
+cst{ixRing2,6}{1}.dosePulling  = false;
 
 %% Plot CT slice
 if param.logLevel == 1
@@ -362,9 +358,9 @@ end
 
 numIteration=run_config.dose_pulling_start+1;
 
-while(run_config.dose_pulling && numIteration<=100 && any(arrayfun(@(ixTarget,criterion,limit) qi(ixTarget).([criterion])<limit,ixTargetQi,run_config.dose_pulling_criterion,run_config.dose_pulling_limit)))
+while(run_config.dose_pulling && numIteration<=100 && any(arrayfun(@(ixTarget,criteria,limit) qi(ixTarget).([criteria])<limit,ixTargetQi,run_config.dose_pulling_criteria,run_config.dose_pulling_limit)))
 
-    [cst,optimization_flag] = matRad_pullDose(cst);
+    [cst,optimization_flag] = matRad_pullDose(cst,1);
 
     if(optimization_flag)
         % optimize using the new objectives and penalties
@@ -396,7 +392,7 @@ while(run_config.dose_pulling && numIteration<=100 && any(arrayfun(@(ixTarget,cr
         disp(['!!--####################### ITERATION No. ' num2str(numIteration) ' #######################--!!']);
 
         for i=1:size(run_config.dose_pulling_target,2)
-            sprintf('%s (%s) = %5.3f %% ', run_config.dose_pulling_criterion(i),qi(ixTargetQi(i)).name,qi(ixTargetQi(i)).(run_config.dose_pulling_criterion(i)) )
+            sprintf('%s (%s) = %5.3f %% ', run_config.dose_pulling_criteria(i),qi(ixTargetQi(i)).name,qi(ixTargetQi(i)).(run_config.dose_pulling_criteria(i)) )
         end
 
         % Print target objectives
@@ -440,13 +436,15 @@ delete(gcp('nocreate'));
 
 %% Perform sampling analysis
 phaseProb = ones(1,ct.numOfCtScen)/ct.numOfCtScen;
-robustnessCriterion = run_config.robustnessCriterion;
-GammaCriterion = run_config.GammaCriterion;
+robustnessCriteria = run_config.robustnessCriteria;
+GammaCriteria = run_config.GammaCriteria;
 slice = round(isocenter(3)./ct.resolution.z);
-[cstStat, resultGUISamp, meta] = matRad_samplingAnalysis(ct,cst,plnSamp,caSamp, mSampDose, resultGUInomScen,phaseProb,'robustnessCriterion',robustnessCriterion,'GammaCriterion',GammaCriterion,'slice',slice);
+[cstStat, resultGUISamp, meta, gammaFig, robustnessFig1, robustnessFig2] = matRad_samplingAnalysis(ct,cst,plnSamp,caSamp, mSampDose, resultGUInomScen,phaseProb,'robustnessCriteria',robustnessCriteria,'GammaCriteria',GammaCriteria,'slice',slice);
 results.robustnessAnalysis_nominal=resultGUISamp.robustnessAnalysis;
 
-savefig([folderPath filesep 'sampling_analysis_nominal.fig']);
+savefig(gammaFig, [folderPath filesep 'gamma_analysis_nominal.fig']);
+savefig(robustnessFig1, [folderPath filesep 'robustness_analysis1_nominal.fig']);
+savefig(robustnessFig2, [folderPath filesep 'robustness_analysis2_nominal.fig']);
 
 %% Create an mean dose interactive plot to slide through axial slices
 quantityMap='meanCubeW';
