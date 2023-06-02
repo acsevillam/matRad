@@ -61,7 +61,7 @@ defaultDosePulling1Limit = 0.98;
 defaultDosePulling1Start = 0;
 defaultDosePulling2 = false;
 defaultDosePulling2Criteria = 'meanQiTarget';
-defaultDosePulling2Limit = 0.90;
+defaultDosePulling2Limit = 0.80;
 defaultDosePulling2Start = 0;
 defaultPlanTarget = 'CTV';
 defaultPlanBeams = '9F';
@@ -230,7 +230,8 @@ disp(run_config);
 % define optimization parameter for both VOIs
 run_config_tmp=run_config;
 run_config_tmp.plan_objectives='4';
-[cst,ixTarget,p,ixBody,ixCTV,~] = matRad_loadObjectives(run_config_tmp,run_config_tmp.dose_pulling1_target{end},run_config_tmp.dose_pulling1_start,cst);
+dp_start=[run_config_tmp.dose_pulling1_start 1];
+[cst,ixTarget,p,ixBody,ixCTV,~] = matRad_loadObjectives(run_config_tmp,run_config_tmp.dose_pulling1_target{end},dp_start,cst);
 
 %% Check target visibility 
 cst{ixTarget,5}.Visible=true;
@@ -563,7 +564,8 @@ savefig([folderPath filesep 'fluence_nominal.fig']);
 cst_robust=cst;
 
 %% Load objectives
-[cst_robust,ixTarget,p,ixBody,ixCTV,OARStructSel] = matRad_loadObjectives(run_config,run_config.plan_target,run_config_tmp.dose_pulling2_start,cst_robust);
+dp_start=[run_config_tmp.dose_pulling1_start run_config_tmp.dose_pulling2_start];
+[cst_robust,ixTarget,p,ixBody,ixCTV,OARStructSel] = matRad_loadObjectives(run_config,run_config.plan_target,dp_start,cst_robust);
 
 %% Copy OAR objectives from nominal dose pulling and relax them by 20%
 
@@ -813,6 +815,7 @@ now3 = tic();
 numIteration=run_config.dose_pulling2_start+1;
 
 criteria_array = eval(run_config.dose_pulling2_criteria);
+
 while(run_config.dose_pulling2 && numIteration<=100 && any(arrayfun(@(criteria,limit) criteria<limit,cell2mat(criteria_array),run_config.dose_pulling2_limit)))
 
     [cst_robust,optimization_flag] = matRad_pullDose(cst_robust,2);
@@ -850,6 +853,7 @@ while(run_config.dose_pulling2 && numIteration<=100 && any(arrayfun(@(criteria,l
         end
 
         numIteration=numIteration+1;
+        criteria_array = eval(run_config.dose_pulling2_criteria);
 
     else
         break;
