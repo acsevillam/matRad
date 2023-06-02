@@ -1,7 +1,7 @@
 function [cst,ixTarget,p,ixBody,ixCTV,OARStructSel] = matRad_loadObjectives(run_config,target,dp_start, cst)
 
 description=run_config.description;
-plan_objectives = run_config.plan_objectives;
+plan_objectives = run_config.plan_objectives; 
 dp_target_factor=1.0;
 switch plan_objectives
     case '1'
@@ -53,7 +53,8 @@ switch description
         if exist('ixCTV','var') && ixCTV~=0
             cst{ixCTV,3}  = 'TARGET';
             cst{ixCTV,5}.Priority = 1; % overlap priority for optimization - a lower number corresponds to a higher priority
-            cst{ixCTV,6}{1} = struct(DoseObjectives.matRad_MinDVH(dp_target_factor*30,p,100));
+            tmpPullingRate{1}  = 10;
+            cst{ixCTV,6}{1} = struct(DoseObjectives.matRad_MinDVH(dp_target_factor*30+dp_start(2)*tmpPullingRate{1},p,100));
             cst{ixCTV,6}{1}.robustness = 'none';
             cst{ixCTV,6}{1}.dosePulling = true;
             cst{ixCTV,6}{1}.pullingStep = 2;
@@ -88,7 +89,8 @@ switch description
                 ixTarget = ixPTV;
                 cst{ixTarget,3}  = 'TARGET';
                 cst{ixTarget,5}.Priority = 2; % overlap priority for optimization - a lower number corresponds to a higher priority
-                cst{ixTarget,6}{1} = struct(DoseObjectives.matRad_MinDVH(dp_target_factor*30,p,100));
+                tmpPullingRate{1}  = 10;
+                cst{ixTarget,6}{1} = struct(DoseObjectives.matRad_MinDVH(dp_target_factor*30+dp_start(2)*tmpPullingRate{1},p,100));
                 cst{ixTarget,6}{1}.robustness = 'none';
                 cst{ixTarget,6}{1}.dosePulling = true;
                 cst{ixTarget,6}{1}.pullingStep = 2;
@@ -124,7 +126,7 @@ switch description
                 if exist('ixBladder','var') && ixBladder~=0
                     cst{ixBladder,5}.Priority = 3; % overlap priority for optimization - a lower number corresponds to a higher priority
                     tmpPullingRate{2}  = +0.375;
-                    cst{ixBladder,6}{1} = struct(DoseObjectives.matRad_MaxDVH(2,60,0+dp_start*tmpPullingRate{2}));
+                    cst{ixBladder,6}{1} = struct(DoseObjectives.matRad_MaxDVH(2,60,0+dp_start(1)*tmpPullingRate{2}));
                     clear tmpPullingRate;
                     cst{ixBladder,6}{1}.robustness = 'none';
                     cst{ixBladder,6}{1}.dosePulling = true;
@@ -142,7 +144,7 @@ switch description
                 if exist('ixRectum','var') && ixRectum~=0
                     cst{ixRectum,5}.Priority = 3; % overlap priority for optimization - a lower number corresponds to a higher priority
                     tmpPullingRate{2}  = +0.5;
-                    cst{ixRectum,6}{1} = struct(DoseObjectives.matRad_MaxDVH(2,40,dp_start*tmpPullingRate{2}));
+                    cst{ixRectum,6}{1} = struct(DoseObjectives.matRad_MaxDVH(2,40,dp_start(1)*tmpPullingRate{2}));
                     clear tmpPullingRate;
                     cst{ixRectum,6}{1}.robustness  = 'none';
                     cst{ixRectum,6}{1}.dosePulling  = true;
@@ -190,7 +192,8 @@ switch description
 
             cst{ixCTV,3}  = 'TARGET';
             cst{ixCTV,5}.Priority = 1; % overlap priority for optimization - a lower number corresponds to a higher priority
-            cst{ixCTV,6}{1} = struct(DoseObjectives.matRad_MinDVH(dp_target_factor*30,p,100));
+            tmpPullingRate{1}  = 10;
+            cst{ixCTV,6}{1} = struct(DoseObjectives.matRad_MinDVH(dp_target_factor*30+dp_start(2)*tmpPullingRate{1},p,100));
             cst{ixCTV,6}{1}.robustness  = 'none';
             cst{ixCTV,6}{1}.dosePulling  = true;
             cst{ixCTV,6}{1}.pullingStep  = 2;
@@ -226,7 +229,8 @@ switch description
                 ixTarget = ixPTV;
                 cst{ixTarget,3}  = 'TARGET';
                 cst{ixTarget,5}.Priority = 2; % overlap priority for optimization - a lower number corresponds to a higher priority
-                cst{ixTarget,6}{1} = struct(DoseObjectives.matRad_MinDVH(dp_target_factor*30,p,100));
+                tmpPullingRate{1}  = 10;
+                cst{ixTarget,6}{1} = struct(DoseObjectives.matRad_MinDVH(dp_target_factor*30+dp_start(2)*tmpPullingRate{1},p,100));
                 cst{ixTarget,6}{1}.robustness  = 'none';
                 cst{ixTarget,6}{1}.dosePulling  = true;
                 cst{ixTarget,6}{1}.pullingStep  = 2;
@@ -264,7 +268,7 @@ switch description
                 if exist('ixLeftLung','var') && ixLeftLung~=0
                     cst{ixLeftLung,5}.Priority = 3; % overlap priority for optimization - a lower number corresponds to a higher priority
                     tmpPullingRate{2}  = 0.5;
-                    cst{ixLeftLung,6}{1} = struct(DoseObjectives.matRad_MaxDVH(2,20,dp_start*tmpPullingRate{2}));
+                    cst{ixLeftLung,6}{1} = struct(DoseObjectives.matRad_MaxDVH(2,20,dp_start(1)*tmpPullingRate{2}));
                     clear tmpPullingRate;
                     cst{ixLeftLung,6}{1}.robustness  = 'none';
                     cst{ixLeftLung,6}{1}.dosePulling  = true;
@@ -284,7 +288,7 @@ switch description
                 if exist('ixHeart','var') && ixHeart~=0
                     cst{ixHeart,5}.Priority = 3; % overlap priority for optimization - a lower number corresponds to a higher priority
                     tmpPullingRate{1}  = 0.1;
-                    cst{ixHeart,6}{1} = struct(DoseObjectives.matRad_MeanDose(2,dp_start*tmpPullingRate{1},'Quadratic'));
+                    cst{ixHeart,6}{1} = struct(DoseObjectives.matRad_MeanDose(2,dp_start(1)*tmpPullingRate{1},'Quadratic'));
                     clear tmpPullingRate;
                     cst{ixHeart,6}{1}.robustness  = 'none';
                     cst{ixHeart,6}{1}.dosePulling  = true;
