@@ -236,31 +236,31 @@ dp_start=[run_config_tmp.dose_pulling1_start 1];
 %% Check target visibility 
 cst{ixTarget,5}.Visible=true;
 
-%% Add 0 - 10 mm ring 
+%% Add 0 - 20 mm ring 
 vInnerMargin.x=0;
 vInnerMargin.y=0;
 vInnerMargin.z=0;
 
-vOuterMargin.x=10;
-vOuterMargin.y=10;
-vOuterMargin.z=10;
+vOuterMargin.x=20;
+vOuterMargin.y=20;
+vOuterMargin.z=20;
 
-metadata.name='RING 0 - 10 mm';
+metadata.name='RING 0 - 20 mm';
 metadata.type='OAR';
 metadata.visibleColor=[0,1,0.501960784313726];
 [cst,ixRing1] = matRad_createRing(ixTarget,ixBody,cst,ct,vOuterMargin,vInnerMargin,metadata);
 clear metadata;
 
-% Add 10 - 50 mm ring 
-vInnerMargin.x=10;
-vInnerMargin.y=10;
-vInnerMargin.z=10;
+% Add 20 - 50 mm ring 
+vInnerMargin.x=20;
+vInnerMargin.y=20;
+vInnerMargin.z=20;
 
 vOuterMargin.x=50;
 vOuterMargin.y=50;
 vOuterMargin.z=50;
 
-metadata.name='RING 10 - 50 mm';
+metadata.name='RING 20 - 50 mm';
 metadata.type='OAR';
 metadata.visibleColor=[0,1,0.501960784313726];
 [cst,ixRing2] = matRad_createRing(ixTarget,ixBody,cst,ct,vOuterMargin,vInnerMargin,metadata);
@@ -268,7 +268,7 @@ clear metadata;
 
 %% Define ring objectives
 cst{ixRing1,5}.Priority = 4; % overlap priority for optimization - a lower number corresponds to a higher priority
-cst{ixRing1,6}{1} = struct(DoseObjectives.matRad_MaxDVH(100,p*1.07,0));
+cst{ixRing1,6}{1} = struct(DoseObjectives.matRad_MaxDVH(100,p*1.10,0));
 cst{ixRing1,6}{1}.robustness  = 'none';
 cst{ixRing1,6}{1}.dosePulling  = false;
 
@@ -582,16 +582,16 @@ cst_robust = matRad_scaleDoseObjectives(cst_robust,OARStructSel,scale_factor);
 
 %% Define ring objectives
 cst_robust{ixRing1,5}.Priority = 4; % overlap priority for optimization - a lower number corresponds to a higher priority
-cst_robust{ixRing1,6}{1} = struct(DoseObjectives.matRad_MaxDVH(100,p*1.07,0));
+cst_robust{ixRing1,6}{1} = struct(DoseObjectives.matRad_MaxDVH(100,p*1.10,0));
 cst_robust{ixRing1,6}{1}.robustness  = 'none';
 cst_robust{ixRing1,6}{1}.dosePulling  = false;
-OARStructSel{length(OARStructSel)+1}='RING 0 - 10 mm';
+OARStructSel{length(OARStructSel)+1}='RING 0 - 20 mm';
 
 cst_robust{ixRing2,5}.Priority = 4; % overlap priority for optimization - a lower number corresponds to a higher priority
 cst_robust{ixRing2,6}{1} = struct(DoseObjectives.matRad_MaxDVH(100,p*1.00,0));
 cst_robust{ixRing2,6}{1}.robustness  = 'none';
 cst_robust{ixRing2,6}{1}.dosePulling  = false;
-OARStructSel{length(OARStructSel)+1}='RING 10 - 50 mm';
+OARStructSel{length(OARStructSel)+1}='RING 20 - 50 mm';
 
 %% Copy reference plan
 pln_robust=pln;
