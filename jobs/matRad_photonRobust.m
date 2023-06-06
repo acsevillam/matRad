@@ -861,6 +861,10 @@ while(run_config.dose_pulling2 && numIteration<=100 && any(arrayfun(@(criteria,l
 
 end
 
+% Indicator calculation and show DVH and QI
+[dvh_robust,qi_robust] = matRad_indicatorWrapper(cst,pln,resultGUI_robust,[],pln_robust.numOfFractions,[],[],run_config.doseWindow_dvh);
+savefig([folderPath filesep 'dvh_robust.fig']);
+
 % add resultGUI_robust dose cubes to the existing resultGUI structure to allow the visualization in the GUI
 resultGUI = matRad_appendResultGUI(resultGUI,resultGUI_robust,0,'robust');
 OPTTime_robust = toc(now3);
