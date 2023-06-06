@@ -93,12 +93,12 @@ addParameter(parser,'dose_pulling1_target',defaultDosePulling1Target,@(x) numel(
 addParameter(parser,'dose_pulling1_criteria',defaultDosePulling1Criteria,@(x) numel(x) >= 1 && all(ismember(x,validDosePulling1Criteria)));
 addOptional(parser,'dose_pulling1_limit',defaultDosePulling1Limit,@(x) numel(x) >= 1 && isnumeric(x) && all(x > 0));
 addOptional(parser,'dose_pulling1_start',defaultDosePulling1Start,@(x) validateattributes(x,{'numeric'},...
-            {'nonempty','integer','positive'}));
+            {'nonempty','integer','nonnegative'}));
 addParameter(parser,'dose_pulling2',defaultDosePulling2,@islogical);
 addParameter(parser,'dose_pulling2_criteria',defaultDosePulling2Criteria,@(x) numel(x) >= 1 && all(ismember(x,validDosePulling2Criteria)));
 addOptional(parser,'dose_pulling2_limit',defaultDosePulling2Limit,@(x) numel(x) >= 1 && isnumeric(x) && all(x > 0));
 addOptional(parser,'dose_pulling2_start',defaultDosePulling2Start,@(x) validateattributes(x,{'numeric'},...
-            {'nonempty','integer','positive'}));
+            {'nonempty','integer','nonnegative'}));
 addParameter(parser,'plan_target',defaultPlanTarget,@(x) any(validatestring(x,validPlanTargets)));
 addParameter(parser,'plan_beams',defaultPlanBeams,@(x) any(validatestring(x,validPlanBeams)));
 addParameter(parser,'shiftSD',defaultShiftSD,@(x) numel(x) == 3 && isnumeric(x) && all(x > 0));
@@ -230,7 +230,7 @@ disp(run_config);
 % define optimization parameter for both VOIs
 run_config_tmp=run_config;
 run_config_tmp.plan_objectives='4';
-dp_start=[run_config_tmp.dose_pulling1_start 1];
+dp_start=[run_config_tmp.dose_pulling1_start 0];
 [cst,ixTarget,p,ixBody,ixCTV,~] = matRad_loadObjectives(run_config_tmp,run_config_tmp.dose_pulling1_target{end},dp_start,cst);
 
 %% Check target visibility 

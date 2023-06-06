@@ -81,7 +81,7 @@ addOptional(parser,'dose_pulling_target',defaultDosePullingTarget,@(x) numel(x) 
 addOptional(parser,'dose_pulling_criteria',defaultDosePullingCriteria,@(x) numel(x) >= 1 && all(ismember(x,validDosePullingCriteria)));
 addOptional(parser,'dose_pulling_limit',defaultDosePullingLimit,@(x) numel(x) >= 1 && isnumeric(x) && all(x > 0));
 addOptional(parser,'dose_pulling_start',defaultDosePullingStart,@(x) validateattributes(x,{'numeric'},...
-            {'nonempty','integer','positive'}));
+            {'nonempty','integer','nonnegative'}));
 addParameter(parser,'plan_target',defaultPlanTarget,@(x) any(validatestring(x,validPlanTargets)));
 addParameter(parser,'plan_beams',defaultPlanBeams,@(x) any(validatestring(x,validPlanBeams)));
 addParameter(parser,'shiftSD',defaultShiftSD,@(x) numel(x) == 3 && isnumeric(x) && all(x > 0));
@@ -149,7 +149,7 @@ disp(run_config);
 %% Create the VOI data for the phantom
 % Now we define structures a contour for the phantom and a target
 % define optimization parameter for both VOIs
-dp_start=[run_config.dose_pulling_start 1];
+dp_start=[run_config.dose_pulling_start 0];
 [cst,ixTarget,p,ixBody,~,~] = matRad_loadObjectives(run_config,run_config.plan_target,dp_start,cst);
 
 %% Check target visibility 
