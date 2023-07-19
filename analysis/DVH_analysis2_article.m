@@ -9,18 +9,19 @@ param.logLevel=1;
 defaultRootPath = '\\compute-0-0\workspace';
 job_folder='job1';
 radiationMode='photons';
-description='prostate';
-caseID='3648'; % 3482 3648 3782 3790 3840
+description='breast';
+caseID='3832'; % 3477 3749 3832 3833 3929
 robustness_approach = 'nominal';
 robustness='none'; % none COWC COWC2 c-COWC c-COWC2 INTERVAL2 INTERVAL3
-plan_target='CTV'; % CTV PTV
-plan_beams='9F';
+plan_target='PTV'; % CTV PTV
+plan_beams='7F';
 plan_objectives='4';
-shiftSD='5x10x5';
+shiftSD='4x8x6';
 scen_mode='nomScen'; % nomScen impScen5 impScen_permuted_truncated5 impScen7 impScen_permuted_truncated7
 wcFactor=1.0;
 beta1=1/13;
-beta2=13/13;
+p2=13;
+beta2=p2/13;
 theta1=1.0;
 theta2=0.1;
 
@@ -34,7 +35,7 @@ output_folder = ['output' filesep radiationMode filesep description filesep case
 %    filesep plan_target filesep plan_beams filesep plan_objectives filesep shiftSD filesep scen_mode filesep num2str(wcFactor) filesep num2str(beta1) '_to_' num2str(beta2) ];
 
 %foldername = [defaultRootPath filesep '../../JOBS/cminimax2/1/job4' filesep output_folder];
-foldername = [defaultRootPath filesep 'JOBS\cminimax2\artemisa\2023-06-11\1' filesep job_folder filesep output_folder];
+foldername = [defaultRootPath filesep 'JOBS\cminimax2\artemisa\2023-06-11\2' filesep job_folder filesep output_folder];
 listing = dir(foldername);
 filename1=[foldername filesep listing(end).name filesep 'dvh_trustband_' robustness_approach '.fig'];
 filename2=[foldername filesep listing(end).name filesep 'dvh_' robustness_approach '.fig'];
@@ -101,33 +102,37 @@ end
 %% Expected DVH
 fprintf('!!!------------- Nominal DVH -------------!!!\n');
 
-% Bladder
-h=findobj(fig1,'LineStyle','-','Type','line','DisplayName','BLADDER');
+% Left Lung
+h=findobj(fig1,'LineStyle','-','Type','line','DisplayName','LEFT LUNG');
 x=h(1).XData;
 y=h(1).YData;
 %fprintf('%.2f, %.2f\n', [x;y]);
 
 f1=@(z) interp1(x,y,z);
 
-x0=60; 
-fprintf('BLADDER: \t V%.2f = %.2f %% \n', [x0;f1(x0)]);
-dim = [0.4 0.4 .3 .3];
-str = sprintf('V%.0f (Bladder) = %.2f %%', [x0;f1(x0)]);
+x0=20; 
+fprintf('LEFT LUNG: \t V%.2f = %.2f %% \n', [x0;f1(x0)]);
+dim = [0.3 0.41 .3 .3];
+str = sprintf('V%.0f (Left Lung) = %.2f %%', [x0;f1(x0)]);
 annotation(fig2,'textbox',dim,'BackgroundColor','white','EdgeColor','black','FontSize',8,'String',str,'FitBoxToText','on');
 %datatip(h(1),x0,f1(x0));
 
-% Rectum
-h=findobj(fig1,'LineStyle','-','Type','line','DisplayName','RECTUM');
+% Heart
+h=findobj(fig1,'LineStyle','-','Type','line','DisplayName','HEART');
 x=h(1).XData;
 y=h(1).YData;
 %fprintf('%.2f, %.2f\n', [x;y]);
+step=x(2)-x(1);
+d = -diff(y)/step;
+x=x(1:end-1);
+%fprintf('%.2f, %.2f\n', [x;y]);
 
-f1=@(z) interp1(x,y,z);
+f1=@(z) interp1(x,d,z);
+mean_dose = x*f1(x)'/sum(f1(x));
 
-x0=40; 
-fprintf('RECTUM: \t V%.2f = %.2f %% \n', [x0;f1(x0)]);
-dim = [0.3 0.5 .3 .3];
-str = sprintf('V%.0f (Rectum) = %.2f %%', [x0;f1(x0)]);
+fprintf('HEART: \t DMEAN = %.2f Gy \n', mean_dose);
+dim = [0.4 0.35 .3 .3];
+str = sprintf('DMEAN (Heart) = %.2f Gy', mean_dose);
 annotation(fig2,'textbox',dim,'BackgroundColor','white','EdgeColor','black','FontSize',8,'String',str,'FitBoxToText','on');
 %datatip(h(1),x0,f1(x0));
 
@@ -135,15 +140,15 @@ annotation(fig2,'textbox',dim,'BackgroundColor','white','EdgeColor','black','Fon
 fprintf('\n');
 fprintf('!!!------------- c-DVH -------------!!!\n');
 
-% Bladder
-h=findobj(fig1,'LineStyle',':','Type','line','DisplayName','BLADDER');
+% Left Lung
+h=findobj(fig1,'LineStyle',':','Type','line','DisplayName','LEFT LUNG');
 x=h(1).XData;
 y=h(1).YData;
 %fprintf('%.2f, %.2f\n', [x;y]);
 
 f1=@(z) interp1(x,y,z);
 
-h=findobj(fig1,'LineStyle','-','Type','patch','DisplayName','BLADDER');
+h=findobj(fig1,'LineStyle','-','Type','patch','DisplayName','LEFT LUNG');
 x_min=h(1).XData(1:1000);
 y_min=h(1).YData(1:1000);
 
@@ -154,36 +159,52 @@ y_max=h(1).YData(1601:3200);
 
 f1_max=@(z) interp1(x_max,y_max,z);
 
-x0=60;
-fprintf('BLADDER: \t V%.2f = %.2f [ %.2f - %.2f ] %% \n', [x0;f1(x0);f1_min(x0);f1_max(x0)]);
-dim = [0.5 0.1 .3 .3];
-str = sprintf('V%.0f (Bladder) = %.2f [ %.2f - %.2f ] %%', [x0;f1(x0);f1_min(x0);f1_max(x0)]);
+x0=20;
+fprintf('LEFT LUNG: \t V%.2f = %.2f [ %.2f - %.2f ] %% \n', [x0;f1(x0);f1_min(x0);f1_max(x0)]);
+dim = [0.15 0.325 .3 .3];
+str = sprintf('V%.0f (Left Lung) = %.2f [ %.2f - %.2f ] %%', [x0;f1(x0);f1_min(x0);f1_max(x0)]);
 annotation(fig1,'textbox',dim,'BackgroundColor','white','EdgeColor','black','FontSize',8,'String',str,'FitBoxToText','on');
 %datatip(h(1),x0,f1_max(x0));
 
-% Rectum
-h=findobj(fig1,'LineStyle',':','Type','line','DisplayName','RECTUM');
+% Heart
+h=findobj(fig1,'LineStyle',':','Type','line','DisplayName','HEART');
 x=h(1).XData;
 y=h(1).YData;
 %fprintf('%.2f, %.2f\n', [x;y]);
+step=x(2)-x(1);
+d = -diff(y)/step;
+x=x(1:end-1);
+%fprintf('%.2f, %.2f\n', [x;y]);
 
-f1=@(z) interp1(x,y,z);
+f1=@(z) interp1(x,d,z);
+mean_dose = x*f1(x)'/sum(f1(x));
 
-h=findobj(fig1,'LineStyle','-','Type','patch','DisplayName','RECTUM');
+h=findobj(fig1,'LineStyle','-','Type','patch','DisplayName','HEART');
 x_min=h(1).XData(1:1000);
 y_min=h(1).YData(1:1000);
+%fprintf('%.2f, %.2f\n', [x_min;y_min]);
+step=x_min(2)-x_min(1);
+d_min = -diff(y_min)/step;
+x_min=x_min(1:end-1);
+%fprintf('%.2f, %.2f\n', [x_min;y_min]);
 
-f1_min=@(z) interp1(x_min,y_min,z);
+f1_min=@(z) interp1(x_min,d_min,z);
+mean_dose_min = x_min'*f1_min(x_min)/sum(f1_min(x_min));
 
 x_max=h(1).XData(1601:3200);
 y_max=h(1).YData(1601:3200);
+%fprintf('%.2f, %.2f\n', [x_max;y_max]);
+step=x_max(2)-x_max(1);
+d_max = -diff(y_max)/step;
+x_max=x_max(1:end-1);
+%fprintf('%.2f, %.2f\n', [x_max;y_max]);
 
-f1_max=@(z) interp1(x_max,y_max,z);
+f1_max=@(z) interp1(x_max,d_max,z);
+mean_dose_max = x_max'*f1_max(x_max)/sum(f1_max(x_max));
 
-x0=40; 
-fprintf('RECTUM: \t V%.2f = %.2f [ %.2f - %.2f ] %% \n', [x0;f1(x0);f1_min(x0);f1_max(x0)]);
-dim = [0.4 0.2 .3 .3];
-str = sprintf('V%.0f (Rectum) = %.2f [ %.2f - %.2f ] %%', [x0;f1(x0);f1_min(x0);f1_max(x0)]);
+fprintf('HEART: \t DMEAN = %.2f [ %.2f - %.2f ] Gy \n', [mean_dose;mean_dose_min;mean_dose_max]);
+dim = [0.2 0.2 .3 .3];
+str = sprintf('DMEAN (Heart) = %.2f [ %.2f - %.2f ] Gy', [mean_dose;mean_dose_min;mean_dose_max]);
 annotation(fig1,'textbox',dim,'BackgroundColor','white','EdgeColor','black','FontSize',8,'String',str,'FitBoxToText','on');
 %datatip(h(1),x0,f1_max(x0));
 
@@ -213,7 +234,7 @@ fprintf('\t \t V%.2f min = %.2f %% \n', [x0;f1_min(x0)]);
 % CTV
 fprintf('\t \t RI = %.4f \n', results.(['robustnessAnalysis_' robustness_approach]).robustnessIndex1);
 fprintf('\t \t RCvI = %.4f \n', f1_min(x0)/100);
-dim = [0.5 0.5 .3 .3];
+dim = [0.3 0.5 .3 .3];
 str = sprintf('RI = %.4f \nRCvI = %.4f', [results.(['robustnessAnalysis_' robustness_approach]).robustnessIndex1,f1_min(x0)/100]);
 annotation(fig1,'textbox',dim,'BackgroundColor','white','EdgeColor','black','FontSize',8,'String',str,'FitBoxToText','on');
 
@@ -259,23 +280,31 @@ plot(f2(x3),x3,'black','LineStyle',':','LineWidth',2,'DisplayName','CTV Max');
 diary off
 
 %%
-delStructs={'PTV', 'RING 0 - 20 mm', 'RING 0 - 20 mm', 'RING 20 - 50 mm', 'BULB'};
+delStructs={'PTV', 'RING 0 - 20 mm', 'RING 0 - 20 mm', 'RING 20 - 50 mm', 'BULB', 'CTV Min', 'CTV Max'};
 for structIx=1:numel(delStructs)
-    h1=findobj(fig1,'DisplayName',delStructs{structIx});
-    for plotIx = 1:numel(h1)
-        h1(plotIx).Visible=false;
-    end
-    h2=findobj(fig2,'DisplayName',delStructs{structIx});
-    for plotIx = 1:numel(h2)
-        h2(plotIx).Visible=false;
-    end
+  delete(findobj(fig1,'DisplayName',delStructs{structIx}));
+  delete(findobj(fig2,'DisplayName',delStructs{structIx}));
 end
 
-fig1.Children(1).FontSize=7;
-fig1.Position = [100 100 540 230];
-fig2.Children(3).FontSize=7;
+fig1.Children(1).FontSize=9;
+fig1.Position = [120 100 540 230];
+fig1.Children(2).Title.String='PTV (Margin based)'; % Nomimal PTV (Margin based) minimax strjoin(['cminimax',string(p2),'of 13'],' ')
 
-saveas(fig1,[foldername filesep listing(end).name filesep 'dvh_trustband_' robustness_approach],'png');
-saveas(fig2,[foldername filesep listing(end).name filesep 'dvh_' robustness_approach],'png');
+fig2.Children(4).Title.String='PTV (Margin based)'; % Nomimal PTV (Margin based) minimax strjoin(['cminimax',string(p2),'of 13'],' ')
+fig2.Children(3).FontSize=9;
+
+
+%saveas(fig1,[foldername filesep listing(end).name filesep 'dvh_trustband_' robustness_approach '_2'],'png');
+set(fig1,'PaperOrientation','landscape');
+set(fig1,'PaperPositionMode','auto');
+set(fig1,'PaperSize',[5.8 4.0]);
+%print(fig1,[foldername filesep listing(end).name filesep 'dvh_trustband_' robustness_approach '_' num2str(p2) '_13'],'-dpdf','-r0','-fillpage');
+print(fig1,[foldername filesep listing(end).name filesep 'dvh_trustband_' robustness_approach '_' plan_target],'-dpdf','-r0','-fillpage');
+%saveas(fig2,[foldername filesep listing(end).name filesep 'dvh_' robustness_approach '_2'],'png');
+set(fig2,'PaperOrientation','landscape');
+set(fig2,'PaperPositionMode','auto');
+set(fig2,'PaperSize',[5.8 4.5]);
+%print(fig2,[foldername filesep listing(end).name filesep 'dvh_' robustness_approach '_' num2str(p2) '_13'],'-dpdf','-r0','-fillpage');
+print(fig2,[foldername filesep listing(end).name filesep 'dvh_' robustness_approach '_' plan_target],'-dpdf','-r0','-fillpage');
 
 close all;

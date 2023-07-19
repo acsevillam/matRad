@@ -23,7 +23,7 @@ function [resultGUI,optimizer] = matRad_fluenceOptimization(dij,cst,pln,wInit)
 %
 % Copyright 2016 the matRad development team.
 %
-% This file is part of the matRad project. It is subject to the license
+% This file is part of the matRad project. It is subject to the licen
 % terms in the LICENSE file found in the top-level directory of this
 % distribution and at https://github.com/e0404/matRad/LICENSES.txt. No part
 % of the matRad project, including this file, may be copied, modified,
@@ -189,6 +189,9 @@ for i = 1:size(cst,1)
     for j = 1:numel(cst{i,6})
         if strcmp(cst{i,6}{j}.robustness,'PROB') && numel(linIxDIJ) > 1
             FLAG_CALC_PROB = true;
+        end
+        if strcmp(cst{i,6}{j}.robustness,'INTERVAL2') || strcmp(cst{i,6}{j}.robustness,'INTERVAL3')
+            FLAG_ROB_OPT = true;
         end
         if ~strcmp(cst{i,6}{j}.robustness,'none') && numel(linIxDIJ) > 1
             FLAG_ROB_OPT = true;

@@ -110,11 +110,11 @@ addParameter(parser,'p1',defaultP1,@(x) validateattributes(x,{'numeric'},...
 addParameter(parser,'p2',defaultP2,@(x) validateattributes(x,{'numeric'},...
             {'nonempty','integer','positive'}));
 addParameter(parser,'theta1',defaultTheta1,@(x) validateattributes(x,{'numeric'},...
-            {'nonempty','positive'}));
+            {'nonempty','nonnegative'}));
 addParameter(parser,'k',defaultK,@(x) validateattributes(x,{'numeric'},...
             {'nonempty','integer','positive'}));
 addParameter(parser,'theta2',defaultTheta2,@(x) validateattributes(x,{'numeric'},...
-            {'nonempty'}));
+            {'nonempty','nonnegative'}));
 addParameter(parser,'loadDij',defaultLoadDij,@islogical);
 addParameter(parser,'sampling',defaultSampling,@islogical);
 addOptional(parser,'sampling_mode',defaultSamplingMode,@(x) any(validatestring(x,validScenModes)));
@@ -799,6 +799,7 @@ for iX=1:size(run_config.dose_pulling1_target,2)
     results.dosePulling.minQiTarget{1,iX}=minQiTarget{iX};
 end
 
+
 %% print results
 for iX=1:size(run_config.dose_pulling1_target,2)
     fprintf('meanQiTarget = %5.3f %% \n', meanQiTarget{end,iX}*100);
@@ -806,9 +807,6 @@ for iX=1:size(run_config.dose_pulling1_target,2)
 end
 
 %% Dose pulling Step 2
-profile_master = parallel.importProfile('profile1.mlsettings');
-pool=parpool(profile_master,run_config.n_cores);
-
 profile on;
 now3 = tic();
 
@@ -874,7 +872,6 @@ profiler = profile('info');
 save([folderPath filesep 'profiler'],'profiler');
 
 delete(gcp('nocreate'));
-parallel.internal.ui.MatlabProfileManager.removeProfile('profile1');
 
 %% Plot robust fluence
 matRad_visSpotWeights(stf_robust,resultGUI_robust.w);
@@ -1012,10 +1009,10 @@ set(gcf,'position',[10,10,550,400]);
 numSlices = ct.cubeDim(3);
 
 slice = round(pln.propStf.isoCenter(1,3)./ct.resolution.z);
-matRad_plotSliceWrapper(gca,ct,cst_robust,1,resultGUISampRob.(quantityMap)*pln_robust.numOfFractions,plane,slice,[],[],colorcube,[],doseWindow,doseIsoLevels,[],'Dose uncertainty [Gy]',[],'LineWidth',1.2);
+matRad_plotSliceWrapper(gca,ct,cst_robust,1,resultGUISampRob.(quantityMap)*pln_robust.numOfFractions,plane,slice,[],[],colorcube,[],doseWindow,doseIsoLevels,[],'Expected Dose [Gy]',[],'LineWidth',1.2);
 b = uicontrol('Parent',f,'Style','slider','Position',[50,5,420,23],...
     'value',slice, 'min',1, 'max',numSlices,'SliderStep', [1/(numSlices-1) , 1/(numSlices-1)]);
-b.Callback = @(es,ed)  matRad_plotSliceWrapper(gca,ct,cst_robust,1,resultGUISampRob.(quantityMap)*pln_robust.numOfFractions,plane,round(es.Value),[],[],colorcube,[],doseWindow,doseIsoLevels,[],'Dose uncertainty [Gy]',[],'LineWidth',1.2);
+b.Callback = @(es,ed)  matRad_plotSliceWrapper(gca,ct,cst_robust,1,resultGUISampRob.(quantityMap)*pln_robust.numOfFractions,plane,round(es.Value),[],[],colorcube,[],doseWindow,doseIsoLevels,[],'Expected Dose [Gy]',[],'LineWidth',1.2);
 
 savefig([folderPath filesep 'mean_dose_robust.fig']);
 
@@ -1068,6 +1065,3 @@ save([folderPath filesep 'results.mat'],'results');
 
 %%
 diary off
-
-%%
-delete(gcp('nocreate'));
