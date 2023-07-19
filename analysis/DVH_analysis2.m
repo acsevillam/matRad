@@ -7,17 +7,17 @@ matRad_rc
 param.logLevel=1;
 %defaultRootPath = matRad_cfg.matRadRoot;
 defaultRootPath = '\\compute-0-0\workspace';
-job_folder='job4';
+job_folder='job1';
 radiationMode='photons';
 description='breast';
-caseID='3477'; % 3477 3749 3832 3833 3929
-robustness_approach = 'robust';
-robustness='c-COWC2'; % none COWC COWC2 c-COWC c-COWC2 INTERVAL2 INTERVAL3
+caseID='3929'; % 3477 3749 3832 3833 3929
+robustness_approach = 'nominal';
+robustness='none'; % none COWC COWC2 c-COWC c-COWC2 INTERVAL2 INTERVAL3
 plan_target='CTV'; % CTV PTV
 plan_beams='7F';
-plan_objectives='1';
+plan_objectives='4';
 shiftSD='4x8x6';
-scen_mode='impScen5'; % nomScen impScen5 impScen_permuted_truncated5 impScen7 impScen_permuted_truncated7
+scen_mode='nomScen'; % nomScen impScen5 impScen_permuted_truncated5 impScen7 impScen_permuted_truncated7
 wcFactor=1.0;
 beta1=1/13;
 beta2=13/13;
@@ -25,28 +25,28 @@ theta1=1.0;
 theta2=0.1;
 
 % Nominal (CTV-PTV)
-%output_folder = ['output' filesep radiationMode filesep description filesep caseID filesep robustness ...
-%    filesep plan_target filesep plan_beams filesep plan_objectives filesep shiftSD filesep scen_mode ];
+output_folder = ['output' filesep radiationMode filesep description filesep caseID filesep robustness ...
+    filesep plan_target filesep plan_beams filesep plan_objectives filesep shiftSD filesep scen_mode ];
 
 %output_folder = ['output' filesep radiationMode filesep description filesep caseID filesep robustness ...
 %    filesep plan_target filesep plan_beams filesep plan_objectives filesep scen_mode filesep num2str(wcFactor) filesep num2str(beta1) '_to_' num2str(beta2) ];
 
 % Cheap-Minimax
-output_folder = ['output' filesep radiationMode filesep description filesep caseID filesep robustness ...
-    filesep plan_target filesep plan_beams filesep plan_objectives filesep shiftSD filesep scen_mode filesep num2str(wcFactor) filesep num2str(beta1) '_to_' num2str(beta2) ];
+%output_folder = ['output' filesep radiationMode filesep description filesep caseID filesep robustness ...
+%    filesep plan_target filesep plan_beams filesep plan_objectives filesep shiftSD filesep scen_mode filesep num2str(wcFactor) filesep num2str(beta1) '_to_' num2str(beta2) ];
 
 %foldername = [defaultRootPath filesep '../../JOBS/cminimax2/1/job4' filesep output_folder];
-foldername = [defaultRootPath filesep 'JOBS\cminimax2\artemisa\2023-03-23\2' filesep job_folder filesep output_folder];
+foldername = [defaultRootPath filesep 'JOBS\cminimax2\artemisa\2023-06-11\2' filesep job_folder filesep output_folder];
 listing = dir(foldername);
 filename1=[foldername filesep listing(end).name filesep 'dvh_trustband_' robustness_approach '.fig'];
 filename2=[foldername filesep listing(end).name filesep 'dvh_' robustness_approach '.fig'];
-%filename3=[foldername filesep listing(end).name filesep 'results.mat'];
+filename3=[foldername filesep listing(end).name filesep 'results.mat'];
 filename4=[foldername filesep listing(end).name filesep 'plan.mat'];
 
 %% Load results files
 fig1=openfig(filename1);
 fig2=openfig(filename2);
-%load(filename3);
+load(filename3);
 load(filename4);
 
 %% Initiallize diary log
@@ -62,7 +62,7 @@ diary on
 %% Description
 fprintf('Description: \t %s \n', run_config.description);
 fprintf('CaseID: \t %s \n', run_config.caseID);
-fprintf('Resolution: \t %s \n', run_config.resolution);
+fprintf('Resolution: \t [%.2f %.2f %.2f] \n', [run_config.resolution(1),run_config.resolution(2),run_config.resolution(3)]);
 fprintf('Objectives: \t %s \n', run_config.plan_objectives);
 fprintf('Target: \t %s \n', run_config.plan_target);
 fprintf('Beam setup: \t %s \n', run_config.plan_beams);
@@ -221,15 +221,22 @@ y=h(1).YData;
 
 f1=@(z) interp1(x,y,z);
 
+h=findobj(fig1,'LineStyle','-','Type','patch','DisplayName','CTV');
+x_min=h(1).XData(1:1000);
+y_min=h(1).YData(1:1000);
+
+f1_min=@(z) interp1(x_min,y_min,z);
+
 x0=42.56; 
-fprintf('CTV: \t \t V%.2f = %.2f %% \n', [x0;f1(x0)]);
+fprintf('CTV: \t V%.2f exp = %.2f %% \n', [x0;f1(x0)]);
+fprintf('\t \t V%.2f min = %.2f %% \n', [x0;f1_min(x0)]);
 
 
 % CTV
-%fprintf('\t \t RI = %.4f \n', results.(['robustnessAnalysis_' robustness_approach]).robustnessIndex);
+fprintf('\t \t RI = %.4f \n', results.(['robustnessAnalysis_' robustness_approach]).robustnessIndex1);
+fprintf('\t \t RCvI = %.4f \n', f1_min(x0)/100);
 dim = [0.5 0.5 .3 .3];
-%str = sprintf('RI (CTV) = %.4f', results.(['robustnessAnalysis_' robustness_approach]).robustnessIndex);
-str = sprintf('RI (CTV) = %.4f', 0);
+str = sprintf('RI = %.4f \nRCvI = %.4f', [results.(['robustnessAnalysis_' robustness_approach]).robustnessIndex1,f1_min(x0)/100]);
 annotation(fig1,'textbox',dim,'BackgroundColor','white','EdgeColor','black','FontSize',8,'String',str,'FitBoxToText','on');
 
 % CTV
@@ -278,7 +285,7 @@ plot(f2(x3),x3,'black','LineStyle',':','LineWidth',2,'DisplayName','CTV Max');
 diary off
 
 %%
-delStructs={'PTV', 'RING 0 - 10 mm', 'RING 0 - 10 mm', 'RING 10 - 50 mm', 'BULB'};
+delStructs={'PTV', 'RING 0 - 20 mm', 'RING 20 - 50 mm', 'BULB'};
 for structIx=1:numel(delStructs)
     h1=findobj(fig1,'DisplayName',delStructs{structIx});
     for plotIx = 1:numel(h1)

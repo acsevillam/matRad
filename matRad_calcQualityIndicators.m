@@ -151,7 +151,7 @@ for runVoi = 1:size(cst,1)
                end
                
                %if strcmp(cst{runVoi,6}(runObjective).type,'square deviation') > 0 || strcmp(cst{runVoi,6}(runObjective).type,'square underdosing') > 0
-               if isa(obj,'DoseObjectives.matRad_SquaredDeviation') || isa(obj,'DoseObjectives.matRad_SquaredUnderdosing') || isa(obj,'DoseObjectives.matRad_MinDVH')
+               if isa(obj,'DoseObjectives.matRad_SquaredDeviation') || isa(obj,'DoseObjectives.matRad_SquaredUnderdosing') || isa(obj,'DoseObjectives.matRad_MinDVH') || isa(obj,'DoseObjectives.matRad_SquaredBertoluzzaDeviation2')
                    referenceDose = (min(obj.getDoseParameters(),referenceDose));%/pln.numOfFractions;
                end            
             end

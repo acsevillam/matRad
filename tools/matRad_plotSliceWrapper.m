@@ -175,5 +175,8 @@ elseif  plane == 3 % Axial plane
     set(axesHandle,'DataAspectRatio',[res 1])
 end
 
+%set(axesHandle,'xlim',[80 150]);
+%set(axesHandle,'ylim',[40 100]);
+
 end
 

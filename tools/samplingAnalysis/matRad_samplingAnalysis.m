@@ -115,7 +115,7 @@ for  i = 1:size(cst,1)
                 end
             end
             
-            if isa(obj,'DoseObjectives.matRad_SquaredDeviation') || isa(obj,'DoseObjectives.matRad_SquaredUnderdosing')
+            if isa(obj,'DoseObjectives.matRad_SquaredDeviation') || isa(obj,'DoseObjectives.matRad_SquaredUnderdosing') || isa(obj,'DoseObjectives.matRad_SquaredBertoluzzaDeviation2')
                 refDose = (min(obj.getDoseParameters(),refDose))/pln.numOfFractions;
             end
         end
