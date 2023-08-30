@@ -745,7 +745,7 @@ switch run_config.robustness
         pln_robust.propOpt.dij_interval=dij_interval;
         pln_robust.propOpt.theta1=run_config.theta1;
         cst_robust{ixCTV,6}=[];
-        cst_robust{ixCTV,6}{1} = struct(DoseObjectives.matRad_SquaredBertoluzzaDeviation2(800,p));
+        cst_robust{ixCTV,6}{1} = struct(DoseObjectives.matRad_SquaredBertoluzzaDeviation2(10,p));
         cst_robust{ixCTV,6}{1}.robustness  = 'INTERVAL2';
     
     case 'INTERVAL3'
@@ -755,7 +755,7 @@ switch run_config.robustness
         pln_robust.propOpt.theta2=run_config.theta2;
         
         cst_robust{ixCTV,6}=[];
-        cst_robust{ixCTV,6}{1} = struct(DoseObjectives.matRad_SquaredBertoluzzaDeviation2(800,p));
+        cst_robust{ixCTV,6}{1} = struct(DoseObjectives.matRad_SquaredBertoluzzaDeviation2(10,p));
         cst_robust{ixCTV,6}{1}.robustness  = 'INTERVAL3';
         
         for iX=1:size(cst,1)
@@ -1020,7 +1020,7 @@ clear  numScen plane slice ans f b;
 quantityMap='meanCubeW';
 plane      = 3;
 doseWindow = [0 max([max(resultGUISampRob.(quantityMap)(:)) p*1.25])];
-maxDose       = max(resultGUISampRob.(quantityMap)(:));
+maxDose       = max(resultGUISampRob.(quantityMap)(:))*pln_robust.numOfFractions;
 doseIsoLevels = linspace(0.1 * maxDose,maxDose,10);
 meanDoseFig1 = figure;
 title([quantityMap 'for robust optimization results']);
@@ -1040,7 +1040,7 @@ savefig(meanDoseFig1,[folderPath filesep 'mean_dose_robust.fig']);
 quantityMap='stdCubeW';
 plane      = 3;
 doseWindow = [0 max([max(resultGUISampRob.(quantityMap)(:)) p*0.5])];
-maxDose       = max(resultGUISampRob.(quantityMap)(:));
+maxDose       = max(resultGUISampRob.(quantityMap)(:))*pln_robust.numOfFractions;
 doseIsoLevels = linspace(0.1 * maxDose,maxDose,10);
 stdDoseFig1 = figure;
 title([quantityMap 'for robust optimization results']);
