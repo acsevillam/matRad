@@ -121,7 +121,6 @@ if exist('slice','var') && ~isempty(slice)
 
     subplot(2,2,4);
     set(gcf,'Color',[1 1 1]);
-    
     matRad_plotSliceWrapper(gca,ct,cst,refScen,(robCube<=1).*doseMask,plane,slice,[],[],colorcube,[],[0 2.01],[],[],[],[],'LineWidth',1.5);
     title({[num2str(robPassRate,5) '% of points ' ...
         'pass robustness criterion (' num2str(meanDoseThreshold) '% / ' ...

@@ -59,6 +59,7 @@ defaultDosePulling1Target = 'CTV';
 defaultDosePulling1Criteria = 'COV1';
 defaultDosePulling1Limit = 0.98;
 defaultDosePulling1Start = 0;
+defaultScaleFactor = 1.0;
 defaultDosePulling2 = false;
 defaultDosePulling2Criteria = 'meanQiTarget';
 defaultDosePulling2Limit = 0.80;
@@ -94,6 +95,8 @@ addParameter(parser,'dose_pulling1_criteria',defaultDosePulling1Criteria,@(x) nu
 addOptional(parser,'dose_pulling1_limit',defaultDosePulling1Limit,@(x) numel(x) >= 1 && isnumeric(x) && all(x > 0));
 addOptional(parser,'dose_pulling1_start',defaultDosePulling1Start,@(x) validateattributes(x,{'numeric'},...
             {'nonempty','integer','nonnegative'}));
+addParameter(parser,'scale_factor',defaultScaleFactor,@(x) validateattributes(x,{'numeric'},...
+            {'nonempty','nonnegative'}));
 addParameter(parser,'dose_pulling2',defaultDosePulling2,@islogical);
 addParameter(parser,'dose_pulling2_criteria',defaultDosePulling2Criteria,@(x) numel(x) >= 1 && all(ismember(x,validDosePulling2Criteria)));
 addOptional(parser,'dose_pulling2_limit',defaultDosePulling2Limit,@(x) numel(x) >= 1 && isnumeric(x) && all(x > 0));
@@ -135,6 +138,7 @@ run_config.dose_pulling1_target = parser.Results.dose_pulling1_target;
 run_config.dose_pulling1_criteria = parser.Results.dose_pulling1_criteria;
 run_config.dose_pulling1_limit = parser.Results.dose_pulling1_limit;
 run_config.dose_pulling1_start = parser.Results.dose_pulling1_start;
+run_config.scale_factor = parser.Results.scale_factor;
 run_config.dose_pulling2 = parser.Results.dose_pulling2;
 run_config.dose_pulling2_criteria = parser.Results.dose_pulling2_criteria;
 run_config.dose_pulling2_limit = parser.Results.dose_pulling2_limit;
@@ -188,8 +192,8 @@ switch run_config.robustness
         output_folder = ['output' filesep run_config.radiationMode filesep run_config.description filesep run_config.caseID filesep run_config.robustness filesep run_config.plan_target filesep run_config.plan_beams filesep run_config.plan_objectives filesep num2str(run_config.shiftSD(1)) 'x' num2str(run_config.shiftSD(2)) 'x' num2str(run_config.shiftSD(3)) filesep run_config.scen_mode filesep num2str(run_config.wcFactor) filesep datestr(datetime,'yyyy-mm-dd HH-MM-SS')];
 end
 
-run_config.resolution = [3 3 3];
-run_config.doseResolution = [3 3 3];
+run_config.resolution = [10 10 10];
+run_config.doseResolution = [10 10 10];
 run_config.GammaCriteria = [3 3];
 run_config.robustnessCriteria = [5 5];
 run_config.sampling_size = 50;
@@ -567,7 +571,7 @@ cst_robust=cst;
 dp_start=[run_config_tmp.dose_pulling1_start run_config_tmp.dose_pulling2_start];
 [cst_robust,ixTarget,p,ixBody,ixCTV,OARStructSel] = matRad_loadObjectives(run_config,run_config.plan_target,dp_start,cst_robust);
 
-%% Copy OAR objectives from nominal dose pulling and relax them by 20%
+%% Copy OAR objectives from nominal dose pulling and relax them by scale factor%
 
 for itOARStructure = 1:size(OARStructSel,2)
     for  itStructure = 1:size(cst_robust,1)
@@ -577,8 +581,7 @@ for itOARStructure = 1:size(OARStructSel,2)
     end
 end
 
-scale_factor=1.2;
-cst_robust = matRad_scaleDoseObjectives(cst_robust,OARStructSel,scale_factor);
+cst_robust = matRad_scaleDoseObjectives(cst_robust,OARStructSel,run_config.scale_factor);
 
 %% Define ring objectives
 cst_robust{ixRing1,5}.Priority = 4; % overlap priority for optimization - a lower number corresponds to a higher priority
@@ -782,6 +785,22 @@ end
 % treatment. Once the optimization has finished, trigger once the GUI to
 % visualize the optimized dose cubes.
 resultGUI_robust = matRad_fluenceOptimization(dij_robust,cst_robust,pln_robust);
+
+%% Delete 
+% Make the objective to a composite worst case objective
+
+% Target
+switch run_config.robustness
+
+    case 'INTERVAL2'
+        
+        pln_robust.propOpt.dij_interval=[];
+    
+    case 'INTERVAL3'
+        
+        pln_robust.propOpt.dij_interval=[];
+
+end
 
 %% Indicator calculation and show DVH and QI
 
@@ -1003,18 +1022,19 @@ plane      = 3;
 doseWindow = [0 max([max(resultGUISampRob.(quantityMap)(:)) p*1.25])];
 maxDose       = max(resultGUISampRob.(quantityMap)(:));
 doseIsoLevels = linspace(0.1 * maxDose,maxDose,10);
-f = figure;
+meanDoseFig1 = figure;
 title([quantityMap 'for robust optimization results']);
 set(gcf,'position',[10,10,550,400]);
+set(gcf,'Color',[1 1 1]);
 numSlices = ct.cubeDim(3);
 
 slice = round(pln.propStf.isoCenter(1,3)./ct.resolution.z);
-matRad_plotSliceWrapper(gca,ct,cst_robust,1,resultGUISampRob.(quantityMap)*pln_robust.numOfFractions,plane,slice,[],[],colorcube,[],doseWindow,doseIsoLevels,[],'Expected Dose [Gy]',[],'LineWidth',1.2);
-b = uicontrol('Parent',f,'Style','slider','Position',[50,5,420,23],...
+matRad_plotSliceWrapper(gca,ct,cst_robust,1,resultGUISampRob.(quantityMap)*pln_robust.numOfFractions,plane,slice,[],[],colorcube,[],doseWindow,doseIsoLevels,[],'Expected Dose [Gy]',[],'LineWidth',1.5);
+b = uicontrol('Parent',meanDoseFig1,'Style','slider','Position',[50,5,420,23],...
     'value',slice, 'min',1, 'max',numSlices,'SliderStep', [1/(numSlices-1) , 1/(numSlices-1)]);
-b.Callback = @(es,ed)  matRad_plotSliceWrapper(gca,ct,cst_robust,1,resultGUISampRob.(quantityMap)*pln_robust.numOfFractions,plane,round(es.Value),[],[],colorcube,[],doseWindow,doseIsoLevels,[],'Expected Dose [Gy]',[],'LineWidth',1.2);
+b.Callback = @(es,ed) matRad_plotSliceWrapper(gca,ct,cst_robust,1,resultGUISampRob.(quantityMap)*pln_robust.numOfFractions,plane,round(es.Value),[],[],colorcube,[],doseWindow,doseIsoLevels,[],'Expected Dose [Gy]',[],'LineWidth',1.5);
 
-savefig([folderPath filesep 'mean_dose_robust.fig']);
+savefig(meanDoseFig1,[folderPath filesep 'mean_dose_robust.fig']);
 
 %% Create an std dose interactive plot to slide through axial slices
 quantityMap='stdCubeW';
@@ -1022,18 +1042,19 @@ plane      = 3;
 doseWindow = [0 max([max(resultGUISampRob.(quantityMap)(:)) p*0.5])];
 maxDose       = max(resultGUISampRob.(quantityMap)(:));
 doseIsoLevels = linspace(0.1 * maxDose,maxDose,10);
-f = figure;
+stdDoseFig1 = figure;
 title([quantityMap 'for robust optimization results']);
 set(gcf,'position',[10,10,550,400]);
+set(gcf,'Color',[1 1 1]);
 numSlices = ct.cubeDim(3);
 
 slice = round(pln.propStf.isoCenter(1,3)./ct.resolution.z);
 matRad_plotSliceWrapper(gca,ct,cst_robust,1,resultGUISampRob.(quantityMap)*pln_robust.numOfFractions,plane,slice,[],[],colorcube,[],doseWindow,doseIsoLevels,[],'Dose uncertainty [Gy]',[],'LineWidth',1.2);
-b = uicontrol('Parent',f,'Style','slider','Position',[50,5,420,23],...
+b = uicontrol('Parent',stdDoseFig1,'Style','slider','Position',[50,5,420,23],...
     'value',slice, 'min',1, 'max',numSlices,'SliderStep', [1/(numSlices-1) , 1/(numSlices-1)]);
-b.Callback = @(es,ed)  matRad_plotSliceWrapper(gca,ct,cst_robust,1,resultGUISampRob.(quantityMap)*pln_robust.numOfFractions,plane,round(es.Value),[],[],colorcube,[],doseWindow,doseIsoLevels,[],'Dose uncertainty [Gy]',[],'LineWidth',1.2);
+b.Callback = @(es,ed) matRad_plotSliceWrapper(gca,ct,cst_robust,1,resultGUISampRob.(quantityMap)*pln_robust.numOfFractions,plane,round(es.Value),[],[],colorcube,[],doseWindow,doseIsoLevels,[],'Dose uncertainty [Gy]',[],'LineWidth',1.2);
 
-savefig([folderPath filesep 'std_dose_robust.fig']);
+savefig(stdDoseFig1,[folderPath filesep 'std_dose_robust.fig']);
 
 %% Multi-scenario dose volume histogram (DVH)
 f = figure;
