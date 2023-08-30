@@ -63,6 +63,40 @@ end
 % default ct scenario for sampling
 matRad_cfg.dispInfo('Sampling will be performed on ct scenario: %d \n',refScen);
 
+for  i = 1:size(cst,1)
+    if isequal(cst{i,3},'TARGET')
+        
+        % loop over target objectives and get the lowest dose objective
+        refDose = inf;
+        
+        if isstruct(cst{i,6})
+            cst{i,6} = num2cell(arrayfun(@matRad_DoseOptimizationFunction.convertOldOptimizationStruct,cst{i,6}));
+        end
+        
+        for runObjective = 1:numel(cst{i,6})
+            % check if this is an objective that penalizes underdosing
+            obj = cst{i,6}{runObjective};
+            if ~isa(obj,'matRad_DoseOptimizationFunction')
+                try
+                    obj = matRad_DoseOptimizationFunction.createInstanceFromStruct(obj);
+                catch ME
+                    matRad_cfg.dispWarning('Objective/Constraint not valid!\n%s',ME.message)
+                    continue;
+                end
+            end
+            
+            if isa(obj,'DoseObjectives.matRad_SquaredDeviation') || isa(obj,'DoseObjectives.matRad_SquaredUnderdosing') || isa(obj,'DoseObjectives.matRad_MinDVH') || isa(obj,'DoseObjectives.matRad_SquaredBertoluzzaDeviation2')
+                refDose = (min(obj.getDoseParameters(),refDose));%/pln.numOfFractions;
+            end
+        end
+        
+        if refDose == inf
+            sprintf('%s%s',i,'Warning: target has no objective that penalizes underdosage, ');
+        end
+        
+    end
+end
+
 V = [];
 % define voxels for sampling
 if ~exist('structSel', 'var') || sum(size(structSel)) == 0
@@ -111,7 +145,7 @@ nomScenTime      = toc(nomScenTimer);
 matRad_cfg.dispInfo('Finished nominal Scenario Calculation. Computation time: %f h \n',round(nomScenTime / 3600));
 
 refVol = [2 5 50 95 98];
-refGy = linspace(0,max(resultGUInomScen.(pln.bioParam.quantityVis)(:)),6);
+refGy = floor(linspace(0,refDose,6)*10)/10;
 
 resultGUInomScen.dvh = matRad_calcDVH(cst,resultGUInomScen.(pln.bioParam.quantityVis),'cum');
 dvhPoints            = resultGUInomScen.dvh(1).doseGrid;

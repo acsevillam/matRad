@@ -7,36 +7,37 @@ matRad_rc
 param.logLevel=1;
 %defaultRootPath = matRad_cfg.matRadRoot;
 defaultRootPath = '\\compute-0-0\workspace';
-job_folder='job1';
+%defaultRootPath = 'C:\Users\acsevillam\workspace';
+job_folder='job2';
 radiationMode='photons';
 description='breast';
-caseID='3929'; % 3477 3749 3832 3833 3929
-robustness_approach = 'nominal';
-robustness='none'; % none COWC COWC2 c-COWC c-COWC2 INTERVAL2 INTERVAL3
+caseID='3832'; % 3477 3749 3832 3833 3929
+robustness_approach = 'robust';
+robustness='c-COWC2'; % none COWC COWC2 c-COWC c-COWC2 INTERVAL2 INTERVAL3
 plan_target='CTV'; % CTV PTV
 plan_beams='7F';
 plan_objectives='4';
 shiftSD='4x8x6';
-scen_mode='nomScen'; % nomScen impScen5 impScen_permuted_truncated5 impScen7 impScen_permuted_truncated7
+scen_mode='impScen5'; % nomScen impScen5 impScen_permuted_truncated5 impScen7 impScen_permuted_truncated7
 wcFactor=1.0;
 beta1=1/13;
-beta2=13/13;
+beta2=11/13;
 theta1=1.0;
 theta2=0.1;
 
 % Nominal (CTV-PTV)
-output_folder = ['output' filesep radiationMode filesep description filesep caseID filesep robustness ...
-    filesep plan_target filesep plan_beams filesep plan_objectives filesep shiftSD filesep scen_mode ];
+%output_folder = ['output' filesep radiationMode filesep description filesep caseID filesep robustness ...
+%    filesep plan_target filesep plan_beams filesep plan_objectives filesep shiftSD filesep scen_mode ];
 
 %output_folder = ['output' filesep radiationMode filesep description filesep caseID filesep robustness ...
 %    filesep plan_target filesep plan_beams filesep plan_objectives filesep scen_mode filesep num2str(wcFactor) filesep num2str(beta1) '_to_' num2str(beta2) ];
 
 % Cheap-Minimax
-%output_folder = ['output' filesep radiationMode filesep description filesep caseID filesep robustness ...
-%    filesep plan_target filesep plan_beams filesep plan_objectives filesep shiftSD filesep scen_mode filesep num2str(wcFactor) filesep num2str(beta1) '_to_' num2str(beta2) ];
+output_folder = ['output' filesep radiationMode filesep description filesep caseID filesep robustness ...
+    filesep plan_target filesep plan_beams filesep plan_objectives filesep shiftSD filesep scen_mode filesep num2str(wcFactor) filesep num2str(beta1) '_to_' num2str(beta2) ];
 
 %foldername = [defaultRootPath filesep '../../JOBS/cminimax2/1/job4' filesep output_folder];
-foldername = [defaultRootPath filesep 'JOBS\cminimax2\artemisa\2023-06-11\2' filesep job_folder filesep output_folder];
+foldername = [defaultRootPath filesep 'JOBS\apolo\cminimax2\2023-06-11\2' filesep job_folder filesep output_folder];
 listing = dir(foldername);
 filename1=[foldername filesep listing(end).name filesep 'dvh_trustband_' robustness_approach '.fig'];
 filename2=[foldername filesep listing(end).name filesep 'dvh_' robustness_approach '.fig'];
