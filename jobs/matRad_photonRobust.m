@@ -745,7 +745,7 @@ switch run_config.robustness
         pln_robust.propOpt.dij_interval=dij_interval;
         pln_robust.propOpt.theta1=run_config.theta1;
         cst_robust{ixCTV,6}=[];
-        cst_robust{ixCTV,6}{1} = struct(DoseObjectives.matRad_SquaredBertoluzzaDeviation2(10,p));
+        cst_robust{ixCTV,6}{1} = struct(DoseObjectives.matRad_SquaredBertoluzzaDeviation2(30,p));
         cst_robust{ixCTV,6}{1}.robustness  = 'INTERVAL2';
     
     case 'INTERVAL3'
@@ -755,7 +755,7 @@ switch run_config.robustness
         pln_robust.propOpt.theta2=run_config.theta2;
         
         cst_robust{ixCTV,6}=[];
-        cst_robust{ixCTV,6}{1} = struct(DoseObjectives.matRad_SquaredBertoluzzaDeviation2(10,p));
+        cst_robust{ixCTV,6}{1} = struct(DoseObjectives.matRad_SquaredBertoluzzaDeviation2(30,p));
         cst_robust{ixCTV,6}{1}.robustness  = 'INTERVAL3';
         
         for iX=1:size(cst,1)
