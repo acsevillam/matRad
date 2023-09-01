@@ -667,6 +667,20 @@ end
 %% Trigger robust optimization
 % Make the objective to a composite worst case objective
 
+dp_target_factor=1.0;
+switch run_config.plan_objectives
+    case '1'
+        dp_target_factor=8.0;
+    case '2'
+        dp_target_factor=4.0;
+    case '3'
+        dp_target_factor=2.0;
+    case '4'
+        dp_target_factor=1.0;
+    case '5'
+        dp_target_factor=0.5;
+end
+
 % Target
 switch run_config.robustness
     case 'STOCH'
@@ -745,7 +759,7 @@ switch run_config.robustness
         pln_robust.propOpt.dij_interval=dij_interval;
         pln_robust.propOpt.theta1=run_config.theta1;
         cst_robust{ixCTV,6}=[];
-        cst_robust{ixCTV,6}{1} = struct(DoseObjectives.matRad_SquaredBertoluzzaDeviation2(30,p));
+        cst_robust{ixCTV,6}{1} = struct(DoseObjectives.matRad_SquaredBertoluzzaDeviation2(30*dp_target_factor,p));
         cst_robust{ixCTV,6}{1}.robustness  = 'INTERVAL2';
     
     case 'INTERVAL3'
@@ -755,7 +769,7 @@ switch run_config.robustness
         pln_robust.propOpt.theta2=run_config.theta2;
         
         cst_robust{ixCTV,6}=[];
-        cst_robust{ixCTV,6}{1} = struct(DoseObjectives.matRad_SquaredBertoluzzaDeviation2(30,p));
+        cst_robust{ixCTV,6}{1} = struct(DoseObjectives.matRad_SquaredBertoluzzaDeviation2(30*dp_target_factor,p));
         cst_robust{ixCTV,6}{1}.robustness  = 'INTERVAL3';
         
         for iX=1:size(cst,1)
