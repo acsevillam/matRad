@@ -22,7 +22,7 @@ wcFactor=1.0;
 beta1=1/13;
 p2=1;
 beta2=p2/13;
-theta1=1.0;
+theta1=0.6;
 theta2=0.0;
 
 %output_folder = ['output' filesep radiationMode filesep description filesep caseID filesep robustness ...
