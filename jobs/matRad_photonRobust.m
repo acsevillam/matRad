@@ -757,6 +757,7 @@ switch run_config.robustness
     case 'INTERVAL2'
         
         pln_robust.propOpt.dij_interval=dij_interval;
+        clear('dij_interval');
         pln_robust.propOpt.theta1=run_config.theta1;
         cst_robust{ixCTV,6}=[];
         cst_robust{ixCTV,6}{1} = struct(DoseObjectives.matRad_SquaredBertoluzzaDeviation2(30*dp_target_factor,p));
@@ -765,6 +766,7 @@ switch run_config.robustness
     case 'INTERVAL3'
         
         pln_robust.propOpt.dij_interval=dij_interval;
+        clear('dij_interval');
         pln_robust.propOpt.theta1=run_config.theta1;
         pln_robust.propOpt.theta2=run_config.theta2;
         

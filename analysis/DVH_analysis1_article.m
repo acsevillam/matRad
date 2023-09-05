@@ -10,7 +10,7 @@ defaultRootPath = '\\compute-0-0\workspace';
 job_folder='job1';
 radiationMode='photons';
 description='prostate';
-caseID='3790'; % 3482 3648 3782 3790 3840
+caseID='3482'; % 3482 3648 3782 3790 3840
 robustness_approach = 'robust';
 robustness='INTERVAL3'; % none COWC COWC2 c-COWC c-COWC2 INTERVAL2 INTERVAL3
 plan_target='CTV'; % CTV PTV
@@ -22,8 +22,8 @@ wcFactor=1.0;
 beta1=1/13;
 p2=1;
 beta2=p2/13;
-theta1=1.0;
-theta2=0.3;
+theta1=30;
+theta2=1;
 
 %output_folder = ['output' filesep radiationMode filesep description filesep caseID filesep robustness ...
 %    filesep plan_target filesep plan_beams filesep plan_objectives filesep shiftSD filesep scen_mode ];
