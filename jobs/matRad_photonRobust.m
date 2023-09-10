@@ -639,7 +639,7 @@ switch run_config.robustness
         targetStructSel = {'CTV'};
         now2 = tic();
         if ~exist('dij_interval','var') || isempty(dij_interval)
-            [dij_dummy, pln_dummy,dij_robust,pln_robust,dij_interval] = matRad_calcDoseInterval2(ct,cst,stf_robust,pln_robust,dij_robust,targetStructSel);
+            [dij_dummy, pln_dummy,dij_robust,pln_robust,dij_interval] = matRad_calcDoseInterval2b(ct,cst,stf_robust,pln_robust,dij_robust,targetStructSel,OARStructSel);
             dij_file = [run_config.rootPath  filesep 'jobs' filesep 'images' filesep run_config.description filesep run_config.caseID '_dij_interval2.mat'];
             save(dij_file,'dij_dummy','pln_dummy','dij_robust','pln_robust','dij_interval', '-v7.3');
         end
@@ -652,7 +652,7 @@ switch run_config.robustness
         targetStructSel = {'CTV'};
         now2 = tic();
         if ~exist('dij_interval','var') || isempty(dij_interval)
-            [dij_dummy, pln_dummy,dij_robust,pln_robust,dij_interval] = matRad_calcDoseInterval3(ct,cst,stf_robust,pln_robust,dij_robust,targetStructSel,OARStructSel,run_config.k);
+            [dij_dummy, pln_dummy,dij_robust,pln_robust,dij_interval] = matRad_calcDoseInterval3b(ct,cst,stf_robust,pln_robust,dij_robust,targetStructSel,OARStructSel,run_config.k);
             dij_file = [run_config.rootPath  filesep 'jobs' filesep 'images' filesep run_config.description filesep run_config.caseID '_dij_interval3.mat'];
             save(dij_file,'dij_dummy','pln_dummy','dij_robust','pln_robust','dij_interval', '-v7.3');
         end

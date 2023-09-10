@@ -196,8 +196,17 @@ for  i = 1:size(cst,1)
                         
                     case 'INTERVAL2'
                         ixContour = contourScen(1);
+                        subIx = cst{i,4}{ixContour};
+
                         if(isequal(cst{i,3},'TARGET'))
                             f = f + objective.computeDoseObjectiveFunction(w,cst{i,4}{ixContour},optiProb.theta1,optiProb.dij_interval);
+                        else
+                            
+                            Dc = optiProb.dij_interval.center;
+                            d_center=Dc*w;
+                            d_center=d_center(subIx);
+                            f = f + objective.computeDoseObjectiveFunction(d_center);
+
                         end
                         
                     case 'INTERVAL3'
