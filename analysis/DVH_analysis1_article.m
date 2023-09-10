@@ -8,9 +8,11 @@ param.logLevel=1;
 %defaultRootPath = matRad_cfg.matRadRoot;
 defaultRootPath = '\\compute-0-0\workspace';
 job_folder='job1';
+cluster_name='apolo';
+date='2023-08-30';
 radiationMode='photons';
 description='prostate';
-caseID='3482'; % 3482 3648 3782 3790 3840
+caseID='3840'; % 3482 3648 3782 3790 3840
 robustness_approach = 'robust';
 robustness='INTERVAL3'; % none COWC COWC2 c-COWC c-COWC2 INTERVAL2 INTERVAL3
 plan_target='CTV'; % CTV PTV
@@ -22,7 +24,7 @@ wcFactor=1.0;
 beta1=1/13;
 p2=1;
 beta2=p2/13;
-theta1=30;
+theta1=3;
 theta2=1;
 
 %output_folder = ['output' filesep radiationMode filesep description filesep caseID filesep robustness ...
@@ -36,7 +38,7 @@ output_folder = ['output' filesep radiationMode filesep description filesep case
 
 
 %foldername = [defaultRootPath filesep '../../JOBS/cminimax2/1/job4' filesep output_folder];
-foldername = [defaultRootPath filesep 'JOBS\apolo\interval3\apolo\2023-08-30\1' filesep job_folder filesep output_folder];
+foldername = [defaultRootPath filesep 'JOBS\' filesep cluster_name filesep 'interval3' filesep cluster_name filesep date filesep '1' filesep job_folder filesep output_folder];
 listing = dir(foldername);
 filename1=[foldername filesep listing(end).name filesep 'dvh_trustband_' robustness_approach '.fig'];
 filename2=[foldername filesep listing(end).name filesep 'dvh_' robustness_approach '.fig'];
