@@ -91,7 +91,7 @@ end
 
 p = gcp(); % If no pool, create new one.
 
-columnHeadings = {'Ix' 'center','radius'};
+columnHeadings = {'Ix' 'center'};
 % Preallocate structure
 dij_interval_target(1:numel(targetSubIx)) = cell2struct(repmat({[]},numel(columnHeadings),1),columnHeadings,1);
 
@@ -114,6 +114,37 @@ parfor it=1:numel(targetSubIx)
     % Interval center dose influence matrix
     dij_interval_target(it).center=sum(dij_tmp'*diag(scenProb),2); % mean(dij_tmp,1);
 
+    if FlagParforProgressDisp && mod(it,1000)==0
+        parfor_progress;
+    end
+end
+
+if FlagParforProgressDisp
+    parfor_progress(0);
+end
+
+dij_interval.center=sparse(dij.doseGrid.numOfVoxels,dij.totalNumOfBixels);
+dij_interval.targetSubIx=targetSubIx;
+
+for it=1:numel(targetSubIx)
+    % Interval center dose influence matrix
+    dij_interval.center(targetSubIx(it),:)=dij_interval_target(it).center;
+end
+
+clear 'dij_interval_target';
+
+columnHeadings = {'Ix' 'radius'};
+% Preallocate structure
+dij_interval_target(1:numel(targetSubIx)) = cell2struct(repmat({[]},numel(columnHeadings),1),columnHeadings,1);
+
+parfor it=1:numel(targetSubIx)
+    
+    Ix=targetSubIx(it);
+    dij_tmp=cell2mat(cellfun(@(data) data(Ix,:),dij_list,'UniformOutput',false));
+
+    % Voxel index
+    dij_interval_target(it).Ix=Ix;
+
     % Interval radius dose influence matrix
     dij_interval_target(it).radius=(dij_tmp'*diag(scenProb)*dij_tmp);
 
@@ -126,12 +157,10 @@ if FlagParforProgressDisp
     parfor_progress(0);
 end
 
-dij_interval.center=sparse(dij.doseGrid.numOfVoxels,dij.totalNumOfBixels);
 dij_interval.radius=sparse(dij.totalNumOfBixels,dij.totalNumOfBixels);
 dij_interval.targetSubIx=targetSubIx;
 
 for it=1:numel(targetSubIx)
-    dij_interval.center(targetSubIx(it),:)=dij_interval_target(it).center;
     % Interval radius dose influence matrix
     dij_interval.radius=dij_interval.radius+dij_interval_target(it).radius;
 end
