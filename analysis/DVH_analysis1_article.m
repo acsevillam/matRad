@@ -8,11 +8,11 @@ param.logLevel=1;
 %defaultRootPath = matRad_cfg.matRadRoot;
 defaultRootPath = '\\compute-0-0\workspace';
 job_folder='job1';
-cluster_name='apolo';
-date='2023-08-30';
+cluster_name='artemisa';
+date='2023-09-04';
 radiationMode='photons';
 description='prostate';
-caseID='3840'; % 3482 3648 3782 3790 3840
+caseID='3648'; % 3482 3648 3782 3790 3840
 robustness_approach = 'robust';
 robustness='INTERVAL3'; % none COWC COWC2 c-COWC c-COWC2 INTERVAL2 INTERVAL3
 plan_target='CTV'; % CTV PTV
@@ -25,7 +25,7 @@ beta1=1/13;
 p2=1;
 beta2=p2/13;
 theta1=3;
-theta2=1;
+theta2=0.3;
 
 %output_folder = ['output' filesep radiationMode filesep description filesep caseID filesep robustness ...
 %    filesep plan_target filesep plan_beams filesep plan_objectives filesep shiftSD filesep scen_mode ];

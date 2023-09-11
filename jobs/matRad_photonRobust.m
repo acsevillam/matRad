@@ -594,7 +594,7 @@ cst_robust{ixRing2,5}.Priority = 4; % overlap priority for optimization - a lowe
 cst_robust{ixRing2,6}{1} = struct(DoseObjectives.matRad_MaxDVH(100,p*1.00,0));
 cst_robust{ixRing2,6}{1}.robustness  = 'none';
 cst_robust{ixRing2,6}{1}.dosePulling  = false;
-OARStructSel{length(OARStructSel)+1}='RING 20 - 50 mm';
+%OARStructSel{length(OARStructSel)+1}='RING 20 - 50 mm';
 
 %% Copy reference plan
 pln_robust=pln;
@@ -640,8 +640,10 @@ switch run_config.robustness
         now2 = tic();
         if ~exist('dij_interval','var') || isempty(dij_interval)
             [dij_dummy, pln_dummy,dij_robust,pln_robust,dij_interval] = matRad_calcDoseInterval2b(ct,cst,stf_robust,pln_robust,dij_robust,targetStructSel,OARStructSel);
-            dij_file = [run_config.rootPath  filesep 'jobs' filesep 'images' filesep run_config.description filesep run_config.caseID '_dij_interval2.mat'];
-            save(dij_file,'dij_dummy','pln_dummy','dij_robust','pln_robust','dij_interval', '-v7.3');
+            dij_interval_file = [run_config.rootPath  filesep 'jobs' filesep 'images' filesep run_config.description filesep run_config.caseID '_dij_interval2.mat'];
+            save(dij_interval_file,'dij_dummy','pln_dummy','pln_robust','dij_interval', '-v7.3');
+            dij_robust_file = [run_config.rootPath  filesep 'jobs' filesep 'images' filesep run_config.description filesep run_config.caseID '_dij_robust.mat'];
+            save(dij_robust_file,'dij_robust', '-v7.3');
         end
         dij_robust=dij_dummy;
         pln_robust=pln_dummy;
@@ -762,6 +764,16 @@ switch run_config.robustness
         cst_robust{ixCTV,6}=[];
         cst_robust{ixCTV,6}{1} = struct(DoseObjectives.matRad_SquaredBertoluzzaDeviation2(30*dp_target_factor,p));
         cst_robust{ixCTV,6}{1}.robustness  = 'INTERVAL2';
+
+        for iX=1:size(cst,1)
+            for j = 1:numel(OARStructSel)
+                if strcmp(OARStructSel{j}, cst{iX,2})
+                    for k = 1:numel(cst{iX,6})
+                        cst_robust{iX,6}{k}.robustness  = 'INTERVAL2';
+                    end
+                end
+            end
+        end
     
     case 'INTERVAL3'
         
