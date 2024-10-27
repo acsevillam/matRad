@@ -40,7 +40,7 @@ s.matlab.general.matfile.SaveFormat.TemporaryValue = 'v7.3';
 
 validRadiationModes = {'photons','protons'};
 validDescriptions = {'prostate','breast'};
-validPatientIDs = {'3482','3648','3782','3790','3840','3477','3749','3832','3833','3929','1758'};
+validPatientIDs = {'3482','3648','3782','3790','3840','3477','3749','3832','3833','3929','4136','4155','4203','4357','4390','4428','4494','4531','4585','4681','1758'};
 validAcquisitionTypes = {'mat','dicom'};
 validPlanObjectives = {'1','2','3','4','5','6'};
 validDosePullingTargets = {'CTV','PTV'};
@@ -119,7 +119,7 @@ run_config.rootPath = parser.Results.rootPath;
 output_folder = ['output' filesep run_config.radiationMode filesep run_config.description filesep run_config.caseID filesep run_config.robustness filesep run_config.plan_target filesep run_config.plan_beams filesep run_config.plan_objectives filesep num2str(run_config.shiftSD(1)) 'x' num2str(run_config.shiftSD(2)) 'x' num2str(run_config.shiftSD(3)) filesep run_config.scen_mode filesep datestr(datetime,'yyyy-mm-dd HH-MM-SS')];
 
 run_config.resolution = [3 3 3];
-run_config.doseResolution = [3 3 3];
+run_config.doseResolution = [10 10 10];
 run_config.GammaCriteria = [3 3];
 run_config.robustnessCriteria = [5 5];
 run_config.sampling_size = 50;
@@ -324,6 +324,8 @@ display(stf(1));
 % Let's generate dosimetric information by pre-computing dose influence
 % matrices for unit beamlet intensities. Having dose influences available
 % allows subsequent inverse optimization.
+now1 = tic();
+
 if run_config.radiationMode == "photons"
     dij = matRad_calcPhotonDose(ct,stf,pln,cst);
 end
@@ -331,6 +333,11 @@ end
 if run_config.radiationMode == "protons"
     dij = matRad_calcParticleDose(ct,stf,pln,cst);
 end
+
+DCTime_robust = toc(now1);
+time1=sprintf('DCTime_nominal: %.2f\n',DCTime_robust); disp(time1);
+results.performance.DCTime_robust=DCTime_robust;
+
 
 %% Inverse Optimization  for IMPT based on RBE-weighted dose
 % The goal of the fluence optimization is to find a set of bixel/spot
@@ -347,6 +354,7 @@ resultGUI = resultGUI_nominal;
 savefig([folderPath filesep 'dvh_nominal.fig']);
 
 %% Dose pulling
+now3 = tic();
 
 ixTargetQi=zeros(size(run_config.dose_pulling_target));
 for i=1:size(run_config.dose_pulling_target,2)
@@ -411,6 +419,10 @@ while(run_config.dose_pulling && numIteration<=100 && any(arrayfun(@(ixTarget,cr
     end
 
 end
+
+OPTTime_robust = toc(now3);
+time3=sprintf('OPTTime_robust: %.2f\n',OPTTime_robust); disp(time3);
+results.performance.OPTTime_robust=OPTTime_robust;
 
 %% Plot nominal fluence
 matRad_visSpotWeights(stf,resultGUI.w);
@@ -485,6 +497,39 @@ b.Callback = @(es,ed)  matRad_plotSliceWrapper(gca,ct,cst,1,resultGUISamp.(quant
 
 savefig([folderPath filesep 'std_dose_nominal.fig']);
 
+%% Calculate nominal and expected dose difference
+quantityMap1='stdCube';
+quantityMap2='physicalDose';
+resultGUISamp.diffCube=resultGUISamp.(quantityMap1)-resultGUInomScen.(quantityMap2);
+quantityMap1='stdCubeW';
+quantityMap2='physicalDose';
+resultGUISamp.diffCubeW=resultGUISamp.(quantityMap1)-resultGUInomScen.(quantityMap2);
+
+%% Create an high and low doses expectation interactive plot to slide through axial slices
+quantityMap='diffCubeW';
+quantityMapRef='physicalDose';
+maxDose = 20.01; % [%]
+doseWindow = [-maxDose maxDose];
+plane      = 3;
+doseIsoLevels = linspace(-maxDose,maxDose,10);
+f = figure;
+title([quantityMap 'for nominal optimization results']);
+set(gcf,'position',[10,10,550,400]);
+numSlices = ct.cubeDim(3);
+
+mMap1=10;
+colormap1 = [linspace(0.20,1,mMap1)',linspace(0.20,1,mMap1)', linspace(1,1,mMap1)'];
+colormap2 = [linspace(1,1,mMap1)',linspace(1,0.20,mMap1)', linspace(1,0.20,mMap1)'];
+myColormap = [colormap1; colormap2];
+
+slice = round(pln.propStf.isoCenter(1,3)./ct.resolution.z);
+matRad_plotSliceWrapper(gca,ct,cst,1,resultGUISamp.(quantityMap)./resultGUInomScen.(quantityMapRef)*pln.numOfFractions,plane,slice,[],[],colorcube,myColormap,doseWindow,doseIsoLevels,[],'Relative Dose Difference [%]',[],'LineWidth',1.2);
+b = uicontrol('Parent',f,'Style','slider','Position',[50,5,420,23],...
+    'value',slice, 'min',1, 'max',numSlices,'SliderStep', [1/(numSlices-1) , 1/(numSlices-1)]);
+b.Callback = @(es,ed)  matRad_plotSliceWrapper(gca,ct,cst,1,resultGUISamp.(quantityMap)./resultGUInomScen.(quantityMapRef)*pln.numOfFractions,plane,round(es.Value),[],[],colorcube,myColormap,doseWindow,doseIsoLevels,[],'Relative Dose Difference [%]',[],'LineWidth',1.2);
+
+savefig([folderPath filesep 'dose_difference_nominal.fig']);
+
 %% Multi-scenario dose volume histogram (DVH)
 f = figure;
 set(gcf,'Color',[1 1 1],'position',[10,10,600,400]);
@@ -502,6 +547,8 @@ title('Trust band DVH for nominal optimization results');
 savefig([folderPath filesep 'dvh_trustband_nominal.fig']);
 
 %% print results
+disp('Performance:');
+disp(results.performance);
 disp('Robustness analysis (nominal plan):');
 disp(results.robustnessAnalysis_nominal);
 
