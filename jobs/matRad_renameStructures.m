@@ -36,6 +36,8 @@ switch description
             switch cst{it,2}
                 case 'Skin'
                     cst{it,2}='BODY';
+                case 'Piel'
+                    cst{it,2}='SKIN';
                 case {'PTV','PTV M'}
                     cst{it,2}='PTV';
                 case {'SENO IZQUIERDO','CTV'}

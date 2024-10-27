@@ -40,7 +40,7 @@ s.matlab.general.matfile.SaveFormat.TemporaryValue = 'v7.3';
 
 validRadiationModes = {'photons','protons'};
 validDescriptions = {'prostate','breast'};
-validPatientIDs = {'3482','3648','3782','3790','3840','3477','3749','3832','3833','3929','1758'};
+validPatientIDs = {'3482','3648','3782','3790','3840','3477','3749','3832','3833','3929','4136','4155','4203','4357','4390','4428','4494','4531','4585','4681','1758'};
 validAcquisitionTypes = {'mat','dicom'};
 validPlanObjectives = {'1','2','3','4','5','6'};
 validDosePulling1Targets = {'CTV','PTV'};
@@ -193,7 +193,7 @@ switch run_config.robustness
 end
 
 run_config.resolution = [3 3 3];
-run_config.doseResolution = [3 3 3];
+run_config.doseResolution = [10 10 10];
 run_config.GammaCriteria = [3 3];
 run_config.robustnessCriteria = [5 5];
 run_config.sampling_size = 50;
@@ -1083,6 +1083,39 @@ b = uicontrol('Parent',stdDoseFig1,'Style','slider','Position',[50,5,420,23],...
 b.Callback = @(es,ed) matRad_plotSliceWrapper(gca,ct,cst_robust,1,resultGUISampRob.(quantityMap)*pln_robust.numOfFractions,plane,round(es.Value),[],[],colorcube,[],doseWindow,doseIsoLevels,[],'Dose uncertainty [Gy]',[],'LineWidth',1.2);
 
 savefig(stdDoseFig1,[folderPath filesep 'std_dose_robust.fig']);
+
+%% Calculate nominal and expected dose difference
+quantityMap1='stdCube';
+quantityMap2='physicalDose';
+resultGUISampRob.diffCube=resultGUISampRob.(quantityMap1)-resultGUIRobNomScen.(quantityMap2);
+quantityMap1='stdCubeW';
+quantityMap2='physicalDose';
+resultGUISampRob.diffCubeW=resultGUISampRob.(quantityMap1)-resultGUIRobNomScen.(quantityMap2);
+
+%% Create an high and low doses expectation interactive plot to slide through axial slices
+quantityMap='diffCubeW';
+quantityMapRef='physicalDose';
+maxDose = 20.01; % [%]
+doseWindow = [-maxDose maxDose];
+plane      = 3;
+doseIsoLevels = linspace(-maxDose,maxDose,10);
+f = figure;
+title([quantityMap 'for nominal optimization results']);
+set(gcf,'position',[10,10,550,400]);
+numSlices = ct.cubeDim(3);
+
+mMap1=10;
+colormap1 = [linspace(0.20,1,mMap1)',linspace(0.20,1,mMap1)', linspace(1,1,mMap1)'];
+colormap2 = [linspace(1,1,mMap1)',linspace(1,0.20,mMap1)', linspace(1,0.20,mMap1)'];
+myColormap = [colormap1; colormap2];
+
+slice = round(pln.propStf.isoCenter(1,3)./ct.resolution.z);
+matRad_plotSliceWrapper(gca,ct,cst,1,resultGUISampRob.(quantityMap)./resultGUIRobNomScen.(quantityMapRef)*pln.numOfFractions,plane,slice,[],[],colorcube,myColormap,doseWindow,doseIsoLevels,[],'Relative Dose Difference [%]',[],'LineWidth',1.2);
+b = uicontrol('Parent',f,'Style','slider','Position',[50,5,420,23],...
+    'value',slice, 'min',1, 'max',numSlices,'SliderStep', [1/(numSlices-1) , 1/(numSlices-1)]);
+b.Callback = @(es,ed)  matRad_plotSliceWrapper(gca,ct,cst,1,resultGUISampRob.(quantityMap)./resultGUIRobNomScen.(quantityMapRef)*pln.numOfFractions,plane,round(es.Value),[],[],colorcube,myColormap,doseWindow,doseIsoLevels,[],'Relative Dose Difference [%]',[],'LineWidth',1.2);
+
+savefig([folderPath filesep 'dose_difference_robust.fig']);
 
 %% Multi-scenario dose volume histogram (DVH)
 f = figure;
