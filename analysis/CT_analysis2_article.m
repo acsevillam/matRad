@@ -10,7 +10,7 @@ defaultRootPath = '/Volumes/BACKUP/workspace';
 job_folder='job1';
 radiationMode='photons';
 description='breast';
-caseID='4585'; % 3477 3749 3832 3833 3929 4136 4155 4203 4357 4390 4428 4494 4531 4585 4681
+caseID='3929'; % 3477 3749 3832 3833 3929 4136 4155 4203 4357 4390 4428 4494 4531 4585 4681
 robustness_approach = 'nominal';
 robustness='none'; % none COWC COWC2 c-COWC c-COWC2 INTERVAL2 INTERVAL3
 plan_target='CTV'; % CTV PTV
@@ -78,9 +78,6 @@ end
 fig1.Children(1).FontSize=9;
 fig1.Position = [120 100 540 230];
 fig1.Children(2).Title.String= 'Nomimal CTV (Margin based)';%strjoin(['cminimax',string(p2),'of 13'],' '); % Nomimal PTV (Margin based) minimax strjoin(['cminimax',string(p2),'of 13'],' ')
-
-fig2.Children(4).Title.String= 'Nomimal CTV (Margin based)';%strjoin(['cminimax',string(p2),'of 13'],' '); % Nomimal PTV (Margin based) minimax strjoin(['cminimax',string(p2),'of 13'],' ')
-fig2.Children(3).FontSize=9;
 
 %saveas(fig1,[foldername filesep listing(end).name filesep 'dvh_trustband_' robustness_approach '_2'],'png');
 set(fig1,'PaperOrientation','portrait');
