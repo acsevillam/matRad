@@ -44,10 +44,8 @@ switch description
                     skin_flag = false;
                     cst{it,2}='SKIN';
                 case {'PTV','PTV M'}
-                    ixPTV=it;
                     cst{it,2}='PTV';
                 case {'SENO IZQUIERDO','CTV'}
-                    ixCTV=it;
                     cst{it,2}='CTV';
                 case 'CORAZON'
                     cst{it,2}='HEART';
@@ -64,15 +62,23 @@ switch description
                     fprintf('Deleting %s structure. \n',cst{it,2});
                     cst(it,:) = [];
             end
+        end
 
-            if(skin_flag && ixPTV~=0 && ixCTV~=0)
-                metadata.name='SKIN';
-                metadata.type='OAR';
-                metadata.visibleColor=[1,0.501960784313726,1];
-                [cst,~] = matRad_createSkin(ixPTV,ixCTV,cst,metadata);
-                clear metadata;
+        for  it = size(cst,1):-1:1
+            switch cst{it,2}
+                case {'PTV'}
+                    ixPTV=it;
+                case {'CTV'}
+                    ixCTV=it;
             end
-
+        end
+        
+        if(skin_flag && ixPTV~=0 && ixCTV~=0)
+            metadata.name='SKIN';
+            metadata.type='OAR';
+            metadata.visibleColor=[1,0.501960784313726,1];
+            [cst,~] = matRad_createSkin(ixPTV,ixCTV,cst,metadata);
+            clear metadata;
         end
 
 end
