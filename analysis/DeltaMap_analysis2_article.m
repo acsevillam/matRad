@@ -6,11 +6,11 @@ close all;
 matRad_rc
 param.logLevel=1;
 %defaultRootPath = matRad_cfg.matRadRoot;
-defaultRootPath = '\\compute-0-0\workspace';
-job_folder='job1';
+defaultRootPath = '/Volumes/BACKUP/workspace';
+job_folder='job2';
 radiationMode='photons';
 description='breast';
-caseID='3832'; % 3477 3749 3832 3833 3929
+caseID='3832'; % 3477 3749 3832 3833 3929 4136 4155 4203 4357 4390 4428 4494 4531 4585 4681
 robustness_approach = 'nominal';
 robustness='none'; % none COWC COWC2 c-COWC c-COWC2 INTERVAL2 INTERVAL3
 plan_target='PTV'; % CTV PTV
@@ -20,7 +20,7 @@ shiftSD='4x8x6';
 scen_mode='nomScen'; % nomScen impScen5 impScen_permuted_truncated5 impScen7 impScen_permuted_truncated7
 wcFactor=1.0;
 beta1=1/13;
-p2=13;
+p2=1;
 beta2=p2/13;
 theta1=1.0;
 theta2=0.1;
@@ -35,7 +35,9 @@ output_folder = ['output' filesep radiationMode filesep description filesep case
 %    filesep plan_target filesep plan_beams filesep plan_objectives filesep shiftSD filesep scen_mode filesep num2str(wcFactor) filesep num2str(beta1) '_to_' num2str(beta2) ];
 
 %foldername = [defaultRootPath filesep '../../JOBS/cminimax2/1/job4' filesep output_folder];
-foldername = [defaultRootPath filesep 'JOBS\apolo\cminimax2\2023-06-11\2' filesep job_folder filesep output_folder];
+%foldername = [defaultRootPath filesep 'JOBS\apolo\cminimax2\2023-06-11\2' filesep job_folder filesep output_folder];
+foldername = [defaultRootPath filesep 'JOBS/apolo/cminimax2/2024-10-10/2' filesep job_folder filesep output_folder];
+
 listing = dir(foldername);
 filename1=[foldername filesep listing(end).name filesep 'results.mat'];
 filename2=[foldername filesep listing(end).name filesep 'plan.mat'];
@@ -111,8 +113,9 @@ for delStructIx=1:numel(delStructs)
             cst{structIx,3}='IGNORED';
         end
     end
-end  
+end
 
+%%
 % Create target mask
 targetMask = zeros(size(results.(['robustnessAnalysis_' robustness_approach]).robustnessCube1));
 for  i = 1:size(cst,1)
@@ -157,10 +160,12 @@ for slice = 30:6:84
     set(robustnessFig1,'PaperPositionMode','auto');
     set(robustnessFig1.Children(4),'XLim',[81.5000 147.5000]);
     set(robustnessFig1.Children(4),'YLim',[25.5000 102.5000]);
-    set(robustnessFig1.Children(4).Title,'String','PTV');
+    set(robustnessFig1.Children(4).Title,'String','PTV (Margin based)'); % %strjoin(['cminimax',string(p2),'of 13'],' '); % Nomimal PTV (Margin based) minimax strjoin(['cminimax',string(p2),'of 13'],' ')
+
     set(robustnessFig1.Children(6),'XLim',[81.5000 147.5000]);
     set(robustnessFig1.Children(6),'YLim',[25.5000 102.5000]);
-    set(robustnessFig1.Children(6).Title,'String','PTV');
+    
+    set(robustnessFig1.Children(6).Title,'String','PTV (Margin based)'); % %strjoin(['cminimax',string(p2),'of 13'],' '); % Nomimal PTV (Margin based) minimax strjoin(['cminimax',string(p2),'of 13'],' ')
     %set(robustnessFig1,'PaperSize',[5.8 4.0]);
     %print(robustnessFig1,[foldername filesep listing(end).name filesep 'dvh_trustband_' robustness_approach '_' num2str(p2) '_13'],'-dpdf','-r0','-fillpage');
     print(robustnessFig1,[foldername filesep listing(end).name filesep 'robustness_analysis1_' robustness_approach '_' plan_target '_' num2str(slice)],'-dpdf','-r0','-fillpage');

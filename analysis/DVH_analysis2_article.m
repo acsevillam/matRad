@@ -7,32 +7,32 @@ matRad_rc
 param.logLevel=1;
 %defaultRootPath = matRad_cfg.matRadRoot;
 defaultRootPath = '/Volumes/BACKUP/workspace';
-job_folder='job1';
+job_folder='job2';
 radiationMode='photons';
 description='breast';
-caseID='4585'; % 3477 3749 3832 3833 3929 4136 4155 4203 4357 4390 4428 4494 4531 4585 4681
-robustness_approach = 'nominal';
-robustness='none'; % none COWC COWC2 c-COWC c-COWC2 INTERVAL2 INTERVAL3
+caseID='3832'; % 3477 3749 3832 3833 3929 4136 4155 4203 4357 4390 4428 4494 4531 4585 4681
+robustness_approach = 'robust';
+robustness='c-COWC2'; % none COWC COWC2 c-COWC c-COWC2 INTERVAL2 INTERVAL3
 plan_target='CTV'; % CTV PTV
 plan_beams='7F';
 plan_objectives='4';
 shiftSD='4x8x6';
-scen_mode='nomScen'; % nomScen impScen5 impScen_permuted_truncated5 impScen7 impScen_permuted_truncated7
+scen_mode='impScen5'; % nomScen impScen5 impScen_permuted_truncated5 impScen7 impScen_permuted_truncated7
 wcFactor=1.0;
 beta1=1/13;
-p2=1;
+p2=10;
 beta2=p2/13;
 theta1=1.0;
 theta2=0.1;
 
-output_folder = ['output' filesep radiationMode filesep description filesep caseID filesep robustness ...
-    filesep plan_target filesep plan_beams filesep plan_objectives filesep shiftSD filesep scen_mode ];
+%output_folder = ['output' filesep radiationMode filesep description filesep caseID filesep robustness ...
+%    filesep plan_target filesep plan_beams filesep plan_objectives filesep shiftSD filesep scen_mode ];
 
 %output_folder = ['output' filesep radiationMode filesep description filesep caseID filesep robustness ...
 %    filesep plan_target filesep plan_beams filesep plan_objectives filesep scen_mode filesep num2str(wcFactor) filesep num2str(beta1) '_to_' num2str(beta2) ];
 
-%output_folder = ['output' filesep radiationMode filesep description filesep caseID filesep robustness ...
-%    filesep plan_target filesep plan_beams filesep plan_objectives filesep shiftSD filesep scen_mode filesep num2str(wcFactor) filesep num2str(beta1) '_to_' num2str(beta2) ];
+output_folder = ['output' filesep radiationMode filesep description filesep caseID filesep robustness ...
+    filesep plan_target filesep plan_beams filesep plan_objectives filesep shiftSD filesep scen_mode filesep num2str(wcFactor) filesep num2str(beta1) '_to_' num2str(beta2) ];
 
 %foldername = [defaultRootPath filesep '../../JOBS/cminimax2/1/job4' filesep output_folder];
 %foldername = [defaultRootPath filesep 'JOBS\apolo\cminimax2\2023-06-11\2' filesep job_folder filesep output_folder];
@@ -228,13 +228,29 @@ annotation(fig1,'textbox',dim,'BackgroundColor','white','EdgeColor','black','Fon
 %datatip(h(1),x0,f1_max(x0));
 
 % SKIN
-h=findobj(fig1,'LineStyle','-','Type','line','DisplayName','SKIN');
-h.Color=[0 0 1];
 h=findobj(fig1,'LineStyle',':','Type','line','DisplayName','SKIN');
+h.Color=[0 0 1];
+x1_tmp=h(1).XData(1:1600);
+y1_tmp=h(1).YData(1:1600);
+
+y1_first=find(y1_tmp==100,1,'last');
+if(isempty(y1_first))
+    y1_first=1;
+end
+y1_last=find(y1_tmp>=0,1,'last');
+x1_tmp=x1_tmp(y1_first:y1_last);
+y1_tmp=y1_tmp(y1_first:y1_last);
+[y1,iy]=unique(y1_tmp);
+x1=x1_tmp(iy);
+f1=@(z) interp1(y1,x1,z, 'linear', 'extrap');
+
+
+h=findobj(fig1,'LineStyle','-','Type','line','DisplayName','SKIN');
 h.Color=[0 0 1];
 h=findobj(fig1,'LineStyle','-','Type','patch','DisplayName','SKIN');
 h.EdgeColor=[0 0 1];
 h.FaceColor=[0 0 1];
+
 x1_tmp=h(1).XData(1:1000);
 y1_tmp=h(1).YData(1:1000);
 
@@ -247,7 +263,7 @@ x1_tmp=x1_tmp(y1_first:y1_last);
 y1_tmp=y1_tmp(y1_first:y1_last);
 [y1,iy]=unique(y1_tmp);
 x1=x1_tmp(iy);
-f1=@(z) interp1(y1,x1,z, 'linear', 'extrap');
+f1_min=@(z) interp1(y1,x1,z, 'linear', 'extrap');
 
 x2_tmp=h(1).XData(1601:3200);
 y2_tmp=h(1).YData(1601:3200);
@@ -261,12 +277,12 @@ x2_tmp=x2_tmp(y2_first+1:y2_last);
 y2_tmp=y2_tmp(y2_first+1:y2_last);
 [y2,iy]=unique(y2_tmp);
 x2=x2_tmp(iy);
-f2=@(z) interp1(y2,x2,z, 'linear', 'extrap');
+f1_max=@(z) interp1(y2,x2,z, 'linear', 'extrap');
 
 x0=5;
-fprintf('SKIN: \t Tail width (V%.2f) = %.2f [ %.2f - %.2f ] Gy \n', [x0;f2(x0)-f1(x0);f1(x0);f2(x0)]);
+fprintf('SKIN: \t D%.0f %% = %.2f [ %.2f - %.2f ] Gy \n', [x0;f1(x0);f1_min(x0);f1_max(x0)]);
 dim = [0.66 0.13 .3 .3];
-str = sprintf('TWdth (V%.2f) (Skin) = \n %.2f [ %.2f - %.2f ] Gy', [x0;f2(x0)-f1(x0);f1(x0);f2(x0)]);
+str = sprintf('D%.0f %% (Skin) = \n %.2f [ %.2f - %.2f ] Gy', [x0;f1(x0);f1_min(x0);f1_max(x0)]);
 annotation(fig1,'textbox',dim,'BackgroundColor','white','EdgeColor','black','FontSize',8,'String',str,'FitBoxToText','on');
 %datatip(h(1),f1(x0),x0);
 %datatip(h(1),f2(x0),x0);
@@ -343,7 +359,7 @@ plot(f2(x3),x3,'black','LineStyle',':','LineWidth',2,'DisplayName','CTV Max');
 diary off
 
 %%
-delStructs={'PTV', 'RING 0 - 20 mm', 'RING 0 - 20 mm', 'RING 20 - 50 mm', 'BULB', 'CTV Min', 'CTV Max', 'CONTRALATERAL BREAST'};
+delStructs={'PTV', 'RING 0 - 20 mm', 'RING 0 - 20 mm', 'RING 20 - 50 mm', 'BULB', 'CTV Min', 'CTV Max', 'CONTRALATERAL BREAST', 'SPINAL CORD'};
 for structIx=1:numel(delStructs)
   delete(findobj(fig1,'DisplayName',delStructs{structIx}));
   delete(findobj(fig2,'DisplayName',delStructs{structIx}));
@@ -351,9 +367,9 @@ end
 
 fig1.Children(1).FontSize=9;
 fig1.Position = [120 100 540 230];
-fig1.Children(2).Title.String= 'Nomimal CTV (Margin based)';%strjoin(['cminimax',string(p2),'of 13'],' '); % Nomimal PTV (Margin based) minimax strjoin(['cminimax',string(p2),'of 13'],' ')
+fig1.Children(2).Title.String= strjoin(['cminimax',string(p2),'of 13'],' ');%strjoin(['cminimax',string(p2),'of 13'],' '); % Nomimal PTV (Margin based) minimax strjoin(['cminimax',string(p2),'of 13'],' ')
 
-fig2.Children(4).Title.String= 'Nomimal CTV (Margin based)';%strjoin(['cminimax',string(p2),'of 13'],' '); % Nomimal PTV (Margin based) minimax strjoin(['cminimax',string(p2),'of 13'],' ')
+fig2.Children(4).Title.String= strjoin(['cminimax',string(p2),'of 13'],' '); % Nomimal PTV (Margin based) minimax strjoin(['cminimax',string(p2),'of 13'],' ')
 fig2.Children(3).FontSize=9;
 
 %saveas(fig1,[foldername filesep listing(end).name filesep 'dvh_trustband_' robustness_approach '_2'],'png');
