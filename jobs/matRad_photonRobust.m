@@ -74,7 +74,8 @@ defaultP1 = 1;
 defaultP2 = 1;
 defaultTheta1 = 1.0;
 defaultK = 1;
-defaultTheta2 = 0.0;
+defaultRetentionThreshold = 0.95;
+defaultTheta2 = 1.0;
 defaultLoadDij = true;
 defaultSampling = true;
 defaultSamplingMode = 'impScen_permuted_truncated5';
@@ -116,6 +117,8 @@ addParameter(parser,'theta1',defaultTheta1,@(x) validateattributes(x,{'numeric'}
             {'nonempty','nonnegative'}));
 addParameter(parser,'k',defaultK,@(x) validateattributes(x,{'numeric'},...
             {'nonempty','integer','positive'}));
+addParameter(parser,'retentionThreshold',defaultRetentionThreshold,@(x) validateattributes(x,{'numeric'},...
+            {'nonempty','nonnegative'}));
 addParameter(parser,'theta2',defaultTheta2,@(x) validateattributes(x,{'numeric'},...
             {'nonempty','nonnegative'}));
 addParameter(parser,'loadDij',defaultLoadDij,@islogical);
@@ -182,6 +185,7 @@ switch run_config.robustness
     case "INTERVAL3"
         run_config.theta1 = parser.Results.theta1;
         run_config.k = parser.Results.k;
+        run_config.retentionThreshold = parser.Results.retentionThreshold;
         run_config.theta2 = parser.Results.theta2;
         output_folder = ['output' filesep run_config.radiationMode filesep run_config.description filesep run_config.caseID filesep run_config.robustness filesep run_config.plan_target filesep run_config.plan_beams filesep run_config.plan_objectives filesep num2str(run_config.shiftSD(1)) 'x' num2str(run_config.shiftSD(2)) 'x' num2str(run_config.shiftSD(3)) filesep run_config.scen_mode filesep num2str(run_config.wcFactor) filesep num2str(run_config.theta1) filesep num2str(run_config.theta2) filesep datestr(datetime,'yyyy-mm-dd HH-MM-SS')];
         dij_file = [run_config.rootPath  filesep 'jobs' filesep 'images' filesep run_config.description filesep run_config.caseID '_dij_interval3.mat'];
@@ -654,7 +658,7 @@ switch run_config.robustness
         targetStructSel = {'CTV'};
         now2 = tic();
         if ~exist('dij_interval','var') || isempty(dij_interval)
-            [dij_dummy, pln_dummy,dij_robust,pln_robust,dij_interval] = matRad_calcDoseInterval3c(ct,cst,stf_robust,pln_robust,dij_robust,targetStructSel,OARStructSel,0.95);
+            [dij_dummy, pln_dummy,dij_robust,pln_robust,dij_interval] = matRad_calcDoseInterval3c(ct,cst,stf_robust,pln_robust,dij_robust,targetStructSel,OARStructSel,run_config.retentionThreshold);
             dij_robust_file = [run_config.rootPath  filesep 'jobs' filesep 'images' filesep run_config.description filesep run_config.caseID '_dij_interval3.mat'];
             save(dij_robust_file,'dij_dummy','pln_dummy','dij_robust','pln_robust','dij_interval', '-v7.3');
         end
