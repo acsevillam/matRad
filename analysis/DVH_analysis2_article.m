@@ -6,11 +6,11 @@ close all;
 matRad_rc
 param.logLevel=1;
 %defaultRootPath = matRad_cfg.matRadRoot;
-defaultRootPath = '/Volumes/BACKUP/workspace';
+defaultRootPath = '/Volumes/Work_01/workspace';
 job_folder='job2';
 radiationMode='photons';
-description='breast';
-caseID='3832'; % 3477 3749 3832 3833 3929 4136 4155 4203 4357 4390 4428 4494 4531 4585 4681
+description='prostate';
+caseID='3477'; % 3477 3749 3832 3833 3929 4136 4155 4203 4357 4390 4428 4494 4531 4585 4681
 robustness_approach = 'robust';
 robustness='c-COWC2'; % none COWC COWC2 c-COWC c-COWC2 INTERVAL2 INTERVAL3
 plan_target='CTV'; % CTV PTV

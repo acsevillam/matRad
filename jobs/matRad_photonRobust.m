@@ -73,7 +73,7 @@ defaultWCFactor = 1.0;
 defaultP1 = 1;
 defaultP2 = 1;
 defaultTheta1 = 1.0;
-defaultK = 10;
+defaultK = 1;
 defaultTheta2 = 0.0;
 defaultLoadDij = true;
 defaultSampling = true;
@@ -193,7 +193,7 @@ switch run_config.robustness
 end
 
 run_config.resolution = [3 3 3];
-run_config.doseResolution = [3 3 3];
+run_config.doseResolution = [10 10 10];
 run_config.GammaCriteria = [3 3];
 run_config.robustnessCriteria = [5 5];
 run_config.sampling_size = 50;
@@ -654,9 +654,9 @@ switch run_config.robustness
         targetStructSel = {'CTV'};
         now2 = tic();
         if ~exist('dij_interval','var') || isempty(dij_interval)
-            [dij_dummy, pln_dummy,dij_robust,pln_robust,dij_interval] = matRad_calcDoseInterval3b(ct,cst,stf_robust,pln_robust,dij_robust,targetStructSel,OARStructSel,run_config.k);
-            dij_file = [run_config.rootPath  filesep 'jobs' filesep 'images' filesep run_config.description filesep run_config.caseID '_dij_interval3.mat'];
-            save(dij_file,'dij_dummy','pln_dummy','dij_robust','pln_robust','dij_interval', '-v7.3');
+            [dij_dummy, pln_dummy,dij_robust,pln_robust,dij_interval] = matRad_calcDoseInterval3c(ct,cst,stf_robust,pln_robust,dij_robust,targetStructSel,OARStructSel,0.95);
+            dij_robust_file = [run_config.rootPath  filesep 'jobs' filesep 'images' filesep run_config.description filesep run_config.caseID '_dij_interval3.mat'];
+            save(dij_robust_file,'dij_dummy','pln_dummy','dij_robust','pln_robust','dij_interval', '-v7.3');
         end
         dij_robust=dij_dummy;
         pln_robust=pln_dummy;
@@ -820,11 +820,7 @@ resultGUI_robust = matRad_fluenceOptimization(dij_robust,cst_robust,pln_robust);
 % Target
 switch run_config.robustness
 
-    case 'INTERVAL2'
-        
-        pln_robust.propOpt.dij_interval=[];
-    
-    case 'INTERVAL3'
+    case {'INTERVAL2','INTERVAL3'}
         
         pln_robust.propOpt.dij_interval=[];
 
