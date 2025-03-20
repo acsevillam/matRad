@@ -73,6 +73,15 @@ end
 clear OARV;
 clear cst;
 
+% Parallel pool check
+p = gcp(); % If no pool, create new one.
+    
+if isempty(p)
+    poolSize = 1;
+else
+    poolSize = p.NumWorkers;
+end
+
 center_local = cell(1, numel(targetSubIx));
 radius_local = cell(1, numel(targetSubIx));
 
@@ -116,6 +125,15 @@ dij_interval.V = cell(size(OARSubIx));
 dij_interval.OARSubIx = OARSubIx;
 
 batch_results = cell(numel(batch_indices), 1);
+
+% Parallel pool check
+p = gcp(); % If no pool, create new one.
+    
+if isempty(p)
+    poolSize = 1;
+else
+    poolSize = p.NumWorkers;
+end
 
 parfor b = 1:numel(batch_indices)
     OAR_batch = OAR_batches{b};
