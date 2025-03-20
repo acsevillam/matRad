@@ -4,12 +4,6 @@ matRad_cfg = MatRad_Config.instance();
 [env, envver] = matRad_getEnvironment();
 pln_dummy = pln;
 
-% Memory check
-[~, system_view] = memory;
-if system_view.PhysicalMemory.Available < 8e9
-    warning('Less than 8GB of RAM available, consider reducing batch_size or target/OAR selection.');
-end
-
 % Retrieve dummy case scenario
 dummyScen = matRad_multScen(ct, 'nomScen');
 pln_dummy.multScen = dummyScen;
@@ -79,10 +73,6 @@ end
 clear OARV;
 clear cst;
 
-% Monitor memory before target voxel loop
-[~, system_view] = memory;
-fprintf('Memory before target voxel loop: %.2f GB\n', system_view.PhysicalMemory.Available / 1e9);
-
 center_local = cell(1, numel(targetSubIx));
 radius_local = cell(1, numel(targetSubIx));
 
@@ -108,12 +98,7 @@ end
 clear center_local;
 clear radius_local;
 
-% Adaptive batch_size based on available memory
-if system_view.PhysicalMemory.Available < 16e9
-    batch_size = 50;
-else
-    batch_size = 100;
-end
+batch_size = 100;
 
 % Define batch indices
 nOAR = numel(OARSubIx);
