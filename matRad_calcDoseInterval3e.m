@@ -75,11 +75,8 @@ clear OARV;
 clear counter;
 clear cst;
 
-nCores = feature('numcores');
-nWorkers = max(1, nCores - 2);
-
 if isempty(gcp('nocreate'))
-    parpool('local', nWorkers);
+    parpool('local', 8);
 end
 
 center_local = cell(1, numel(targetSubIx));
@@ -108,11 +105,10 @@ U_oar = cell(1, numel(OARSubIx));
 S_oar = cell(1, numel(OARSubIx));
 V_oar = cell(1, numel(OARSubIx));
 
-parfor it = 1:numel(OARSubIx)
+parfor (it = 1:numel(OARSubIx), 8)
     Ix = OARSubIx(it);
     dij_tmp = cell2mat(cellfun(@(data) data(Ix,:), dij_list, 'UniformOutput', false));
-    dij_tmp = gpuArray(dij_tmp);
-    dij_tmp_weighted = dij_tmp .* gpuArray(scenProb');
+    dij_tmp_weighted = dij_tmp .* scenProb';
     center_tmp = gather(sum(dij_tmp_weighted, 1)');
     radius_tmp = sparse(gather(dij_tmp' * dij_tmp_weighted - center_tmp * center_tmp'));
 
