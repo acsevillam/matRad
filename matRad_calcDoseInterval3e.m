@@ -97,7 +97,7 @@ parfor it=1:numel(targetSubIx)
     
     Ix=targetSubIx(it);
     dij_tmp=cell2mat(cellfun(@(data) data(Ix,:),dij_list,'UniformOutput',false));
-    dij_tmp_weighted = dij_tmp .* scenProb'; % vector-matrix element-wise
+    dij_tmp_weighted = dij_tmp .* scenProb; % vector-matrix element-wise
 
     % Voxel index
     dij_interval_target(it).Ix=Ix;
