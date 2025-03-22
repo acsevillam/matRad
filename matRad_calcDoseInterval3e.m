@@ -1,4 +1,4 @@
-function [dij_dummy, pln_dummy, dij, pln, dij_interval] = matRad_calcDoseInterval3d(ct, cst, stf, pln, dij, targetStructSel, OARStructSel, retentionThreshold)
+function [dij_dummy, pln_dummy, dij, pln, dij_interval] = matRad_calcDoseInterval3e(ct, cst, stf, pln, dij, targetStructSel, OARStructSel, retentionThreshold)
 
 matRad_cfg = MatRad_Config.instance();
 [env, envver] = matRad_getEnvironment();
@@ -82,13 +82,12 @@ if isempty(gcp('nocreate'))
     parpool('local', nWorkers);
 end
 
-columnHeadings = {'Ix' 'center','radius'};
 % Preallocate structure
-dij_interval_target(1:numel(targetSubIx)) = cell2struct(repmat({[]},numel(columnHeadings),1),columnHeadings,1);
+dij_interval_target = repmat(struct('Ix', [], 'center', [], 'radius', []), numel(targetSubIx), 1);
 
 if exist('parfor_progress', 'file') == 2
     FlagParforProgressDisp = true;
-    parfor_progress(round(numel(targetSubIx)/1000));  % http://de.mathworks.com/matlabcentral/fileexchange/32101-progress-monitor--progress-bar--that-works-with-parfor
+    parfor_progress(round(numel(targetSubIx)/10000));  % http://de.mathworks.com/matlabcentral/fileexchange/32101-progress-monitor--progress-bar--that-works-with-parfor
 else
     matRad_cfg.dispInfo('matRad: Consider downloading parfor_progress function from the matlab central fileexchange to get feedback from parfor loop.\n');
     FlagParforProgressDisp = false;
@@ -98,17 +97,18 @@ parfor it=1:numel(targetSubIx)
     
     Ix=targetSubIx(it);
     dij_tmp=cell2mat(cellfun(@(data) data(Ix,:),dij_list,'UniformOutput',false));
+    dij_tmp_weighted = dij_tmp .* scenProb'; % vector-matrix element-wise
 
     % Voxel index
     dij_interval_target(it).Ix=Ix;
 
     % Interval center dose influence matrix
-    dij_interval_target(it).center=sum(dij_tmp'*diag(scenProb),2); % mean(dij_tmp,1);
+    dij_interval_target(it).center=sum(dij_tmp_weighted, 2);
 
     % Interval radius dose influence matrix
-    dij_interval_target(it).radius=(dij_tmp'*diag(scenProb)*dij_tmp);
+    dij_interval_target(it).radius=dij_tmp' * dij_tmp_weighted;
 
-    if FlagParforProgressDisp && mod(it,1000)==0
+    if FlagParforProgressDisp && mod(it,10000)==0
         parfor_progress;
     end
 end
@@ -123,19 +123,17 @@ dij_interval.targetSubIx=targetSubIx;
 
 for it=1:numel(targetSubIx)
     dij_interval.center(targetSubIx(it),:)=dij_interval_target(it).center;
-    % Interval radius dose influence matrix
     dij_interval.radius=dij_interval.radius+dij_interval_target(it).radius;
 end
 
 clear 'dij_interval_target';
 
-columnHeadings = {'Ix' 'center','U','S','V'};
 % Preallocate structure
-dij_interval_OAR(1:numel(OARSubIx)) = cell2struct(repmat({[]},numel(columnHeadings),1),columnHeadings,1);
+dij_interval_OAR = repmat(struct('Ix', [], 'center', [], 'U', [], 'S', [], 'V', []), numel(OARSubIx), 1);
 
 if exist('parfor_progress', 'file') == 2
     FlagParforProgressDisp = true;
-    parfor_progress(round(numel(OARSubIx)/1000));  % http://de.mathworks.com/matlabcentral/fileexchange/32101-progress-monitor--progress-bar--that-works-with-parfor
+    parfor_progress(round(numel(OARSubIx)/10000));  % http://de.mathworks.com/matlabcentral/fileexchange/32101-progress-monitor--progress-bar--that-works-with-parfor
 else
     matRad_cfg.dispInfo('matRad: Consider downloading parfor_progress function from the matlab central fileexchange to get feedback from parfor loop.\n');
     FlagParforProgressDisp = false;
@@ -145,12 +143,13 @@ parfor it=1:numel(OARSubIx)
 
     Ix=OARSubIx(it);
     dij_tmp=cell2mat(cellfun(@(data) data(Ix,:),dij_list,'UniformOutput',false));
+    dij_tmp_weighted = dij_tmp .* scenProb'; % vector-matrix element-wise
 
     % Voxel index
     dij_interval_OAR(it).Ix=Ix;
 
     % Interval center dose influence matrix
-    dij_interval_OAR(it).center=sum(dij_tmp'*diag(scenProb),2); % mean(dij_tmp,1);
+    dij_interval_OAR(it).center=sum(dij_tmp_weighted, 2);
     
     % Interval radius dose influence matrix
     radius_tmp=(dij_tmp'*diag(scenProb)*dij_tmp-dij_interval_OAR(it).center'*dij_interval_OAR(it).center);
@@ -165,7 +164,7 @@ parfor it=1:numel(OARSubIx)
     dij_interval_OAR(it).S = sparse(S(1:k, 1:k));
     dij_interval_OAR(it).V = sparse(V(:, 1:k));
 
-    if FlagParforProgressDisp && mod(it,1000)==0
+    if FlagParforProgressDisp && mod(it,10000)==0
         parfor_progress;
     end
 
