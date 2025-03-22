@@ -82,6 +82,10 @@ if isempty(gcp('nocreate'))
     parpool('local', nWorkers);
 end
 
+dij_interval.center = sparse(dij.doseGrid.numOfVoxels, dij.totalNumOfBixels);
+dij_interval.radius = sparse(dij.totalNumOfBixels, dij.totalNumOfBixels);
+dij_interval.targetSubIx = targetSubIx;
+
 % Target voxel batching
 nBatches = 100;
 batch_size = ceil(numel(targetSubIx) / nBatches);
