@@ -89,7 +89,6 @@ dij_interval.targetSubIx = targetSubIx;
 % Target voxel batching
 targetBatchSize = 100;
 nBatches = ceil(numel(targetSubIx) / targetBatchSize);
-batch_size = ceil(numel(targetSubIx) / nBatches);
 
 for b = 1:nBatches
     idx_start = (b-1)*batch_size + 1;
@@ -142,7 +141,6 @@ whos dij_interval;
 
 OARBatchSize = 100;
 nOARBatches = ceil(numel(OARSubIx) / OARBatchSize);
-batch_size_OAR = ceil(numel(OARSubIx) / nOARBatches);
 
 for b = 1:nOARBatches
     idx_start = (b-1)*batch_size_OAR + 1;
