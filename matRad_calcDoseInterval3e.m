@@ -104,7 +104,7 @@ for b = 1:nBatches
 
     if exist('parfor_progress', 'file') == 2
         FlagParforProgressDisp = true;
-        parfor_progress(round(numel(targetSubIx(idx_start:idx_end))/10));  % http://de.mathworks.com/matlabcentral/fileexchange/32101-progress-monitor--progress-bar--that-works-with-parfor
+        parfor_progress(round(numel(currentBatch)/10));  % http://de.mathworks.com/matlabcentral/fileexchange/32101-progress-monitor--progress-bar--that-works-with-parfor
     else
         matRad_cfg.dispInfo('matRad: Consider downloading parfor_progress function from the matlab central fileexchange to get feedback from parfor loop.\n');
         FlagParforProgressDisp = false;
@@ -155,7 +155,7 @@ for b = 1:nOARBatches
     
     if exist('parfor_progress', 'file') == 2
         FlagParforProgressDisp = true;
-        parfor_progress(round(numel(OARSubIx)/10));  % http://de.mathworks.com/matlabcentral/fileexchange/32101-progress-monitor--progress-bar--that-works-with-parfor
+        parfor_progress(round(numel(currentBatch)/10));  % http://de.mathworks.com/matlabcentral/fileexchange/32101-progress-monitor--progress-bar--that-works-with-parfor
     else
         matRad_cfg.dispInfo('matRad: Consider downloading parfor_progress function from the matlab central fileexchange to get feedback from parfor loop.\n');
         FlagParforProgressDisp = false;
