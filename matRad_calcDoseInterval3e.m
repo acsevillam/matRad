@@ -122,10 +122,6 @@ for b = 1:nBatches
         parfor_progress(0);
     end
 
-    if mod(b, 1) == 0 || b == numel(nBatches)
-        fprintf('Progress: %.2f%%\n', (b / numel(nBatches)) * 100);
-    end
-
     clear dij_batch;
 end
 
