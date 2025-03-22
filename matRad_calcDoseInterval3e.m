@@ -85,6 +85,10 @@ end
 % Preallocate structure
 dij_interval_target = repmat(struct('Ix', [], 'center', [], 'radius', []), numel(targetSubIx), 1);
 
+if exist('parfor_progress.txt', 'file') ~= 2
+    fclose(fopen('parfor_progress.txt', 'w'));
+end
+
 if exist('parfor_progress', 'file') == 2
     FlagParforProgressDisp = true;
     parfor_progress(round(numel(targetSubIx)/10000));  % http://de.mathworks.com/matlabcentral/fileexchange/32101-progress-monitor--progress-bar--that-works-with-parfor
@@ -103,7 +107,7 @@ parfor it=1:numel(targetSubIx)
     dij_interval_target(it).Ix=Ix;
 
     % Interval center dose influence matrix
-    dij_interval_target(it).center=sum(dij_tmp_weighted, 2);
+    dij_interval_target(it).center=sum(dij_tmp_weighted, 1);
 
     % Interval radius dose influence matrix
     dij_interval_target(it).radius=dij_tmp' * dij_tmp_weighted;
@@ -131,6 +135,10 @@ clear 'dij_interval_target';
 % Preallocate structure
 dij_interval_OAR = repmat(struct('Ix', [], 'center', [], 'U', [], 'S', [], 'V', []), numel(OARSubIx), 1);
 
+if exist('parfor_progress.txt', 'file') ~= 2
+    fclose(fopen('parfor_progress.txt', 'w'));
+end
+
 if exist('parfor_progress', 'file') == 2
     FlagParforProgressDisp = true;
     parfor_progress(round(numel(OARSubIx)/10000));  % http://de.mathworks.com/matlabcentral/fileexchange/32101-progress-monitor--progress-bar--that-works-with-parfor
@@ -149,7 +157,7 @@ parfor it=1:numel(OARSubIx)
     dij_interval_OAR(it).Ix=Ix;
 
     % Interval center dose influence matrix
-    dij_interval_OAR(it).center=sum(dij_tmp_weighted, 2);
+    dij_interval_OAR(it).center=sum(dij_tmp_weighted, 1);
     
     % Interval radius dose influence matrix
     radius_tmp=(dij_tmp' * dij_tmp_weighted - dij_interval_OAR(it).center * dij_interval_OAR(it).center');
