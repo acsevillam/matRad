@@ -82,12 +82,13 @@ if isempty(gcp('nocreate'))
     parpool('local', nWorkers);
 end
 
+dij_list_reduced = cellfun(@(data) data(targetSubIx,:), dij_list, 'UniformOutput', false);
 dij_interval.center = sparse(dij.doseGrid.numOfVoxels, dij.totalNumOfBixels);
 dij_interval.radius = sparse(dij.totalNumOfBixels, dij.totalNumOfBixels);
 dij_interval.targetSubIx = targetSubIx;
 
 % Target voxel batching
-nBatches = 100;
+nBatches = 10;
 batch_size = ceil(numel(targetSubIx) / nBatches);
 for b = 1:nBatches
     idx_start = (b-1)*batch_size + 1;
@@ -98,7 +99,7 @@ for b = 1:nBatches
 
     if exist('parfor_progress', 'file') == 2
         FlagParforProgressDisp = true;
-        parfor_progress(round(numel(targetSubIx(idx_start:idx_end))/10000));  % http://de.mathworks.com/matlabcentral/fileexchange/32101-progress-monitor--progress-bar--that-works-with-parfor
+        parfor_progress(round(numel(targetSubIx(idx_start:idx_end))/1000));  % http://de.mathworks.com/matlabcentral/fileexchange/32101-progress-monitor--progress-bar--that-works-with-parfor
     else
         matRad_cfg.dispInfo('matRad: Consider downloading parfor_progress function from the matlab central fileexchange to get feedback from parfor loop.\n');
         FlagParforProgressDisp = false;
@@ -106,13 +107,13 @@ for b = 1:nBatches
 
     parfor it = 1:numel(currentBatch)
         Ix = currentBatch(it);
-        dij_tmp = cell2mat(cellfun(@(data) data(Ix,:), dij_list, 'UniformOutput', false));
+        dij_tmp = cell2mat(cellfun(@(data) data(it,:), dij_list_reduced, 'UniformOutput', false));
         dij_tmp_weighted = dij_tmp .* scenProb;
         dij_batch(it).Ix = Ix;
         dij_batch(it).center = sum(dij_tmp_weighted, 1);
         dij_batch(it).radius = dij_tmp' * dij_tmp_weighted;
 
-        if FlagParforProgressDisp && mod(it,10000)==0
+        if FlagParforProgressDisp && mod(it,1000)==0
             parfor_progress;
         end
     end
@@ -138,16 +139,18 @@ end
 
 if exist('parfor_progress', 'file') == 2
     FlagParforProgressDisp = true;
-    parfor_progress(round(numel(OARSubIx)/10000));  % http://de.mathworks.com/matlabcentral/fileexchange/32101-progress-monitor--progress-bar--that-works-with-parfor
+    parfor_progress(round(numel(OARSubIx)/1000));  % http://de.mathworks.com/matlabcentral/fileexchange/32101-progress-monitor--progress-bar--that-works-with-parfor
 else
     matRad_cfg.dispInfo('matRad: Consider downloading parfor_progress function from the matlab central fileexchange to get feedback from parfor loop.\n');
     FlagParforProgressDisp = false;
 end
 
+dij_list_reduced = cellfun(@(data) data(OARSubIx,:), dij_list, 'UniformOutput', false);
+
 parfor it=1:numel(OARSubIx)
 
     Ix=OARSubIx(it);
-    dij_tmp=cell2mat(cellfun(@(data) data(Ix,:),dij_list,'UniformOutput',false));
+    dij_tmp=cell2mat(cellfun(@(data) data(it,:),dij_list_reduced,'UniformOutput',false));
     dij_tmp_weighted = dij_tmp .* scenProb; % vector-matrix element-wise
 
     % Voxel index
@@ -170,7 +173,7 @@ parfor it=1:numel(OARSubIx)
     dij_interval_OAR(it).S = sparse(S(1:k, 1:k));
     dij_interval_OAR(it).V = sparse(V(:, 1:k));
 
-    if FlagParforProgressDisp && mod(it,10000)==0
+    if FlagParforProgressDisp && mod(it,1000)==0
         parfor_progress;
     end
 
@@ -193,6 +196,8 @@ for it=1:numel(OARSubIx)
     dij_interval.S{it}=dij_interval_OAR(it).S;
     dij_interval.V{it}=dij_interval_OAR(it).V;
 end
+
+whos dij_interval_OAR;
 
 clear 'dij_interval_OAR';
 
