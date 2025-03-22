@@ -82,9 +82,6 @@ if isempty(gcp('nocreate'))
     parpool('local', nWorkers);
 end
 
-% Preallocate structure
-dij_interval_target = repmat(struct('Ix', [], 'center', [], 'radius', []), numel(targetSubIx), 1);
-
 % Target voxel batching
 nBatches = 10;
 batch_size = ceil(numel(targetSubIx) / nBatches);
@@ -121,43 +118,12 @@ for b = 1:nBatches
         dij_interval.radius = dij_interval.radius + dij_batch(it).radius;
     end
 
+    if FlagParforProgressDisp
+        parfor_progress(0);
+    end
+
     clear dij_batch;
 end
-
-parfor it=1:numel(targetSubIx)
-    
-    Ix=targetSubIx(it);
-    dij_tmp=cell2mat(cellfun(@(data) data(Ix,:),dij_list,'UniformOutput',false));
-    dij_tmp_weighted = dij_tmp .* scenProb; % vector-matrix element-wise
-
-    % Voxel index
-    dij_interval_target(it).Ix=Ix;
-
-    % Interval center dose influence matrix
-    dij_interval_target(it).center=sum(dij_tmp_weighted, 1);
-
-    % Interval radius dose influence matrix
-    dij_interval_target(it).radius=dij_tmp' * dij_tmp_weighted;
-
-    if FlagParforProgressDisp && mod(it,10000)==0
-        parfor_progress;
-    end
-end
-
-if FlagParforProgressDisp
-    parfor_progress(0);
-end
-
-dij_interval.center=sparse(dij.doseGrid.numOfVoxels,dij.totalNumOfBixels);
-dij_interval.radius=sparse(dij.totalNumOfBixels,dij.totalNumOfBixels);
-dij_interval.targetSubIx=targetSubIx;
-
-for it=1:numel(targetSubIx)
-    dij_interval.center(targetSubIx(it),:)=dij_interval_target(it).center;
-    dij_interval.radius=dij_interval.radius+dij_interval_target(it).radius;
-end
-
-clear 'dij_interval_target';
 
 % Preallocate structure
 dij_interval_OAR = repmat(struct('Ix', [], 'center', [], 'U', [], 'S', [], 'V', []), numel(OARSubIx), 1);
