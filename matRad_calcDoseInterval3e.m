@@ -85,16 +85,43 @@ end
 % Preallocate structure
 dij_interval_target = repmat(struct('Ix', [], 'center', [], 'radius', []), numel(targetSubIx), 1);
 
-if exist('parfor_progress.txt', 'file') ~= 2
-    fclose(fopen('parfor_progress.txt', 'w'));
-end
+% Target voxel batching
+nBatches = 10;
+batch_size = ceil(numel(targetSubIx) / nBatches);
+for b = 1:nBatches
+    idx_start = (b-1)*batch_size + 1;
+    idx_end = min(b*batch_size, numel(targetSubIx));
+    currentBatch = targetSubIx(idx_start:idx_end);
 
-if exist('parfor_progress', 'file') == 2
-    FlagParforProgressDisp = true;
-    parfor_progress(round(numel(targetSubIx)/10000));  % http://de.mathworks.com/matlabcentral/fileexchange/32101-progress-monitor--progress-bar--that-works-with-parfor
-else
-    matRad_cfg.dispInfo('matRad: Consider downloading parfor_progress function from the matlab central fileexchange to get feedback from parfor loop.\n');
-    FlagParforProgressDisp = false;
+    dij_batch = repmat(struct('Ix', [], 'center', [], 'radius', []), numel(currentBatch), 1);
+
+    if exist('parfor_progress', 'file') == 2
+        FlagParforProgressDisp = true;
+        parfor_progress(round(numel(targetSubIx(idx_start:idx_end))/10000));  % http://de.mathworks.com/matlabcentral/fileexchange/32101-progress-monitor--progress-bar--that-works-with-parfor
+    else
+        matRad_cfg.dispInfo('matRad: Consider downloading parfor_progress function from the matlab central fileexchange to get feedback from parfor loop.\n');
+        FlagParforProgressDisp = false;
+    end
+
+    parfor it = 1:numel(currentBatch)
+        Ix = currentBatch(it);
+        dij_tmp = cell2mat(cellfun(@(data) data(Ix,:), dij_list, 'UniformOutput', false));
+        dij_tmp_weighted = dij_tmp .* scenProb;
+        dij_batch(it).Ix = Ix;
+        dij_batch(it).center = sum(dij_tmp_weighted, 1);
+        dij_batch(it).radius = dij_tmp' * dij_tmp_weighted;
+
+        if FlagParforProgressDisp && mod(it,10000)==0
+            parfor_progress;
+        end
+    end
+
+    for it = 1:numel(currentBatch)
+        dij_interval.center(currentBatch(it), :) = dij_batch(it).center;
+        dij_interval.radius = dij_interval.radius + dij_batch(it).radius;
+    end
+
+    clear dij_batch;
 end
 
 parfor it=1:numel(targetSubIx)
