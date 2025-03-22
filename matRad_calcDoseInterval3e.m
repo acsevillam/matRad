@@ -169,7 +169,7 @@ parfor it=1:numel(OARSubIx)
     cumulativeEnergy = cumsum(singularValues.^2);
     k = find(cumulativeEnergy / totalEnergy >= retentionThreshold, 1, 'first');
 
-    dij_interval_OAR(it) = sparse(U(:, 1:k));
+    dij_interval_OAR(it).U = sparse(U(:, 1:k));
     dij_interval_OAR(it).S = sparse(S(1:k, 1:k));
     dij_interval_OAR(it).V = sparse(V(:, 1:k));
 
