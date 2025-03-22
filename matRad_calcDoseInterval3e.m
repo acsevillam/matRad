@@ -112,8 +112,8 @@ parfor it = 1:numel(OARSubIx)
     Ix = OARSubIx(it);
     dij_tmp = cell2mat(cellfun(@(data) data(Ix,:), dij_list, 'UniformOutput', false));
     dij_tmp_weighted = dij_tmp .* scenProb';
-    center_tmp = gather(sum(dij_tmp_weighted, 1)');
-    radius_tmp = sparse(gather(dij_tmp' * dij_tmp_weighted - center_tmp * center_tmp'));
+    center_tmp = sum(dij_tmp_weighted, 1)';
+    radius_tmp = sparse(dij_tmp' * dij_tmp_weighted - center_tmp * center_tmp');
 
     [U, S, V] = svds(radius_tmp, 10, 'largest');
     singularValues = diag(S);
