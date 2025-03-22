@@ -137,7 +137,7 @@ end
 
 whos dij_interval;
 
-nOARBatches = 10;
+nOARBatches = 100;
 batch_size_OAR = ceil(numel(OARSubIx) / nOARBatches);
 for b = 1:nOARBatches
     idx_start = (b-1)*batch_size_OAR + 1;
