@@ -87,7 +87,8 @@ dij_interval.radius = sparse(dij.totalNumOfBixels, dij.totalNumOfBixels);
 dij_interval.targetSubIx = targetSubIx;
 
 % Target voxel batching
-nBatches = 100;
+targetBatchSize = 100;
+nBatches = ceil(numel(targetSubIx) / targetBatchSize);
 batch_size = ceil(numel(targetSubIx) / nBatches);
 for b = 1:nBatches
     idx_start = (b-1)*batch_size + 1;
@@ -119,6 +120,7 @@ for b = 1:nBatches
         dij_batch(it).radius = dij_tmp' * dij_tmp_weighted;
 
         if FlagParforProgressDisp && mod(it,10)==0
+            fprintf('Processing batch %d of %d', b, nBatches);
             parfor_progress;
         end
     end
@@ -137,7 +139,8 @@ end
 
 whos dij_interval;
 
-nOARBatches = 100;
+OARBatchSize = 100;
+nOARBatches = ceil(numel(targetSubIx) / OARBatchSize);
 batch_size_OAR = ceil(numel(OARSubIx) / nOARBatches);
 for b = 1:nOARBatches
     idx_start = (b-1)*batch_size_OAR + 1;
@@ -176,6 +179,7 @@ for b = 1:nOARBatches
         dij_batch_OAR(it).V = sparse(V(:, 1:k));
 
         if FlagParforProgressDisp && mod(it,10)==0
+            fprintf('Processing batch %d of %d', b, nOARBatches);
             parfor_progress;
         end
     end
