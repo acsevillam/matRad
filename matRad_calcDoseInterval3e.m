@@ -152,7 +152,8 @@ parfor it=1:numel(OARSubIx)
     dij_interval_OAR(it).center=sum(dij_tmp_weighted, 2);
     
     % Interval radius dose influence matrix
-    radius_tmp=(dij_tmp'*diag(scenProb)*dij_tmp-dij_interval_OAR(it).center'*dij_interval_OAR(it).center);
+    radius_tmp=(dij_tmp' * dij_tmp_weighted - dij_interval_OAR(it).center * dij_interval_OAR(it).center');
+
 
     [U, S, V] = svds(radius_tmp, 10, 'largest');
     singularValues = diag(S);
