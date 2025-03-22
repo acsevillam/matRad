@@ -75,8 +75,11 @@ clear OARV;
 clear counter;
 clear cst;
 
+nCores = feature('numcores');
+nWorkers = max(1, nCores - 2); % deja libres 2 núcleos
+
 if isempty(gcp('nocreate'))
-    parpool('local', 8);
+    parpool('local', nWorkers);
 end
 
 center_local = cell(1, numel(targetSubIx));
@@ -105,7 +108,7 @@ U_oar = cell(1, numel(OARSubIx));
 S_oar = cell(1, numel(OARSubIx));
 V_oar = cell(1, numel(OARSubIx));
 
-parfor (it = 1:numel(OARSubIx), 8)
+parfor it = 1:numel(OARSubIx)
     Ix = OARSubIx(it);
     dij_tmp = cell2mat(cellfun(@(data) data(Ix,:), dij_list, 'UniformOutput', false));
     dij_tmp_weighted = dij_tmp .* scenProb';
