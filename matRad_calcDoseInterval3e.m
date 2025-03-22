@@ -83,7 +83,7 @@ if isempty(gcp('nocreate'))
 end
 
 % Target voxel batching
-nBatches = 10;
+nBatches = 100;
 batch_size = ceil(numel(targetSubIx) / nBatches);
 for b = 1:nBatches
     idx_start = (b-1)*batch_size + 1;
