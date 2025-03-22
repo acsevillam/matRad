@@ -97,9 +97,13 @@ for b = 1:nBatches
 
     dij_batch = repmat(struct('Ix', [], 'center', [], 'radius', []), numel(currentBatch), 1);
 
+    if exist('parfor_progress.txt', 'file') ~= 2
+        fclose(fopen('parfor_progress.txt', 'w'));
+    end
+
     if exist('parfor_progress', 'file') == 2
         FlagParforProgressDisp = true;
-        parfor_progress(round(numel(targetSubIx(idx_start:idx_end))/1000));  % http://de.mathworks.com/matlabcentral/fileexchange/32101-progress-monitor--progress-bar--that-works-with-parfor
+        parfor_progress(round(numel(targetSubIx(idx_start:idx_end))/10));  % http://de.mathworks.com/matlabcentral/fileexchange/32101-progress-monitor--progress-bar--that-works-with-parfor
     else
         matRad_cfg.dispInfo('matRad: Consider downloading parfor_progress function from the matlab central fileexchange to get feedback from parfor loop.\n');
         FlagParforProgressDisp = false;
@@ -113,7 +117,7 @@ for b = 1:nBatches
         dij_batch(it).center = sum(dij_tmp_weighted, 1);
         dij_batch(it).radius = dij_tmp' * dij_tmp_weighted;
 
-        if FlagParforProgressDisp && mod(it,1000)==0
+        if FlagParforProgressDisp && mod(it,10)==0
             parfor_progress;
         end
     end
@@ -130,6 +134,8 @@ for b = 1:nBatches
     clear dij_batch;
 end
 
+whos dij_interval;
+
 % Preallocate structure
 dij_interval_OAR = repmat(struct('Ix', [], 'center', [], 'U', [], 'S', [], 'V', []), numel(OARSubIx), 1);
 
@@ -139,7 +145,7 @@ end
 
 if exist('parfor_progress', 'file') == 2
     FlagParforProgressDisp = true;
-    parfor_progress(round(numel(OARSubIx)/1000));  % http://de.mathworks.com/matlabcentral/fileexchange/32101-progress-monitor--progress-bar--that-works-with-parfor
+    parfor_progress(round(numel(OARSubIx)/10));  % http://de.mathworks.com/matlabcentral/fileexchange/32101-progress-monitor--progress-bar--that-works-with-parfor
 else
     matRad_cfg.dispInfo('matRad: Consider downloading parfor_progress function from the matlab central fileexchange to get feedback from parfor loop.\n');
     FlagParforProgressDisp = false;
@@ -173,7 +179,7 @@ parfor it=1:numel(OARSubIx)
     dij_interval_OAR(it).S = sparse(S(1:k, 1:k));
     dij_interval_OAR(it).V = sparse(V(:, 1:k));
 
-    if FlagParforProgressDisp && mod(it,1000)==0
+    if FlagParforProgressDisp && mod(it,10)==0
         parfor_progress;
     end
 
@@ -197,7 +203,7 @@ for it=1:numel(OARSubIx)
     dij_interval.V{it}=dij_interval_OAR(it).V;
 end
 
-whos dij_interval_OAR;
+whos dij_interval dij_interval_OAR;
 
 clear 'dij_interval_OAR';
 
