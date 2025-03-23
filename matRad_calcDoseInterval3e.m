@@ -122,12 +122,7 @@ for b = 1:nBatches
 
     parfor it = 1:numel(currentBatch)
         Ix = currentBatch(it);
-        %dij_tmp = cell2mat(cellfun(@(data) data(it,:), dij_list_reduced, 'UniformOutput', false));
-        dij_tmp = zeros(numel(dij_list_reduced), size(dij_list_reduced{1}, 2));
-        for s = 1:numel(dij_list_reduced)
-            dij_tmp(s, :) = dij_list_reduced{s}(it, :);
-        end
-
+        dij_tmp = cell2mat(cellfun(@(data) data(it,:), dij_list_reduced, 'UniformOutput', false));
         dij_tmp_weighted = dij_tmp .* scenProb;
         dij_batch(it).Ix = Ix;
         dij_batch(it).center = sum(dij_tmp_weighted, 1);
