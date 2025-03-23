@@ -87,12 +87,12 @@ dij_interval.radius = sparse(dij.totalNumOfBixels, dij.totalNumOfBixels);
 dij_interval.targetSubIx = targetSubIx;
 
 % Target voxel batching
-targetBatchSize = 2*nWorkers;
+targetBatchSize = 4*nWorkers;
 nBatches = ceil(numel(targetSubIx) / targetBatchSize);
 
 for b = 1:nBatches
-    idx_start = (b-1)*batch_size + 1;
-    idx_end = min(b*batch_size, numel(targetSubIx));
+    idx_start = (b-1)*targetBatchSize + 1;
+    idx_end = min(b*targetBatchSize, numel(targetSubIx));
     currentBatch = targetSubIx(idx_start:idx_end);
 
     dij_batch = repmat(struct('Ix', [], 'center', [], 'radius', []), numel(currentBatch), 1);
@@ -139,12 +139,12 @@ end
 
 whos dij_interval;
 
-OARBatchSize = 2*nWorkers;
+OARBatchSize = 4*nWorkers;
 nOARBatches = ceil(numel(OARSubIx) / OARBatchSize);
 
 for b = 1:nOARBatches
-    idx_start = (b-1)*batch_size_OAR + 1;
-    idx_end = min(b*batch_size_OAR, numel(OARSubIx));
+    idx_start = (b-1)*OARBatchSize + 1;
+    idx_end = min(b*OARBatchSize, numel(OARSubIx));
     currentBatch = OARSubIx(idx_start:idx_end);
 
     if exist('parfor_progress.txt', 'file') ~= 2
