@@ -87,7 +87,7 @@ dij_interval.radius = sparse(dij.totalNumOfBixels, dij.totalNumOfBixels);
 dij_interval.targetSubIx = targetSubIx;
 
 % Target voxel batching
-targetBatchSize = 100;
+targetBatchSize = 2*nWorkers;
 nBatches = ceil(numel(targetSubIx) / targetBatchSize);
 
 for b = 1:nBatches
@@ -139,7 +139,7 @@ end
 
 whos dij_interval;
 
-OARBatchSize = 100;
+OARBatchSize = 2*nWorkers;
 nOARBatches = ceil(numel(OARSubIx) / OARBatchSize);
 
 for b = 1:nOARBatches
