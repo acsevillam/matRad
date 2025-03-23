@@ -94,13 +94,7 @@ dij_interval.targetSubIx = targetSubIx;
 
 % Target voxel batching
 tic
-if numel(targetSubIx) <= 200
-    nBatches = ceil(100/nWorkers);
-elseif numel(targetSubIx) <= 2000
-    nBatches = ceil(200/nWorkers);
-else
-    nBatches = ceil(400/nWorkers);
-end
+nBatches = ceil(numel(targetSubIx)/nWorkers/2);
 targetBatchSize = ceil(numel(targetSubIx) / nBatches);
 
 if exist('parfor_progress.txt', 'file') ~= 2
@@ -128,7 +122,12 @@ for b = 1:nBatches
 
     parfor it = 1:numel(currentBatch)
         Ix = currentBatch(it);
-        dij_tmp = cell2mat(cellfun(@(data) data(it,:), dij_list_reduced, 'UniformOutput', false));
+        %dij_tmp = cell2mat(cellfun(@(data) data(it,:), dij_list_reduced, 'UniformOutput', false));
+        dij_tmp = zeros(numel(dij_list_reduced), size(dij_list_reduced{1}, 2));
+        for s = 1:numel(dij_list_reduced)
+            dij_tmp(s, :) = dij_list_reduced{s}(it, :);
+        end
+
         dij_tmp_weighted = dij_tmp .* scenProb;
         dij_batch(it).Ix = Ix;
         dij_batch(it).center = sum(dij_tmp_weighted, 1);
@@ -160,13 +159,7 @@ toc
 
 % OAR voxel batching
 tic
-if numel(OARSubIx) <= 200
-    nOARBatches = ceil(100/nWorkers);
-elseif numel(OARSubIx) <= 2000
-    nOARBatches = ceil(200/nWorkers);
-else
-    nOARBatches = ceil(400/nWorkers);
-end
+nOARBatches = ceil(numel(OARSubIx)/nWorkers/2);
 OARBatchSize = ceil(numel(OARSubIx) / nOARBatches);
 
 if exist('parfor_progress.txt', 'file') ~= 2
@@ -192,11 +185,16 @@ for b = 1:nOARBatches
 
     parfor it = 1:numel(currentBatch)
         Ix = currentBatch(it);
-        dij_tmp = cell2mat(cellfun(@(data) data(it,:), dij_list_reduced, 'UniformOutput', false));
+        %dij_tmp = cell2mat(cellfun(@(data) data(it,:), dij_list_reduced, 'UniformOutput', false));
+        dij_tmp = zeros(numel(dij_list_reduced), size(dij_list_reduced{1}, 2));
+        for s = 1:numel(dij_list_reduced)
+            dij_tmp(s, :) = dij_list_reduced{s}(it, :);
+        end
+
         dij_tmp_weighted = dij_tmp .* scenProb;
         dij_batch_OAR(it).Ix=Ix;
         dij_batch_OAR(it).center=sum(dij_tmp_weighted, 1);
-        radius_tmp=(dij_tmp' * dij_tmp_weighted - dij_batch_OAR(it).center * dij_batch_OAR(it).center');
+        radius_tmp = dij_tmp' * dij_tmp_weighted - (dij_batch_OAR(it).center' * dij_batch_OAR(it).center);
         [U, S, V] = svds(radius_tmp, 10, 'largest');
         singularValues = diag(S);
         totalEnergy = sum(singularValues.^2);
