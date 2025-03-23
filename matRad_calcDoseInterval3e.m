@@ -75,9 +75,15 @@ clear OARV;
 clear counter;
 clear cst;
 
-nCores = feature('numcores');
-nWorkers = max(1, nCores - 2); % deja libres 2 núcleos
+nWorkers = str2double(getenv('SLURM_CPUS_PER_TASK'));
 
+% Fallback para pruebas locales
+if isnan(nWorkers) || nWorkers == 0
+    nCores = feature('numcores');
+    nWorkers = max(1, nCores - 2);
+end
+
+% Inicia el parpool solo si no está abierto
 if isempty(gcp('nocreate'))
     parpool('local', nWorkers);
 end
@@ -87,26 +93,29 @@ dij_interval.radius = sparse(dij.totalNumOfBixels, dij.totalNumOfBixels);
 dij_interval.targetSubIx = targetSubIx;
 
 % Target voxel batching
+tic
 if numel(targetSubIx) <= 200
-    nBatches = 1;
-elseif numel(targetSubIx) <= 20000
-    nBatches = 10;
+    nBatches = ceil(100/nWorkers);
+elseif numel(targetSubIx) <= 2000
+    nBatches = ceil(200/nWorkers);
 else
-    nBatches = 20;
+    nBatches = ceil(400/nWorkers);
 end
 targetBatchSize = ceil(numel(targetSubIx) / nBatches);
 
+if exist('parfor_progress.txt', 'file') ~= 2
+    fclose(fopen('parfor_progress.txt', 'w'));
+end
+
 for b = 1:nBatches
+    
     idx_start = (b-1)*targetBatchSize + 1;
     idx_end = min(b*targetBatchSize, numel(targetSubIx));
     currentBatch = targetSubIx(idx_start:idx_end);
 
     dij_batch = repmat(struct('Ix', [], 'center', [], 'radius', []), numel(currentBatch), 1);
 
-    if exist('parfor_progress.txt', 'file') ~= 2
-        fclose(fopen('parfor_progress.txt', 'w'));
-    end
-
+    fprintf('Processing batch %d of %d (%d voxeles)', b, nBatches, numel(currentBatch));
     if exist('parfor_progress', 'file') == 2
         FlagParforProgressDisp = true;
         parfor_progress(round(numel(currentBatch)/10));  % http://de.mathworks.com/matlabcentral/fileexchange/32101-progress-monitor--progress-bar--that-works-with-parfor
@@ -131,7 +140,7 @@ for b = 1:nBatches
         end
     end
 
-    clear dij_list_reduced;
+    clear dij_list_reduced dij_tmp dij_tmp_weighted;
 
     for it = 1:numel(currentBatch)
         dij_interval.center(currentBatch(it), :) = dij_batch(it).center;
@@ -143,29 +152,33 @@ for b = 1:nBatches
     end
 
     clear dij_batch;
+    toc
 end
 
 whos dij_interval;
+toc
 
-% Target voxel batching
+% OAR voxel batching
+tic
 if numel(OARSubIx) <= 200
-    nOARBatches = 1;
-elseif numel(OARSubIx) <= 20000
-    nOARBatches = 10;
+    nOARBatches = ceil(100/nWorkers);
+elseif numel(OARSubIx) <= 2000
+    nOARBatches = ceil(200/nWorkers);
 else
-    nOARBatches = 20;
+    nOARBatches = ceil(400/nWorkers);
 end
 OARBatchSize = ceil(numel(OARSubIx) / nOARBatches);
+
+if exist('parfor_progress.txt', 'file') ~= 2
+    fclose(fopen('parfor_progress.txt', 'w'));
+end
 
 for b = 1:nOARBatches
     idx_start = (b-1)*OARBatchSize + 1;
     idx_end = min(b*OARBatchSize, numel(OARSubIx));
     currentBatch = OARSubIx(idx_start:idx_end);
-
-    if exist('parfor_progress.txt', 'file') ~= 2
-        fclose(fopen('parfor_progress.txt', 'w'));
-    end
     
+    fprintf('Processing batch %d of %d (%d voxeles)', b, nOARBatches, numel(currentBatch));
     if exist('parfor_progress', 'file') == 2
         FlagParforProgressDisp = true;
         parfor_progress(round(numel(currentBatch)/10));  % http://de.mathworks.com/matlabcentral/fileexchange/32101-progress-monitor--progress-bar--that-works-with-parfor
@@ -212,8 +225,10 @@ for b = 1:nOARBatches
     end
 
     clear dij_batch_OAR;
+    toc
 end
 
 whos dij_interval;
+toc
 
 end
