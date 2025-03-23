@@ -89,7 +89,7 @@ dij_interval.targetSubIx = targetSubIx;
 % Target voxel batching
 if numel(targetSubIx) <= 200
     nBatches = 1;
-elseif numVox <= 20000
+elseif numel(targetSubIx) <= 20000
     nBatches = 10;
 else
     nBatches = 20;
@@ -150,7 +150,7 @@ whos dij_interval;
 % Target voxel batching
 if numel(OARSubIx) <= 200
     nOARBatches = 1;
-elseif numVox <= 20000
+elseif numel(OARSubIx) <= 20000
     nOARBatches = 10;
 else
     nOARBatches = 20;
