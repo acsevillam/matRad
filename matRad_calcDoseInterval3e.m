@@ -93,7 +93,7 @@ dij_interval.targetSubIx = targetSubIx;
 
 % Target voxel batching
 tic
-nBatches = min([ceil(numel(targetSubIx)/nWorkers/2) 100]);
+nBatches = min([ceil(numel(targetSubIx)/nWorkers/2) 20]);
 targetBatchSize = ceil(numel(targetSubIx) / nBatches);
 
 if exist('parfor_progress.txt', 'file') ~= 2
@@ -172,7 +172,7 @@ toc
 % OAR voxel batching
 tic
 dij_interval.OARSubIx = OARSubIx;
-nOARBatches = min([ceil(numel(OARSubIx)/nWorkers/2) 100]);
+nOARBatches = min([ceil(numel(OARSubIx)/nWorkers/2) 20]);
 OARBatchSize = ceil(numel(OARSubIx) / nOARBatches);
 
 if exist('parfor_progress.txt', 'file') ~= 2
