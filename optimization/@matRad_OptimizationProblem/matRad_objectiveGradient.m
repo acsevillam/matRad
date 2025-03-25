@@ -277,74 +277,67 @@ for  i = 1:size(cst,1)
                         end
 
                     case 'INTERVAL3'
-
+                    
                         for s = 1:numel(useScen)
                             ixScen = useScen(s);
                             ixContour = contourScen(s);
                             subIx = cst{i,4}{ixContour};
-
-                            if(isequal(cst{i,3},'TARGET'))
-                                %add to dose gradient
+                    
+                            if isequal(cst{i,3},'TARGET')
                                 wGradient{ixScen} = wGradient{ixScen} + objective.computeFluenceObjectiveGradient(w,subIx,optiProb.theta1,optiProb.dij_interval);
                             else
-
-                                p = gcp(); % If no pool, create new one.
-
+                                % Pre-procesado: extraer solo las estructuras relevantes
                                 Dc = optiProb.dij_interval.center;
-                                [~,Ix]=ismember(subIx,optiProb.dij_interval.OARSubIx);
-                                U = optiProb.dij_interval.U;
-                                U=U(Ix);
-                                S = optiProb.dij_interval.S;
-                                S=S(Ix);
-                                V = optiProb.dij_interval.V;
-                                V=V(Ix);
-
-                                d_center=Dc*w;
-                                d_center=d_center(subIx);
-                                
-                                %if exist('parfor_progress', 'file') == 2
-                                %    FlagParforProgressDisp = true;
-                                %    parfor_progress(round(numel(subIx)/1000));  % http://de.mathworks.com/matlabcentral/fileexchange/32101-progress-monitor--progress-bar--that-works-with-parfor
-                                %else
-                                %    matRad_cfg.dispInfo('matRad: Consider downloading parfor_progress function from the matlab central fileexchange to get feedback from parfor loop.\n');
-                                %    FlagParforProgressDisp = false;
-                                %end
-
-                                d_radius=zeros(size(subIx));
-                                fluenceGradient_radius=zeros(numel(subIx),numel(wGradient{ixScen}));
-
-                                parfor it=1:numel(subIx)
-                                    Dr=U{it}*S{it}*(V{it})';
-                                    d_radius(it) = sqrt(w'*Dr*w);
-                                    fluenceGradient_radius(it,:) = w'*Dr/d_radius(it);
-                                    %if FlagParforProgressDisp && mod(it,1000)==0
-                                    %    parfor_progress;
-                                    %end
+                                [~, Ix] = ismember(subIx, optiProb.dij_interval.OARSubIx);
+                    
+                                U = optiProb.dij_interval.U(Ix);
+                                S = optiProb.dij_interval.S(Ix);
+                                V = optiProb.dij_interval.V(Ix);
+                    
+                                % Precomputar d_center
+                                d_center = Dc * w;
+                                d_center = d_center(subIx);
+                    
+                                % Vectorización: procesar voxeles en bloque
+                                nVoxels = numel(subIx);
+                                d_radius = zeros(nVoxels,1);
+                                fluenceGradient_radius = zeros(nVoxels, numel(w));
+                                epsilon = 1e-8;
+                    
+                                if nVoxels > 500
+                                    % Vectorización por voxel con parfor
+                                    parfor it = 1:nVoxels
+                                        Dr = U{it} * S{it} * (V{it})'; % Dr es (nbixels x nbixels)
+                                        tmp = Dr * w; % tmp es (nbixels x 1)
+                                        d_radius(it) = sqrt(w' * tmp);
+                                        if d_radius(it) > epsilon
+                                            fluenceGradient_radius(it,:) = tmp' / d_radius(it);
+                                        end
+                                    end
+                                else
+                                    for it = 1:nVoxels
+                                        Dr = U{it} * S{it} * (V{it})';
+                                        tmp = Dr * w;
+                                        d_radius(it) = sqrt(w' * tmp);
+                                        if d_radius(it) > epsilon
+                                            fluenceGradient_radius(it,:) = tmp' / d_radius(it);
+                                        end
+                                    end
                                 end
-
-                                %if FlagParforProgressDisp
-                                %    parfor_progress(0);
-                                %end
-
-                                doseGradient_tmp = objective.computeDoseObjectiveGradient(d_center+optiProb.theta2*d_radius);
-                                fluenceGradient_center=Dc;
-                                    
-                                wGradient{ixScen} = wGradient{ixScen} + (doseGradient_tmp' * fluenceGradient_center(subIx,:) + optiProb.theta2*doseGradient_tmp'*fluenceGradient_radius)';
-                                
-                                %val1 = objFun(objective,optiProb,w,cst{i,4}{ixContour});
-                                %val2 = objFun2(objective,optiProb,w,cst{i,4}{ixContour});
-                                %grad1 = gradest(@(x) objFun(objective,optiProb,x,cst{i,4}{ixContour}),w);
-                                %grad1_normalized = grad1./norm(grad1);
-                                %grad2 = wGradient{ixScen};
-                                %grad2_normalized = grad2./norm(grad2);
-                                %diff=(grad1_normalized-grad2_normalized')./grad1_normalized;
-
-                                %fprintf('Val. %i \n',val);
-                                %fprintf('%i, %i, %i, %i, %i\n', [grad1;grad2';grad1_normalized;grad2_normalized';diff]);    
-
+                                                    
+                                % Calculamos la derivada respecto a dosis
+                                doseGradient_tmp = objective.computeDoseObjectiveGradient(d_center + optiProb.theta2 * d_radius);
+                    
+                                % Vectorización completa
+                                fluenceGradient_center = Dc(subIx, :); % Subselección directa de filas de Dc
+                    
+                                % Operación vectorizada (sin for interno)
+                                wGradient{ixScen} = wGradient{ixScen} + ...
+                                    (doseGradient_tmp' * fluenceGradient_center + optiProb.theta2 * doseGradient_tmp' * fluenceGradient_radius)';
+                    
                             end
                         end
-
+          
                     otherwise
                         matRad_cfg.dispError('Robustness setting %s not supported!',objective.robustness);
                         
@@ -385,7 +378,6 @@ end
 
 weightGradient = zeros(dij.totalNumOfBixels,1);
 
-
 optiProb.BP.computeGradient(dij,doseGradient,w);
 g = optiProb.BP.GetGradient();
 
@@ -401,39 +393,4 @@ if vOmega ~= 0
     weightGradient = weightGradient + gProb{1};
 end
 
-end
-
-function fFluence = objFun(objective,optiProb,w,subIx)
-tic
-Dc = optiProb.dij_interval.center;
-U = optiProb.dij_interval.U;
-S = optiProb.dij_interval.S;
-V = optiProb.dij_interval.V;
-
-d_center=Dc*w;
-d_center=d_center(subIx);
-
-d_radius=zeros(size(d_center));
-for it=1:numel(subIx)
-    d_radius(it) = sqrt(w'*(U{subIx(it)}*S{subIx(it)}*(V{subIx(it)})')*w);
-end
-
-fFluence=(objective.penalty/numel(d_center))*objective.computeDoseObjectiveFunction(d_center+optiProb.theta2*d_radius);
-toc
-end
-
-function fFluence = objFun2(objective,optiProb,w,subIx)
-tic
-Dc = optiProb.dij_interval.center;
-U = optiProb.dij_interval.U;
-S = optiProb.dij_interval.S;
-V = optiProb.dij_interval.V;
-
-d_center=Dc*w;
-d_center=d_center(subIx);
-
-d_radius=cell2mat(arrayfun(@(index) sqrt(w' * (U{index}*S{index}*(V{index})')*w),subIx,'UniformOutput',false)) ;
-
-fFluence=(objective.penalty/numel(d_center))*objective.computeDoseObjectiveFunction(d_center+optiProb.theta2*d_radius);
-toc
 end
