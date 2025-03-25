@@ -73,7 +73,6 @@ else
 end
 clear OARV;
 clear counter;
-clear cst;
 
 nWorkers = str2double(getenv('SLURM_CPUS_PER_TASK'));
 
@@ -94,7 +93,7 @@ dij_interval.targetSubIx = targetSubIx;
 
 % Target voxel batching
 tic
-nBatches = ceil(numel(targetSubIx)/nWorkers/2);
+nBatches = min([ceil(numel(targetSubIx)/nWorkers/2) 100]);
 targetBatchSize = ceil(numel(targetSubIx) / nBatches);
 
 if exist('parfor_progress.txt', 'file') ~= 2
@@ -125,8 +124,8 @@ for b = 1:nBatches
         dij_tmp = cell2mat(cellfun(@(data) data(it,:), dij_list_reduced, 'UniformOutput', false));
         dij_tmp_weighted = dij_tmp .* scenProb;
         dij_batch(it).Ix = Ix;
-        dij_batch(it).center = sum(dij_tmp_weighted, 1);
-        dij_batch(it).radius = dij_tmp' * dij_tmp_weighted;
+        dij_batch(it).center = sum(dij_tmp_weighted, 1)';
+        dij_batch(it).radius = (dij_tmp' * dij_tmp_weighted)';
 
         if FlagParforProgressDisp && mod(it,10)==0
             fprintf('Processing batch %d of %d', b, nBatches);
@@ -154,7 +153,8 @@ toc
 
 % OAR voxel batching
 tic
-nOARBatches = ceil(numel(OARSubIx)/nWorkers/2);
+dij_interval.OARSubIx = OARSubIx;
+nOARBatches = min([ceil(numel(OARSubIx)/nWorkers/2) 100]);
 OARBatchSize = ceil(numel(OARSubIx) / nOARBatches);
 
 if exist('parfor_progress.txt', 'file') ~= 2
@@ -186,10 +186,12 @@ for b = 1:nOARBatches
             dij_tmp(s, :) = dij_list_reduced{s}(it, :);
         end
 
-        dij_tmp_weighted = dij_tmp .* scenProb;
+        dij_tmp_weighted = (dij_tmp .* scenProb)';
         dij_batch_OAR(it).Ix=Ix;
-        dij_batch_OAR(it).center=sum(dij_tmp_weighted, 1);
-        radius_tmp = dij_tmp' * dij_tmp_weighted - (dij_batch_OAR(it).center' * dij_batch_OAR(it).center);
+        dij_batch_OAR(it).center=sum(dij_tmp_weighted, 2);
+
+        radius_tmp = dij_tmp_weighted * dij_tmp - (dij_batch_OAR(it).center' * dij_batch_OAR(it).center);
+
         [U, S, V] = svds(radius_tmp, 10, 'largest');
         singularValues = diag(S);
         totalEnergy = sum(singularValues.^2);
@@ -210,11 +212,13 @@ for b = 1:nOARBatches
         parfor_progress(0);
     end
 
-    for it = 1:numel(currentBatch)
+    for it=1:numel(currentBatch)
+        % Interval center dose influence matrix
         dij_interval.center(currentBatch(it),:)=dij_batch_OAR(it).center;
-        dij_interval.U{currentBatch(it)}=dij_batch_OAR(it).U;
-        dij_interval.S{currentBatch(it)}=dij_batch_OAR(it).S;
-        dij_interval.V{currentBatch(it)}=dij_batch_OAR(it).V;
+        % Interval radius dose influence matrix
+        dij_interval.U{idx_start+it-1}=dij_batch_OAR(it).U;
+        dij_interval.S{idx_start+it-1}=dij_batch_OAR(it).S;
+        dij_interval.V{idx_start+it-1}=dij_batch_OAR(it).V;
     end
 
     clear dij_batch_OAR;
