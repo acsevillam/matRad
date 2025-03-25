@@ -208,52 +208,48 @@ for  i = 1:size(cst,1)
                             f = f + objective.computeDoseObjectiveFunction(d_center);
 
                         end
-                        
-                    case 'INTERVAL3'
 
+                    case 'INTERVAL3'
+                    
                         ixContour = contourScen(1);
                         subIx = cst{i,4}{ixContour};
-
-                        if(isequal(cst{i,3},'TARGET'))
-                            f = f + objective.computeDoseObjectiveFunction(w,subIx,optiProb.theta1,optiProb.dij_interval);
+                    
+                        if isequal(cst{i,3},'TARGET')
+                            f = f + objective.computeDoseObjectiveFunction(w, subIx, optiProb.theta1, optiProb.dij_interval);
                         else
-                            
-                            p = gcp(); % If no pool, create new one.
-
                             Dc = optiProb.dij_interval.center;
-                            [~,Ix]=ismember(subIx,optiProb.dij_interval.OARSubIx);
-                            U = optiProb.dij_interval.U;
-                            U=U(Ix);
-                            S = optiProb.dij_interval.S;
-                            S=S(Ix);
-                            V = optiProb.dij_interval.V;
-                            V=V(Ix);
+                            [~, Ix] = ismember(subIx, optiProb.dij_interval.OARSubIx);
+                    
+                            % Extraer solo las matrices necesarias por subíndice
+                            U = optiProb.dij_interval.U(Ix);
+                            S = optiProb.dij_interval.S(Ix);
+                            V = optiProb.dij_interval.V(Ix);
+                    
+                            % Calcular d_center solo una vez
+                            d_center = Dc * w;
+                            d_center = d_center(subIx);
+                    
+                            % Prealocar resultados
+                            nVoxels = numel(subIx);
+                            d_radius = zeros(nVoxels, 1);
 
-                            d_center=Dc*w;
-                            d_center=d_center(subIx);
-
-                            %if exist('parfor_progress', 'file') == 2
-                            %    FlagParforProgressDisp = true;
-                            %    parfor_progress(round(numel(subIx)/1000));  % http://de.mathworks.com/matlabcentral/fileexchange/32101-progress-monitor--progress-bar--that-works-with-parfor
-                            %else
-                            %    matRad_cfg.dispInfo('matRad: Consider downloading parfor_progress function from the matlab central fileexchange to get feedback from parfor loop.\n');
-                            %    FlagParforProgressDisp = false;
-                            %end
-                            
-                            d_radius=zeros(size(subIx));
-                            parfor it=1:numel(subIx)
-                                Dr=U{it}*S{it}*(V{it})';
-                                d_radius(it) = sqrt(w'*Dr*w);
-                                %if FlagParforProgressDisp && mod(it,1000)==0
-                                %    parfor_progress;
-                                %end
+                            if nVoxels > 500
+                                % Vectorización por voxel con parfor
+                                parfor it = 1:nVoxels
+                                    Dr = U{it} * S{it} * (V{it})'; % Dr es (nbixels x nbixels)
+                                    tmp = Dr * w; % tmp es (nbixels x 1)
+                                    d_radius(it) = sqrt(w' * tmp);
+                                end
+                            else
+                                for it = 1:nVoxels
+                                    Dr = U{it} * S{it} * (V{it})';
+                                    tmp = Dr * w;
+                                    d_radius(it) = sqrt(w' * tmp);
+                                end
                             end
-
-                            %if FlagParforProgressDisp
-                            %    parfor_progress(0);
-                            %end
-
-                            f = f + objective.computeDoseObjectiveFunction(d_center+optiProb.theta2*d_radius);
+                    
+                            % Evaluación única del objetivo con d_center + intervalo ponderado
+                            f = f + objective.computeDoseObjectiveFunction(d_center + optiProb.theta2 * d_radius);
                         end
                     otherwise
                         matRad_cfg.dispError('Robustness setting %s not supported!',objective.robustness);

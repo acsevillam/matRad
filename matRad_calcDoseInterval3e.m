@@ -120,23 +120,41 @@ for b = 1:nBatches
     dij_list_reduced = cellfun(@(data) data(currentBatch,:), dij_list, 'UniformOutput', false);
 
     parfor it = 1:numel(currentBatch)
-        Ix = currentBatch(it);
-        dij_tmp = cell2mat(cellfun(@(data) data(it,:), dij_list_reduced, 'UniformOutput', false));
-        dij_tmp_weighted = dij_tmp .* scenProb;
+        Ix = currentBatch(it); % Global voxel index being processed
+    
+        % Extract the dose values across all scenarios for this voxel
+        dij_tmp = cell2mat(cellfun(@(data) data(it,:), dij_list_reduced, 'UniformOutput', false));  
+        % dij_tmp: (numScenarios x numBixels)
+    
+        % Apply scenario probabilities to the dose values (weighted)
+        dij_tmp_weighted = dij_tmp .* scenProb;  % (numScenarios x numBixels)
+    
+        % Store voxel index
         dij_batch(it).Ix = Ix;
-        dij_batch(it).center = sum(dij_tmp_weighted, 1)';
-        dij_batch(it).radius = (dij_tmp' * dij_tmp_weighted)';
-
+    
+        % Compute the expected dose per bixel for this voxel (center of interval)
+        dij_batch(it).center = sum(dij_tmp_weighted, 1)';  % (numBixels x 1)
+    
+        % Compute E[d^2] per bixel for this voxel
+        dij_batch(it).radius = (dij_tmp' * dij_tmp_weighted)';  % (numBixels x 1)
+        % Note: dij_tmp' * dij_tmp_weighted = sum_k w_k * d_k^2 (per bixel)
+    
+        % Optional progress display
         if FlagParforProgressDisp && mod(it,10)==0
             fprintf('Processing batch %d of %d', b, nBatches);
             parfor_progress;
         end
     end
-
+    
+    % Free memory (optional but useful in large cases)
     clear dij_list_reduced dij_tmp dij_tmp_weighted;
-
+    
+    % Accumulate results from each voxel
     for it = 1:numel(currentBatch)
+        % Store expected dose (center) in output matrix
         dij_interval.center(currentBatch(it), :) = dij_batch(it).center;
+    
+        % Accumulate the E[d^2] terms across voxels (to later compute total variance)
         dij_interval.radius = dij_interval.radius + dij_batch(it).radius;
     end
 
@@ -179,43 +197,66 @@ for b = 1:nOARBatches
     dij_batch_OAR = repmat(struct('Ix', [], 'center', [], 'U', [], 'S', [], 'V', []), numel(currentBatch), 1);
 
     parfor it = 1:numel(currentBatch)
-        Ix = currentBatch(it);
-        %dij_tmp = cell2mat(cellfun(@(data) data(it,:), dij_list_reduced, 'UniformOutput', false));
-        dij_tmp = zeros(numel(dij_list_reduced), size(dij_list_reduced{1}, 2));
+        Ix = currentBatch(it);         % Global index of the voxel being processed
+    
+        % Initialize temporary matrix to store dose values across scenarios for this voxel
+        dij_tmp = zeros(numel(dij_list_reduced), size(dij_list_reduced{1}, 2));  % (numScenarios x numBixels)
+    
+        % Fill dij_tmp with the dose contributions for voxel 'it' across all scenarios
         for s = 1:numel(dij_list_reduced)
-            dij_tmp(s, :) = dij_list_reduced{s}(it, :);
+            dij_tmp(s, :) = dij_list_reduced{s}(it, :);  % Row 'it' from scenario 's'
         end
-
-        dij_tmp_weighted = (dij_tmp .* scenProb)';
-        dij_batch_OAR(it).Ix=Ix;
-        dij_batch_OAR(it).center=sum(dij_tmp_weighted, 2);
-
-        radius_tmp = dij_tmp_weighted * dij_tmp - (dij_batch_OAR(it).center' * dij_batch_OAR(it).center);
-
-        [U, S, V] = svds(radius_tmp, 10, 'largest');
+    
+        % Store voxel index in output structure
+        dij_batch_OAR(it).Ix = Ix;
+    
+        % Compute the expected dose (center of the dose interval) across scenarios
+        dij_batch_OAR(it).center = sum(dij_tmp .* scenProb, 1);  % (1 x numBixels)
+    
+        % Center the dose matrix by subtracting the expected dose
+        dij_centered = dij_tmp - dij_batch_OAR(it).center;  % (numScenarios x numBixels)
+    
+        % Apply square root of scenario probabilities (for weighted covariance)
+        dij_centered_weighted = dij_centered .* sqrt(scenProb);  % (numScenarios x numBixels)
+    
+        % Compute the weighted covariance matrix for the bixels
+        covMatrix = dij_centered_weighted' * dij_centered_weighted;  % (numBixels x numBixels)
+        %covMatrix=(dij_tmp'*diag(scenProb)*dij_tmp-dij_batch_OAR(it).center'*dij_batch_OAR(it).center); % (numBixels x numBixels)
+        % Note: covMatrix = E[d^2]-E[d]^2
+    
+        % Perform truncated Singular Value Decomposition (SVD)
+        [U, S, V] = svds(covMatrix, 10, 'largest');  % Keep top 10 singular values/vectors
+    
+        % Extract singular values and compute total and cumulative energy
         singularValues = diag(S);
         totalEnergy = sum(singularValues.^2);
         cumulativeEnergy = cumsum(singularValues.^2);
+    
+        % Find number of components 'k' to retain enough energy (based on threshold)
         k = find(cumulativeEnergy / totalEnergy >= retentionThreshold, 1, 'first');
+    
+        % Store reduced-rank SVD components in sparse format
         dij_batch_OAR(it).U = sparse(U(:, 1:k));
         dij_batch_OAR(it).S = sparse(S(1:k, 1:k));
         dij_batch_OAR(it).V = sparse(V(:, 1:k));
-
+    
+        % Optional progress display inside the parfor loop
         if FlagParforProgressDisp && mod(it,10)==0
             fprintf('Processing batch %d of %d', b, nOARBatches);
             parfor_progress;
         end
     end
 
-
     if FlagParforProgressDisp
         parfor_progress(0);
     end
 
+    % Accumulate results from each voxel
     for it=1:numel(currentBatch)
-        % Interval center dose influence matrix
+        % Store expected dose (center) in output matrix
         dij_interval.center(currentBatch(it),:)=dij_batch_OAR(it).center;
-        % Interval radius dose influence matrix
+
+        % Store [U,S,V] for covMatrix = E[d^2]-E[d]^2 in output matrix
         dij_interval.U{idx_start+it-1}=dij_batch_OAR(it).U;
         dij_interval.S{idx_start+it-1}=dij_batch_OAR(it).S;
         dij_interval.V{idx_start+it-1}=dij_batch_OAR(it).V;
