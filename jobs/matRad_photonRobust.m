@@ -52,6 +52,7 @@ validRobustness = {'none','STOCH','COWC','COWC2','c-COWC','c-COWC2','INTERVAL1',
 validScenModes = {'nomScen','wcScen','impScen5','impScen7','impScen_permuted5','impScen_permuted7','impScen_permuted_truncated5','impScen_permuted_truncated7','random','random_truncated'};
 
 defaultPatientID = '3482';
+defaultDoseResolution = [5 5 5]; % mm
 defaultAcquisitionType = 'dicom';
 defaultPlanObjective = '4';
 defaultDosePulling1 = false;
@@ -88,6 +89,7 @@ parser = inputParser;
 addRequired(parser,'radiationMode',@(x) any(validatestring(x,validRadiationModes)));
 addRequired(parser,'description',@(x) any(validatestring(x,validDescriptions)));
 addParameter(parser,'caseID',defaultPatientID,@(x) any(validatestring(x,validPatientIDs)));
+addParameter(parser,'doseResolution',defaultDoseResolution,@(x) numel(x) == 3 && isnumeric(x) && all(x > 0));
 addParameter(parser,'AcquisitionType',defaultAcquisitionType,@(x) any(validatestring(x,validAcquisitionTypes)));
 addParameter(parser,'plan_objectives',defaultPlanObjective,@(x) any(validatestring(x,validPlanObjectives)));
 addParameter(parser,'dose_pulling1',defaultDosePulling1,@islogical);
@@ -134,6 +136,7 @@ parse(parser,radiationMode,description,varargin{:});
 run_config.radiationMode = parser.Results.radiationMode;
 run_config.description = parser.Results.description;
 run_config.caseID = parser.Results.caseID;
+run_config.doseResolution = parser.Results.doseResolution;
 run_config.AcquisitionType = parser.Results.AcquisitionType;
 run_config.plan_objectives = parser.Results.plan_objectives;
 run_config.dose_pulling1 = parser.Results.dose_pulling1;
@@ -197,7 +200,6 @@ switch run_config.robustness
 end
 
 run_config.resolution = [3 3 3];
-run_config.doseResolution = [3 3 3];
 run_config.GammaCriteria = [3 3];
 run_config.robustnessCriteria = [5 5];
 run_config.sampling_size = 50;
