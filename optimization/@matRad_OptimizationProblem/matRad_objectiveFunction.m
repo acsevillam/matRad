@@ -234,6 +234,20 @@ for  i = 1:size(cst,1)
                             d_radius = zeros(nVoxels, 1);
 
                             if nVoxels > 500
+
+                                nWorkers = str2double(getenv('SLURM_CPUS_PER_TASK'));
+                                
+                                % Fallback para pruebas locales
+                                if isnan(nWorkers) || nWorkers == 0
+                                    nCores = feature('numcores');
+                                    nWorkers = max(1, nCores);
+                                end
+
+                                % Inicia el parpool solo si no está abierto
+                                if isempty(gcp('nocreate'))
+                                    parpool('local', nWorkers);
+                                end
+
                                 % Vectorización por voxel con parfor
                                 parfor it = 1:nVoxels
                                     Dr = U{it} * S{it} * (V{it})'; % Dr es (nbixels x nbixels)

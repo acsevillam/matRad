@@ -79,7 +79,7 @@ nWorkers = str2double(getenv('SLURM_CPUS_PER_TASK'));
 % Fallback para pruebas locales
 if isnan(nWorkers) || nWorkers == 0
     nCores = feature('numcores');
-    nWorkers = max(1, nCores - 2);
+    nWorkers = min(8, nCores - 2);
 end
 
 % Inicia el parpool solo si no está abierto
@@ -168,6 +168,11 @@ end
 
 whos dij_interval;
 toc
+
+% Inicia el parpool solo si no está abierto
+if isempty(gcp('nocreate'))
+    parpool('local', nWorkers);
+end
 
 % OAR voxel batching
 tic
