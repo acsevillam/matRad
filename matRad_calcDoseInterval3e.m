@@ -79,7 +79,7 @@ nWorkers = str2double(getenv('SLURM_CPUS_PER_TASK'));
 % Fallback para pruebas locales
 if isnan(nWorkers) || nWorkers == 0
     nCores = feature('numcores');
-    nWorkers = min(8, nCores - 2);
+    nWorkers = max(1, nCores - 2);
 end
 
 % Inicia el parpool solo si no está abierto
@@ -117,20 +117,25 @@ for b = 1:nBatches
         FlagParforProgressDisp = false;
     end
 
-    dij_list_reduced = cellfun(@(data) data(currentBatch,:), dij_list, 'UniformOutput', false);
+    % Outside parfor
+    numScenarios = numel(dij_list);
+    numBixels = size(dij_list{1}, 2);
+    numVoxelsInBatch = numel(currentBatch);
+    
+    dij_list_reduced = zeros(numScenarios, numVoxelsInBatch, numBixels);
+    for s = 1:numScenarios
+        dij_list_reduced(s,:,:) = dij_list{s}(currentBatch,:);
+    end
+    
 
     parfor it = 1:numel(currentBatch)
-        Ix = currentBatch(it); % Global voxel index being processed
     
         % Extract the dose values across all scenarios for this voxel
-        dij_tmp = cell2mat(cellfun(@(data) data(it,:), dij_list_reduced, 'UniformOutput', false));  
+        dij_tmp = squeeze(dij_list_reduced(:, it, :)); 
         % dij_tmp: (numScenarios x numBixels)
     
         % Apply scenario probabilities to the dose values (weighted)
         dij_tmp_weighted = dij_tmp .* scenProb;  % (numScenarios x numBixels)
-    
-        % Store voxel index
-        dij_batch(it).Ix = Ix;
     
         % Compute the expected dose per bixel for this voxel (center of interval)
         dij_batch(it).center = sum(dij_tmp_weighted, 1)';  % (numBixels x 1)
@@ -141,23 +146,28 @@ for b = 1:nBatches
     
         % Optional progress display
         if FlagParforProgressDisp && mod(it,10)==0
-            fprintf('Processing batch %d of %d', b, nBatches);
             parfor_progress;
         end
     end
     
     % Free memory (optional but useful in large cases)
     clear dij_list_reduced dij_tmp dij_tmp_weighted;
-    
-    % Accumulate results from each voxel
-    for it = 1:numel(currentBatch)
-        % Store expected dose (center) in output matrix
-        dij_interval.center(currentBatch(it), :) = dij_batch(it).center;
-    
-        % Accumulate the E[d^2] terms across voxels (to later compute total variance)
-        dij_interval.radius = dij_interval.radius + dij_batch(it).radius;
+
+   % Vectorized accumulation at the end of each batch
+
+    % Preallocate center and radius blocks for batch
+    centers_block = zeros(numVoxelsInBatch, numBixels);      % (voxels x bixels)
+    radius_block = zeros(numBixels, numBixels);              % (bixels x bixels)
+
+    for it = 1:numVoxelsInBatch
+        centers_block(it, :) = dij_batch(it).center;         % Store each voxel center
+        radius_block = radius_block + dij_batch(it).radius;  % Sum E[d^2] contributions
     end
 
+    % Assign results in block (avoiding voxel-wise accumulation)
+    dij_interval.center(currentBatch, :) = centers_block;
+    dij_interval.radius = dij_interval.radius + radius_block;
+    
     if FlagParforProgressDisp
         parfor_progress(0);
     end
@@ -202,7 +212,6 @@ for b = 1:nOARBatches
     dij_batch_OAR = repmat(struct('Ix', [], 'center', [], 'U', [], 'S', [], 'V', []), numel(currentBatch), 1);
 
     parfor it = 1:numel(currentBatch)
-        Ix = currentBatch(it);         % Global index of the voxel being processed
     
         % Initialize temporary matrix to store dose values across scenarios for this voxel
         dij_tmp = zeros(numel(dij_list_reduced), size(dij_list_reduced{1}, 2));  % (numScenarios x numBixels)
@@ -211,9 +220,6 @@ for b = 1:nOARBatches
         for s = 1:numel(dij_list_reduced)
             dij_tmp(s, :) = dij_list_reduced{s}(it, :);  % Row 'it' from scenario 's'
         end
-    
-        % Store voxel index in output structure
-        dij_batch_OAR(it).Ix = Ix;
     
         % Compute the expected dose (center of the dose interval) across scenarios
         dij_batch_OAR(it).center = sum(dij_tmp .* scenProb, 1);  % (1 x numBixels)
@@ -247,7 +253,6 @@ for b = 1:nOARBatches
     
         % Optional progress display inside the parfor loop
         if FlagParforProgressDisp && mod(it,10)==0
-            fprintf('Processing batch %d of %d', b, nOARBatches);
             parfor_progress;
         end
     end
