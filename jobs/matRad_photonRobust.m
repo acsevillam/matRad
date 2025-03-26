@@ -197,7 +197,7 @@ switch run_config.robustness
 end
 
 run_config.resolution = [3 3 3];
-run_config.doseResolution = [3 3 3];
+run_config.doseResolution = [6 6 6];
 run_config.GammaCriteria = [3 3];
 run_config.robustnessCriteria = [5 5];
 run_config.sampling_size = 50;
@@ -659,8 +659,10 @@ switch run_config.robustness
         now2 = tic();
         if ~exist('dij_interval','var') || isempty(dij_interval)
             [dij_dummy, pln_dummy,dij_robust,pln_robust,dij_interval] = matRad_calcDoseInterval3e(ct,cst,stf_robust,pln_robust,dij_robust,targetStructSel,OARStructSel,run_config.retentionThreshold);
-            dij_robust_file = [run_config.rootPath  filesep 'jobs' filesep 'images' filesep run_config.description filesep run_config.caseID '_dij_interval3.mat'];
-            save(dij_robust_file,'dij_dummy','pln_dummy','dij_robust','pln_robust','dij_interval', '-v7.3');
+            dij_interval_file = [run_config.rootPath  filesep 'jobs' filesep 'images' filesep run_config.description filesep run_config.caseID '_dij_interval3.mat'];
+            save(dij_interval_file,'dij_dummy','pln_dummy','pln_robust','dij_interval', '-v7.3');
+            dij_robust_file = [run_config.rootPath  filesep 'jobs' filesep 'images' filesep run_config.description filesep run_config.caseID '_dij_robust.mat'];
+            save(dij_robust_file,'dij_robust', '-v7.3');
         end
         dij_robust=dij_dummy;
         pln_robust=pln_dummy;
