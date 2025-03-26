@@ -320,21 +320,11 @@ for  i = 1:size(cst,1)
                                     
                                     % Vectorización por voxel con parfor
                                     parfor it = 1:nVoxels
-                                        Dr = U{it} * S{it} * (V{it})'; % Dr es (nbixels x nbixels)
-                                        tmp = Dr * w; % tmp es (nbixels x 1)
-                                        d_radius(it) = sqrt(w' * tmp);
-                                        if d_radius(it) > epsilon
-                                            fluenceGradient_radius(it,:) = tmp' / d_radius(it);
-                                        end
+                                        [d_radius(it), fluenceGradient_radius(it,:)] = matRad_calcRadiusGrad(U{it}, S{it}, V{it}, w, epsilon);
                                     end
                                 else
                                     for it = 1:nVoxels
-                                        Dr = U{it} * S{it} * (V{it})';
-                                        tmp = Dr * w;
-                                        d_radius(it) = sqrt(w' * tmp);
-                                        if d_radius(it) > epsilon
-                                            fluenceGradient_radius(it,:) = tmp' / d_radius(it);
-                                        end
+                                        [d_radius(it), fluenceGradient_radius(it,:)] = matRad_calcRadiusGrad(U{it}, S{it}, V{it}, w, epsilon);
                                     end
                                 end
                                                     
@@ -406,4 +396,15 @@ if vOmega ~= 0
     weightGradient = weightGradient + gProb{1};
 end
 
+end
+
+function [d_r, grad_r] = matRad_calcRadiusGrad(U, S, V, w, epsilon)
+    Dr = U * S * V';
+    tmp = Dr * w;
+    d_r = sqrt(w' * tmp);
+    if d_r > epsilon
+        grad_r = (tmp' / d_r);
+    else
+        grad_r = zeros(1, numel(w)); % Avoid NaN or Inf
+    end
 end
