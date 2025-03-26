@@ -33,12 +33,12 @@ classdef matRad_OptimizationProblem < handle
         p = 30; %Can be chosen larger (closer to maximum) or smaller (closer to mean). Only tested 20 >= p >= 1
         
         % Paremeters for CheapCOWC
-        p1=1; %
-        p2=1; %
+        p1=1;
+        p2=1;
         
         % Paremeters for INTERVAL
-        theta1=0.1;
-        theta2=0;
+        theta1=30;
+        theta2=0.95;
         dij_interval=struct();
         
     end
@@ -50,7 +50,7 @@ classdef matRad_OptimizationProblem < handle
         
         %Objective function declaration
         fVal = matRad_objectiveFunction(optiProb,w,dij,cst)
-        
+
         %Objective gradient declaration
         fGrad = matRad_objectiveGradient(optiProb,w,dij,cst)
         
@@ -144,8 +144,7 @@ classdef matRad_OptimizationProblem < handle
                 end
             end
             
-        end
-        
+        end    
     end
 end
 

@@ -250,15 +250,11 @@ for  i = 1:size(cst,1)
 
                                 % Vectorización por voxel con parfor
                                 parfor it = 1:nVoxels
-                                    Dr = U{it} * S{it} * (V{it})'; % Dr es (nbixels x nbixels)
-                                    tmp = Dr * w; % tmp es (nbixels x 1)
-                                    d_radius(it) = sqrt(w' * tmp);
+                                    d_radius(it) = matRad_calcRadius(U{it}, S{it}, V{it}, w);
                                 end
                             else
                                 for it = 1:nVoxels
-                                    Dr = U{it} * S{it} * (V{it})';
-                                    tmp = Dr * w;
-                                    d_radius(it) = sqrt(w' * tmp);
+                                    d_radius(it) = matRad_calcRadius(U{it}, S{it}, V{it}, w);
                                 end
                             end
                     
@@ -298,3 +294,11 @@ if fMax > 0
 end
 %Sum up max of composite worst case part
 f = f + fMax;
+
+end
+
+function d_r = matRad_calcRadius(U, S, V, w)
+    Dr = U * S * V';
+    tmp = Dr * w;
+    d_r = sqrt(w' * tmp);
+end
