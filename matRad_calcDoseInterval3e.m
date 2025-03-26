@@ -106,8 +106,6 @@ for b = 1:nBatches
     idx_end = min(b*targetBatchSize, numel(targetSubIx));
     currentBatch = targetSubIx(idx_start:idx_end);
 
-    dij_batch = repmat(struct('Ix', [], 'center', [], 'radius', []), numel(currentBatch), 1);
-
     fprintf('Processing batch %d of %d (%d voxeles)', b, nBatches, numel(currentBatch));
     if exist('parfor_progress', 'file') == 2
         FlagParforProgressDisp = true;
@@ -118,21 +116,23 @@ for b = 1:nBatches
     end
 
     % Outside parfor
-    numScenarios = numel(dij_list);
     numBixels = size(dij_list{1}, 2);
     numVoxelsInBatch = numel(currentBatch);
     
-    dij_list_reduced = zeros(numScenarios, numVoxelsInBatch, numBixels);
-    for s = 1:numScenarios
-        dij_list_reduced(s,:,:) = dij_list{s}(currentBatch,:);
-    end
+
+    dij_list_reduced = cellfun(@(data) data(currentBatch,:), dij_list, 'UniformOutput', false);
+    dij_batch = repmat(struct('Ix', [], 'center', [], 'radius', []), numel(currentBatch), 1);
     
 
     parfor it = 1:numel(currentBatch)
+        
+        % Initialize temporary matrix to store dose values across scenarios for this voxel
+        dij_tmp = zeros(numel(dij_list_reduced), size(dij_list_reduced{1}, 2));  % (numScenarios x numBixels)
     
-        % Extract the dose values across all scenarios for this voxel
-        dij_tmp = squeeze(dij_list_reduced(:, it, :)); 
-        % dij_tmp: (numScenarios x numBixels)
+        % Fill dij_tmp with the dose contributions for voxel 'it' across all scenarios
+        for s = 1:numel(dij_list_reduced)
+            dij_tmp(s, :) = dij_list_reduced{s}(it, :);  % Row 'it' from scenario 's'
+        end
     
         % Apply scenario probabilities to the dose values (weighted)
         dij_tmp_weighted = dij_tmp .* scenProb;  % (numScenarios x numBixels)
@@ -146,12 +146,13 @@ for b = 1:nBatches
     
         % Optional progress display
         if FlagParforProgressDisp && mod(it,10)==0
+            fprintf('Processing batch %d of %d', b, nBatches);
             parfor_progress;
         end
     end
     
     % Free memory (optional but useful in large cases)
-    clear dij_list_reduced dij_tmp dij_tmp_weighted;
+    clear dij_list_reduced;
 
    % Vectorized accumulation at the end of each batch
 
@@ -258,6 +259,7 @@ for b = 1:nOARBatches
     end
 
     if FlagParforProgressDisp
+        fprintf('Processing batch %d of %d', b, nBatches);
         parfor_progress(0);
     end
 
