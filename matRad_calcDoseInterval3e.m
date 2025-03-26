@@ -154,7 +154,9 @@ for b = 1:nBatches
     % Free memory (optional but useful in large cases)
     clear dij_list_reduced;
 
-   % Vectorized accumulation at the end of each batch
+    fprintf('Finishing batch calculation ...');
+    toc
+    % Vectorized accumulation at the end of each batch
 
     % Preallocate center and radius blocks for batch
     centers_block = zeros(numVoxelsInBatch, numBixels);      % (voxels x bixels)
@@ -174,6 +176,7 @@ for b = 1:nBatches
     end
 
     clear dij_batch;
+    fprintf('Finishing batch data storage ...');
     toc
 end
 
@@ -258,6 +261,9 @@ for b = 1:nOARBatches
         end
     end
 
+    toc
+    fprintf('Finishing batch calculation ...');
+
     if FlagParforProgressDisp
         fprintf('Processing batch %d of %d', b, nBatches);
         parfor_progress(0);
@@ -275,6 +281,7 @@ for b = 1:nOARBatches
     end
 
     clear dij_batch_OAR;
+    fprintf('Finishing batch data storage ...');
     toc
 end
 
