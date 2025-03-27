@@ -54,6 +54,12 @@ f = 0;
 % required for COWC opt
 f_COWC = zeros(numel(useScen),1);
 
+% Check if current w differs from cached w
+if ~isfield(optiProb.cache, 'w') || ~isequal(optiProb.cache.w, w)
+    optiProb.clearCache();        % Clear cache if different
+    optiProb.cache.w = w;         % Update w in cache
+end
+
 % compute objective function for every VOI.
 for  i = 1:size(cst,1)
     
@@ -217,47 +223,8 @@ for  i = 1:size(cst,1)
                         if isequal(cst{i,3},'TARGET')
                             f = f + objective.computeDoseObjectiveFunction(w, subIx, optiProb.theta1, optiProb.dij_interval);
                         else
-                            Dc = optiProb.dij_interval.center;
-                            [~, Ix] = ismember(subIx, optiProb.dij_interval.OARSubIx);
-                    
-                            % Extraer solo las matrices necesarias por subíndice
-                            U = optiProb.dij_interval.U(Ix);
-                            S = optiProb.dij_interval.S(Ix);
-                            V = optiProb.dij_interval.V(Ix);
-                    
-                            % Calcular d_center solo una vez
-                            d_center = Dc * w;
-                            d_center = d_center(subIx);
-                    
-                            % Prealocar resultados
-                            nVoxels = numel(subIx);
-                            d_radius = zeros(nVoxels, 1);
-
-                            if nVoxels > 500
-
-                                nWorkers = str2double(getenv('SLURM_CPUS_PER_TASK'));
-                                
-                                % Fallback para pruebas locales
-                                if isnan(nWorkers) || nWorkers == 0
-                                    nCores = feature('numcores');
-                                    nWorkers = max(1, nCores);
-                                end
-
-                                % Inicia el parpool solo si no está abierto
-                                if isempty(gcp('nocreate'))
-                                    parpool('local', nWorkers);
-                                end
-
-                                % Vectorización por voxel con parfor
-                                parfor it = 1:nVoxels
-                                    d_radius(it) = matRad_calcRadius(U{it}, S{it}, V{it}, w);
-                                end
-                            else
-                                for it = 1:nVoxels
-                                    d_radius(it) = matRad_calcRadius(U{it}, S{it}, V{it}, w);
-                                end
-                            end
-                    
+                            [d_center, d_radius, ~] = getDoseInterval(optiProb, cst, i, w);
+                  
                             % Evaluación única del objetivo con d_center + intervalo ponderado
                             f = f + objective.computeDoseObjectiveFunction(d_center + optiProb.theta2 * d_radius);
                         end
@@ -295,10 +262,4 @@ end
 %Sum up max of composite worst case part
 f = f + fMax;
 
-end
-
-function d_r = matRad_calcRadius(U, S, V, w)
-    Dr = U * S * V';
-    tmp = Dr * w;
-    d_r = sqrt(w' * tmp);
 end
