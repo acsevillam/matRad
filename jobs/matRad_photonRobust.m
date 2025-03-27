@@ -625,7 +625,7 @@ display(stf_robust(1));
 % matrices for unit beamlet intensities. Having dose influences available
 % allows subsequent inverse optimization.
 now1 = tic();
-if ~exist('dij_robust','var') || isempty(dij_robust)
+if (~exist('dij_robust','var') || isempty(dij_robust)) && (~exist('dij_interval','var') || isempty(dij_interval))
     if run_config.radiationMode == "photons"
         dij_robust = matRad_calcPhotonDose(ct,stf_robust,pln_robust,cst_robust);
     end

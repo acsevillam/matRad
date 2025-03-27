@@ -40,6 +40,7 @@ classdef matRad_OptimizationProblem < handle
         theta1=30;
         theta2=0.95;
         dij_interval=struct();
+        cache = struct();
         
     end
     
@@ -71,6 +72,86 @@ classdef matRad_OptimizationProblem < handle
         
         function ub = upperBounds(optiProb,w)
             ub = Inf * ones(size(w));
+        end
+
+        function [d_center, d_radius, fluenceGradient_center, fluenceGradient_radius] = getDoseInterval(optiProb, cst, structureIdx, w)
+            % Check if cached values exist for the given structure index
+            fieldName = sprintf('s%d', structureIdx);
+            if isfield(optiProb.cache, fieldName)
+                cached = optiProb.cache.(fieldName);
+                d_center = cached.d_center;
+                d_radius = cached.d_radius;
+                fluenceGradient_center = cached.fluenceGradient_center;
+                fluenceGradient_radius = cached.fluenceGradient_radius;
+                return;
+            end
+    
+            % Otherwise, compute and cache
+            ixContour=1;
+            subIx = cst{structureIdx,4}{ixContour};
+
+            Dc = optiProb.dij_interval.center;
+            d_center = Dc * w;
+            d_center = d_center(subIx);
+
+            fluenceGradient_center = Dc(subIx, :); 
+
+            [~, Ix] = ismember(subIx, optiProb.dij_interval.OARSubIx);
+            U = optiProb.dij_interval.U(Ix);
+            S = optiProb.dij_interval.S(Ix);
+            V = optiProb.dij_interval.V(Ix);
+    
+            nVoxels = numel(Ix);
+            d_radius = zeros(nVoxels, 1);
+            fluenceGradient_radius = zeros(nVoxels, numel(w));
+            epsilon = 1e-8;
+
+            if nVoxels > 500
+                nWorkers = str2double(getenv('SLURM_CPUS_PER_TASK'));
+                
+                % Fallback para pruebas locales
+                if isnan(nWorkers) || nWorkers == 0
+                    nCores = feature('numcores');
+                    nWorkers = max(1, nCores);
+                end
+    
+                % Inicia el parpool solo si no está abierto
+                if isempty(gcp('nocreate'))
+                    parpool('local', nWorkers);
+                end
+
+                parfor it = 1:nVoxels
+                    Dr = U{it} * S{it} * (V{it})';
+                    tmp = Dr * w;
+                    d_r = sqrt(w' * tmp);
+                    if d_r > epsilon
+                        d_radius(it) = d_r;
+                        fluenceGradient_radius(it, :) = tmp' / d_r;
+                    end
+                end
+            else
+                for it = 1:nVoxels
+                    Dr = U{it} * S{it} * (V{it})';
+                    tmp = Dr * w;
+                    d_r = sqrt(w' * tmp);
+                    if d_r > epsilon
+                        d_radius(it) = d_r;
+                        fluenceGradient_radius(it, :) = tmp' / d_r;
+                    end
+                end
+            end
+    
+            % Cache results
+            optiProb.cache.w = w;
+            optiProb.cache.(fieldName).d_center = d_center;
+            optiProb.cache.(fieldName).d_radius = d_radius;
+            optiProb.cache.(fieldName).fluenceGradient_center = fluenceGradient_center;
+            optiProb.cache.(fieldName).fluenceGradient_radius = fluenceGradient_radius;
+        end
+    
+        function clearCache(optiProb)
+            % Clears the entire cache
+            optiProb.cache = struct();
         end
     end
     
@@ -143,7 +224,6 @@ classdef matRad_OptimizationProblem < handle
                     val = val + fProb(s)/probSum * fVals(s);
                 end
             end
-            
         end    
     end
 end

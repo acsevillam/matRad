@@ -64,6 +64,12 @@ vOmega = 0;
 %For COWC
 f_COWC = zeros(size(dij.physicalDose));
 
+% Check if current w differs from cached w
+if ~isfield(optiProb.cache, 'w') || ~isequal(optiProb.cache.w, w)
+    optiProb.clearCache();        % Clear cache if different
+    optiProb.cache.w = w;         % Update w in cache
+end
+
 % compute objective function for every VOI.
 for  i = 1:size(cst,1)
    
@@ -286,53 +292,10 @@ for  i = 1:size(cst,1)
                             if isequal(cst{i,3},'TARGET')
                                 wGradient{ixScen} = wGradient{ixScen} + objective.computeFluenceObjectiveGradient(w,subIx,optiProb.theta1,optiProb.dij_interval);
                             else
-                                % Pre-procesado: extraer solo las estructuras relevantes
-                                Dc = optiProb.dij_interval.center;
-                                [~, Ix] = ismember(subIx, optiProb.dij_interval.OARSubIx);
-                    
-                                U = optiProb.dij_interval.U(Ix);
-                                S = optiProb.dij_interval.S(Ix);
-                                V = optiProb.dij_interval.V(Ix);
-                    
-                                % Precomputar d_center
-                                d_center = Dc * w;
-                                d_center = d_center(subIx);
-                    
-                                % Vectorización: procesar voxeles en bloque
-                                nVoxels = numel(subIx);
-                                d_radius = zeros(nVoxels,1);
-                                fluenceGradient_radius = zeros(nVoxels, numel(w));
-                                epsilon = 1e-8;
-                    
-                                if nVoxels > 500
-                                    nWorkers = str2double(getenv('SLURM_CPUS_PER_TASK'));
-                                    
-                                    % Fallback para pruebas locales
-                                    if isnan(nWorkers) || nWorkers == 0
-                                        nCores = feature('numcores');
-                                        nWorkers = max(1, nCores);
-                                    end
-    
-                                    % Inicia el parpool solo si no está abierto
-                                    if isempty(gcp('nocreate'))
-                                        parpool('local', nWorkers);
-                                    end
-                                    
-                                    % Vectorización por voxel con parfor
-                                    parfor it = 1:nVoxels
-                                        [d_radius(it), fluenceGradient_radius(it,:)] = matRad_calcRadiusGrad(U{it}, S{it}, V{it}, w, epsilon);
-                                    end
-                                else
-                                    for it = 1:nVoxels
-                                        [d_radius(it), fluenceGradient_radius(it,:)] = matRad_calcRadiusGrad(U{it}, S{it}, V{it}, w, epsilon);
-                                    end
-                                end
+                                [d_center, d_radius, fluenceGradient_center, fluenceGradient_radius] = getDoseInterval(optiProb, cst, i, w);
                                                     
                                 % Calculamos la derivada respecto a dosis
                                 doseGradient_tmp = objective.computeDoseObjectiveGradient(d_center + optiProb.theta2 * d_radius);
-                    
-                                % Vectorización completa
-                                fluenceGradient_center = Dc(subIx, :); % Subselección directa de filas de Dc
                     
                                 % Operación vectorizada (sin for interno)
                                 wGradient{ixScen} = wGradient{ixScen} + ...
@@ -396,15 +359,4 @@ if vOmega ~= 0
     weightGradient = weightGradient + gProb{1};
 end
 
-end
-
-function [d_r, grad_r] = matRad_calcRadiusGrad(U, S, V, w, epsilon)
-    Dr = U * S * V';
-    tmp = Dr * w;
-    d_r = sqrt(w' * tmp);
-    if d_r > epsilon
-        grad_r = (tmp' / d_r);
-    else
-        grad_r = zeros(1, numel(w)); % Avoid NaN or Inf
-    end
 end
