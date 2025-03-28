@@ -93,7 +93,7 @@ dij_interval.targetSubIx = targetSubIx;
 
 % Target voxel batching
 tic
-nBatches = min([ceil(numel(targetSubIx)/nWorkers/2) 20]);
+nBatches = min([ceil(numel(targetSubIx)/nWorkers/2) 50]);
 targetBatchSize = ceil(numel(targetSubIx) / nBatches);
 
 if exist('parfor_progress.txt', 'file') ~= 2
