@@ -75,84 +75,172 @@ classdef matRad_OptimizationProblem < handle
         end
 
         function [d_center, d_radius, fluenceGradient_center, fluenceGradient_radius] = getDoseInterval(optiProb, cst, structureIdx, w)
-            % Check if cached values exist for the given structure index
+            % Retrieves or computes the expected dose (d_center), dose uncertainty (d_radius),
+            % and their respective fluence gradients for a given structure.
+            %
+            % Caching behavior:
+            % - Returns cached d_center and fluenceGradient_center if available.
+            % - Returns cached d_radius and fluenceGradient_radius if available and valid.
+            % - Otherwise, computes missing quantities and stores them in the cache.
+            % - Stores the current w as w_last_radius only when d_radius is computed.
+            % - This function does not evaluate whether the cache is outdated;
+            %   call optiProb.clearCache(w) beforehand to invalidate outdated entries.
+
             fieldName = sprintf('s%d', structureIdx);
-            if isfield(optiProb.cache, fieldName)
-                cached = optiProb.cache.(fieldName);
-                d_center = cached.d_center;
-                d_radius = cached.d_radius;
-                fluenceGradient_center = cached.fluenceGradient_center;
-                fluenceGradient_radius = cached.fluenceGradient_radius;
+        
+            % Initialize cache field if not present
+            if ~isfield(optiProb.cache, fieldName)
+                optiProb.cache.(fieldName) = struct();
+            end
+        
+            cacheStruct = optiProb.cache.(fieldName);
+        
+            % Load subIx
+            ixContour = 1;
+            subIx = cst{structureIdx,4}{ixContour};
+        
+            % Center dose (d_center) and its gradient
+            if isfield(cacheStruct, 'd_center') && isfield(cacheStruct, 'fluenceGradient_center')
+                d_center = cacheStruct.d_center;
+                fluenceGradient_center = cacheStruct.fluenceGradient_center;
+            else
+                Dc = optiProb.dij_interval.center;
+                d_center = Dc * w;
+                d_center = d_center(subIx);
+                fluenceGradient_center = Dc(subIx, :);
+        
+                optiProb.cache.(fieldName).d_center = d_center;
+                optiProb.cache.(fieldName).fluenceGradient_center = fluenceGradient_center;
+            end
+        
+            % Radius dose (d_radius) and its gradient
+            if isfield(cacheStruct, 'd_radius') && isfield(cacheStruct, 'fluenceGradient_radius')
+                d_radius = cacheStruct.d_radius;
+                fluenceGradient_radius = cacheStruct.fluenceGradient_radius;
+            else
+                % Load SVD components
+                [~, Ix] = ismember(subIx, optiProb.dij_interval.OARSubIx);
+                U = optiProb.dij_interval.U(Ix);
+                S = optiProb.dij_interval.S(Ix);
+                V = optiProb.dij_interval.V(Ix);
+        
+                % Allocate memory
+                nVoxels = numel(Ix);
+                d_radius = zeros(nVoxels, 1);
+                fluenceGradient_radius = zeros(nVoxels, numel(w));
+                epsilon = 1e-8;
+        
+                % Parallel or serial computation
+                if nVoxels > 500
+                    nWorkers = str2double(getenv('SLURM_CPUS_PER_TASK'));
+                    if isnan(nWorkers) || nWorkers == 0
+                        nCores = feature('numcores');
+                        nWorkers = max(1, nCores)-2;
+                    end
+                    if isempty(gcp('nocreate'))
+                        parpool('local', nWorkers);
+                    end
+        
+                    parfor it = 1:nVoxels
+                        Dr = U{it} * S{it} * (V{it})';
+                        tmp = Dr * w;
+                        d_r = sqrt(w' * tmp);
+                        if d_r > epsilon
+                            d_radius(it) = d_r;
+                            fluenceGradient_radius(it, :) = tmp' / d_r;
+                        end
+                    end
+                else
+                    for it = 1:nVoxels
+                        Dr = U{it} * S{it} * (V{it})';
+                        tmp = Dr * w;
+                        d_r = sqrt(w' * tmp);
+                        if d_r > epsilon
+                            d_radius(it) = d_r;
+                            fluenceGradient_radius(it, :) = tmp' / d_r;
+                        end
+                    end
+                end
+        
+                % Store results and update last radius w
+                optiProb.cache.(fieldName).d_radius = d_radius;
+                optiProb.cache.(fieldName).fluenceGradient_radius = fluenceGradient_radius;
+                optiProb.cache.(fieldName).w_last_radius = w;
+            end
+        end
+
+        function clearCache(optiProb, w)
+            % Clears cached data depending on how much 'w' has changed.
+            % - Clears d_center and fluenceGradient_center if w has changed.
+            % - Clears d_radius aand fluenceGradient_radius only if w differs significantly from the previous w_last_radius that generated it.
+            % - Completely clears cache every 5 changes of w.
+        
+            % If no cache yet, create new cache
+            if ~isfield(optiProb.cache, 'w')
+                fullClear();
                 return;
             end
-    
-            % Otherwise, compute and cache
-            ixContour=1;
-            subIx = cst{structureIdx,4}{ixContour};
+        
+            w_cached = optiProb.cache.w;
+        
+            % === CASE 1: w is identical → do nothing ===
+            if isequal(w_cached, w)
+                return;
+            end
+        
+            w_last_radius_cached = optiProb.cache.w_last_radius;
+            epsilon = 0.1;  % Relative difference threshold for partial clear
+            tolerance = 0.1;
 
-            Dc = optiProb.dij_interval.center;
-            d_center = Dc * w;
-            d_center = d_center(subIx);
-
-            fluenceGradient_center = Dc(subIx, :); 
-
-            [~, Ix] = ismember(subIx, optiProb.dij_interval.OARSubIx);
-            U = optiProb.dij_interval.U(Ix);
-            S = optiProb.dij_interval.S(Ix);
-            V = optiProb.dij_interval.V(Ix);
-    
-            nVoxels = numel(Ix);
-            d_radius = zeros(nVoxels, 1);
-            fluenceGradient_radius = zeros(nVoxels, numel(w));
-            epsilon = 1e-8;
-
-            if nVoxels > 500
-                nWorkers = str2double(getenv('SLURM_CPUS_PER_TASK'));
-                
-                % Fallback para pruebas locales
-                if isnan(nWorkers) || nWorkers == 0
-                    nCores = feature('numcores');
-                    nWorkers = max(1, nCores);
-                end
-    
-                % Inicia el parpool solo si no está abierto
-                if isempty(gcp('nocreate'))
-                    parpool('local', nWorkers);
+            % Compute relative change
+            rel_diff = abs(w - w_last_radius_cached) ./ max(abs(w_last_radius_cached), eps);
+        
+            if sum(rel_diff > epsilon) / numel(rel_diff) <= tolerance
+                % === CASE 2: (relative change <= epsilon) → clear only d_center and fluenceGradient_center ===
+        
+                if mod(optiProb.cache.clearCalls, 10) == 0
+                    fullClear();
+                else
+                    clearCenterOnly();
+                    optiProb.cache.clearCalls = optiProb.cache.clearCalls + 1;
                 end
 
-                parfor it = 1:nVoxels
-                    Dr = U{it} * S{it} * (V{it})';
-                    tmp = Dr * w;
-                    d_r = sqrt(w' * tmp);
-                    if d_r > epsilon
-                        d_radius(it) = d_r;
-                        fluenceGradient_radius(it, :) = tmp' / d_r;
-                    end
-                end
             else
-                for it = 1:nVoxels
-                    Dr = U{it} * S{it} * (V{it})';
-                    tmp = Dr * w;
-                    d_r = sqrt(w' * tmp);
-                    if d_r > epsilon
-                        d_radius(it) = d_r;
-                        fluenceGradient_radius(it, :) = tmp' / d_r;
+                % === CASE 3: (relative change > epsilon) → full clear ===    
+                fullClear();
+            end
+        
+            % ===============================
+            function fullClear()
+                optiProb.cache = struct();
+                optiProb.cache.w = w;
+                optiProb.cache.w_last_radius = w;
+                optiProb.cache.clearCalls = 1;
+                fprintf('[matRad] Full cache cleared.\n');
+            end
+        
+            function clearCenterOnly()
+                fieldList = fieldnames(optiProb.cache);
+                for i = 1:numel(fieldList)
+                    key = fieldList{i};
+                    if ismember(key, {'w', 'clearCalls'})
+                        continue;
                     end
+                    structureCache = optiProb.cache.(key);
+                    structureCache = rmfield_safe(structureCache, 'd_center');
+                    structureCache = rmfield_safe(structureCache, 'fluenceGradient_center');
+                    optiProb.cache.(key) = structureCache;
+                end
+                fprintf('[matRad] Cleared d_center and fluenceGradient_center only (small change).\n');
+            end
+        
+            function s = rmfield_safe(s, f)
+                if isfield(s, f)
+                    s = rmfield(s, f);
                 end
             end
-    
-            % Cache results
-            optiProb.cache.w = w;
-            optiProb.cache.(fieldName).d_center = d_center;
-            optiProb.cache.(fieldName).d_radius = d_radius;
-            optiProb.cache.(fieldName).fluenceGradient_center = fluenceGradient_center;
-            optiProb.cache.(fieldName).fluenceGradient_radius = fluenceGradient_radius;
         end
-    
-        function clearCache(optiProb)
-            % Clears the entire cache
-            optiProb.cache = struct();
-        end
+
     end
     
     methods (Access = protected)
