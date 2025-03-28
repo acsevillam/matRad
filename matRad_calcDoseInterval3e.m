@@ -158,15 +158,19 @@ for b = 1:nBatches
     
         % Optional progress display
         if FlagParforProgressDisp && mod(it,10)==0
-            fprintf('Processing batch %d of %d', b, nBatches);
+            fprintf('Processing batch %d of %d \n', b, nBatches);
             parfor_progress;
         end
+    end
+
+    if FlagParforProgressDisp
+        parfor_progress(0);
     end
     
     % Free memory (optional but useful in large cases)
     clear dij_list_reduced;
 
-    fprintf('Finishing batch calculation ...');
+    fprintf('Finishing batch calculation ... \n');
     toc
     % Vectorized accumulation at the end of each batch
 
@@ -182,13 +186,9 @@ for b = 1:nBatches
     % Assign results in block (avoiding voxel-wise accumulation)
     dij_interval.center(currentBatch, :) = centers_block;
     dij_interval.radius = dij_interval.radius + radius_block;
-    
-    if FlagParforProgressDisp
-        parfor_progress(0);
-    end
 
     clear dij_batch;
-    fprintf('Finishing batch data storage ...');
+    fprintf('Finishing batch data storage ... \n');
     toc
 end
 
@@ -236,8 +236,12 @@ for b = 1:nOARBatches
         FlagParforProgressDisp = false;
     end
 
+    % Outside parfor
+    numBixels = size(dij_list{1}, 2);
+    numOARVoxelsInBatch = numel(currentBatch);
+
     dij_list_reduced = cellfun(@(data) data(currentBatch,:), dij_list, 'UniformOutput', false);
-    dij_batch_OAR = repmat(struct('Ix', [], 'center', [], 'U', [], 'S', [], 'V', []), numel(currentBatch), 1);
+    dij_batch_OAR = repmat(struct('Ix', [], 'center', [], 'k', [], 'U', [], 'S', [], 'V', []), numel(currentBatch), 1);
 
     parfor it = 1:numel(currentBatch)
     
@@ -275,38 +279,55 @@ for b = 1:nOARBatches
         k = find(cumulativeEnergy / totalEnergy >= retentionThreshold, 1, 'first');
     
         % Store reduced-rank SVD components in sparse format
+        dij_batch_OAR(it).k = k;
         dij_batch_OAR(it).U = sparse(U(:, 1:k));
         dij_batch_OAR(it).S = sparse(S(1:k, 1:k));
         dij_batch_OAR(it).V = sparse(V(:, 1:k));
     
         % Optional progress display inside the parfor loop
         if FlagParforProgressDisp && mod(it,10)==0
-            fprintf('Processing batch %d of %d', b, nOARBatches);
+            fprintf('Processing batch %d of %d \n', b, nOARBatches);
             parfor_progress;
         end
     end
-
-    toc
-    fprintf('Finishing batch calculation ...');
 
     if FlagParforProgressDisp
         parfor_progress(0);
     end
 
-    % Accumulate results from each voxel
-    for it=1:numel(currentBatch)
-        % Store expected dose (center) in output matrix
-        dij_interval.center(currentBatch(it),:)=dij_batch_OAR(it).center;
+    % Free memory (optional but useful in large cases)
+    clear dij_list_reduced;
 
-        % Store [U,S,V] for covMatrix = E[d^2]-E[d]^2 in output matrix
-        dij_interval.U{idx_start+it-1}=dij_batch_OAR(it).U;
-        dij_interval.S{idx_start+it-1}=dij_batch_OAR(it).S;
-        dij_interval.V{idx_start+it-1}=dij_batch_OAR(it).V;
+    fprintf('Finishing batch calculation ... \n');
+    toc
+    % Vectorized accumulation at the end of each batch
+
+    % Preallocate center and radius blocks for batch
+    centers_block = zeros(numOARVoxelsInBatch, numBixels);      % (voxels x bixels)
+    k_block = zeros(numOARVoxelsInBatch, 1);      % (voxels x bixels)
+    U_block = cell(numOARVoxelsInBatch, 1);
+    S_block = cell(numOARVoxelsInBatch, 1);
+    V_block = cell(numOARVoxelsInBatch, 1);
+
+    for it = 1:numOARVoxelsInBatch
+        centers_block(it, :) = dij_batch_OAR(it).center;         % Store each voxel center
+        k_block(it, :) = dij_batch_OAR(it).k;
+        U_block{it} = dij_batch_OAR(it).U;
+        S_block{it} = dij_batch_OAR(it).S;
+        V_block{it} = dij_batch_OAR(it).V;
     end
 
+    % Assign in block
+    dij_interval.center(currentBatch, :) = centers_block;
+    dij_interval.k(currentBatch, :) = k_block;
+    dij_interval.U(idx_start:idx_end) = U_block;
+    dij_interval.S(idx_start:idx_end) = S_block;
+    dij_interval.V(idx_start:idx_end) = V_block;
+    
     clear dij_batch_OAR;
-    fprintf('Finishing batch data storage ...');
+    fprintf('Finishing batch data storage ... \n');
     toc
+
 end
 
 whos dij_interval;

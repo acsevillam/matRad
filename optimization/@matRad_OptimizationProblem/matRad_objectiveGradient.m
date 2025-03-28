@@ -66,8 +66,7 @@ f_COWC = zeros(size(dij.physicalDose));
 
 % Check if current w differs from cached w
 if ~isfield(optiProb.cache, 'w') || ~isequal(optiProb.cache.w, w)
-    optiProb.clearCache();        % Clear cache if different
-    optiProb.cache.w = w;         % Update w in cache
+    optiProb.clearCache(w);        % Clear cache if different
 end
 
 % compute objective function for every VOI.
