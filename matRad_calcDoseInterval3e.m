@@ -93,8 +93,20 @@ dij_interval.targetSubIx = targetSubIx;
 
 % Target voxel batching
 tic
-nBatches = min([ceil(numel(targetSubIx)/nWorkers/2) 50]);
+maxBatchSize = 500;
+refnBatches = 20;
+
+% Initial estimate based on available workers
+nBatches = min([ceil(numel(targetSubIx)/(nWorkers/2)), refnBatches]);
+
+% Dynamic adjustment: increase nBatches if batch size exceeds the maximum allowed
+while ceil(numel(targetSubIx) / nBatches) > maxBatchSize
+    nBatches = nBatches + 1;
+end
+
+% Recalculate target batch size after adjustment
 targetBatchSize = ceil(numel(targetSubIx) / nBatches);
+
 
 if exist('parfor_progress.txt', 'file') ~= 2
     fclose(fopen('parfor_progress.txt', 'w'));
@@ -188,10 +200,22 @@ if isempty(gcp('nocreate'))
     parpool('local', nWorkers);
 end
 
+dij_interval.OARSubIx = OARSubIx;
+
 % OAR voxel batching
 tic
-dij_interval.OARSubIx = OARSubIx;
-nOARBatches = min([ceil(numel(OARSubIx)/nWorkers/2) 10]);
+maxBatchSize = 10000;
+refnBatches = 10;
+
+% Initial estimate based on available workers
+nOARBatches = min([ceil(numel(OARSubIx)/(nWorkers/2)), refnBatches]);
+
+% Dynamic adjustment: increase nOARBatches if batch size exceeds the maximum allowed
+while ceil(numel(OARSubIx) / nOARBatches) > maxBatchSize
+    nOARBatches = nOARBatches + 1;
+end
+
+% Recalculate target batch size after adjustment
 OARBatchSize = ceil(numel(OARSubIx) / nOARBatches);
 
 if exist('parfor_progress.txt', 'file') ~= 2
