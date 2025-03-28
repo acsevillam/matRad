@@ -216,7 +216,7 @@ classdef matRad_OptimizationProblem < handle
                 optiProb.cache.w = w;
                 optiProb.cache.w_last_radius = w;
                 optiProb.cache.clearCalls = 1;
-                fprintf('[matRad] Full cache cleared.\n');
+                fprintf('[interval] Full cache cleared.\n');
             end
         
             function clearCenterOnly()
@@ -231,7 +231,6 @@ classdef matRad_OptimizationProblem < handle
                     structureCache = rmfield_safe(structureCache, 'fluenceGradient_center');
                     optiProb.cache.(key) = structureCache;
                 end
-                fprintf('[matRad] Cleared d_center and fluenceGradient_center only (small change).\n');
             end
         
             function s = rmfield_safe(s, f)
