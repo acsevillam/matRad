@@ -183,7 +183,11 @@ switch run_config.robustness
         output_folder = ['output' filesep run_config.radiationMode filesep run_config.description filesep run_config.caseID filesep run_config.robustness filesep run_config.plan_target filesep run_config.plan_beams filesep run_config.plan_objectives filesep num2str(run_config.shiftSD(1)) 'x' num2str(run_config.shiftSD(2)) 'x' num2str(run_config.shiftSD(3)) filesep run_config.scen_mode filesep num2str(run_config.wcFactor) filesep num2str(run_config.theta1) filesep datestr(datetime,'yyyy-mm-dd HH-MM-SS')];
         dij_interval_file = [run_config.rootPath  filesep 'jobs' filesep 'images' filesep run_config.description filesep run_config.caseID '_dij_interval2.mat'];
         if run_config.loadDij && isfile(dij_interval_file)
-            load(dij_interval_file,'dij_dummy','pln_dummy','pln_robust','dij_robust','dij_interval');
+            load(dij_interval_file,'dij_dummy','pln_dummy','pln_robust','dij_interval');
+        end
+        dij_robust_file = [run_config.rootPath  filesep 'jobs' filesep 'images' filesep run_config.description filesep run_config.caseID '_dij_robust_' num2str(run_config.doseResolution(1)) '_' num2str(run_config.doseResolution(2)) '_' num2str(run_config.doseResolution(3)) '.mat'];
+        if run_config.loadDij && isfile(dij_robust_file)
+            load(dij_robust_file,'dij_robust');
         end
     case "INTERVAL3"
         run_config.theta1 = parser.Results.theta1;
@@ -193,7 +197,11 @@ switch run_config.robustness
         output_folder = ['output' filesep run_config.radiationMode filesep run_config.description filesep run_config.caseID filesep run_config.robustness filesep run_config.plan_target filesep run_config.plan_beams filesep run_config.plan_objectives filesep num2str(run_config.shiftSD(1)) 'x' num2str(run_config.shiftSD(2)) 'x' num2str(run_config.shiftSD(3)) filesep run_config.scen_mode filesep num2str(run_config.wcFactor) filesep num2str(run_config.theta1) filesep num2str(run_config.theta2) filesep datestr(datetime,'yyyy-mm-dd HH-MM-SS')];
         dij_interval_file = [run_config.rootPath  filesep 'jobs' filesep 'images' filesep run_config.description filesep run_config.caseID '_dij_interval3_' num2str(run_config.doseResolution(1)) '_' num2str(run_config.doseResolution(2)) '_' num2str(run_config.doseResolution(3)) '_' num2str(run_config.retentionThreshold) '.mat'];
         if run_config.loadDij && isfile(dij_interval_file)
-            load(dij_interval_file,'dij_dummy','pln_dummy','pln_robust','dij_robust','dij_interval');
+            load(dij_interval_file,'dij_dummy','pln_dummy','pln_robust','dij_interval');
+        end
+        dij_robust_file = [run_config.rootPath  filesep 'jobs' filesep 'images' filesep run_config.description filesep run_config.caseID '_dij_robust_' num2str(run_config.doseResolution(1)) '_' num2str(run_config.doseResolution(2)) '_' num2str(run_config.doseResolution(3)) '.mat'];
+        if run_config.loadDij && isfile(dij_robust_file)
+            load(dij_robust_file,'dij_robust');
         end
     otherwise
         output_folder = ['output' filesep run_config.radiationMode filesep run_config.description filesep run_config.caseID filesep run_config.robustness filesep run_config.plan_target filesep run_config.plan_beams filesep run_config.plan_objectives filesep num2str(run_config.shiftSD(1)) 'x' num2str(run_config.shiftSD(2)) 'x' num2str(run_config.shiftSD(3)) filesep run_config.scen_mode filesep num2str(run_config.wcFactor) filesep datestr(datetime,'yyyy-mm-dd HH-MM-SS')];
@@ -344,7 +352,7 @@ if (ct.numOfCtScen>1)
     matRad_compareCtSlice(gca,tmp_cube1,tmp_cube2,plane,slice);
     title('comparison without correction');%camroll(90);
     subplot(2,2,4);
-    matRad_compareCtSlice(gca,tmp_cube1,tmp_cube2_moved,plane,slice);dij_interval_file
+    matRad_compareCtSlice(gca,tmp_cube1,tmp_cube2_moved,plane,slice);
     title('comparison with correction');%camroll(90);
     savefig([folderPath filesep 'image_registration_1to2.fig']);
    
@@ -633,6 +641,8 @@ if (~exist('dij_robust','var') || isempty(dij_robust)) && (~exist('dij_interval'
     if run_config.radiationMode == "protons"
         dij_robust = matRad_calcParticleDose(ct,stf_robust,pln_robust,cst_robust);
     end
+    dij_robust_file = [run_config.rootPath  filesep 'jobs' filesep 'images' filesep run_config.description filesep run_config.caseID '_dij_robust_' num2str(run_config.doseResolution(1)) '_' num2str(run_config.doseResolution(2)) '_' num2str(run_config.doseResolution(3)) '.mat'];
+    save(dij_robust_file,'dij_robust', '-v7.3');
 end
 DCTime_robust = toc(now1);
 time1=sprintf('DCTime_robust: %.2f\n',DCTime_robust); disp(time1);
@@ -648,8 +658,6 @@ switch run_config.robustness
             [dij_dummy, pln_dummy,dij_robust,pln_robust,dij_interval] = matRad_calcDoseInterval2b(ct,cst,stf_robust,pln_robust,dij_robust,targetStructSel,OARStructSel);
             dij_interval_file = [run_config.rootPath  filesep 'jobs' filesep 'images' filesep run_config.description filesep run_config.caseID '_dij_interval2.mat'];
             save(dij_interval_file,'dij_dummy','pln_dummy','pln_robust','dij_interval', '-v7.3');
-            dij_robust_file = [run_config.rootPath  filesep 'jobs' filesep 'images' filesep run_config.description filesep run_config.caseID '_dij_robust.mat'];
-            save(dij_robust_file,'dij_robust', '-v7.3');
         end
         dij_robust=dij_dummy;
         pln_robust=pln_dummy;
@@ -663,8 +671,6 @@ switch run_config.robustness
             [dij_dummy, pln_dummy,dij_robust,pln_robust,dij_interval] = matRad_calcDoseInterval3e(ct,cst,stf_robust,pln_robust,dij_robust,targetStructSel,OARStructSel,run_config.retentionThreshold);
             dij_interval_file = [run_config.rootPath  filesep 'jobs' filesep 'images' filesep run_config.description filesep run_config.caseID '_dij_interval3_' num2str(run_config.doseResolution(1)) '_' num2str(run_config.doseResolution(2)) '_' num2str(run_config.doseResolution(3)) '_' num2str(run_config.retentionThreshold) '.mat'];
             save(dij_interval_file,'dij_dummy','pln_dummy','pln_robust','dij_interval', '-v7.3');
-            dij_robust_file = [run_config.rootPath  filesep 'jobs' filesep 'images' filesep run_config.description filesep run_config.caseID '_dij_robust_' num2str(run_config.doseResolution(1)) '_' num2str(run_config.doseResolution(2)) '_' num2str(run_config.doseResolution(3)) '.mat'];
-            save(dij_robust_file,'dij_robust', '-v7.3');
         end
         dij_robust=dij_dummy;
         pln_robust=pln_dummy;
