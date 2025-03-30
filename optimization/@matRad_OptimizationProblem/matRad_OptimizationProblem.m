@@ -142,7 +142,7 @@ classdef matRad_OptimizationProblem < handle
                     end
         
                     parfor it = 1:nVoxels
-                        Dr = U{it} * S{it} * (V{it})';
+                        Dr = U{it} * S{it} * V{it}';
                         tmp = Dr * w;
                         d_r = sqrt(w' * tmp);
                         if d_r > epsilon
@@ -152,7 +152,7 @@ classdef matRad_OptimizationProblem < handle
                     end
                 else
                     for it = 1:nVoxels
-                        Dr = U{it} * S{it} * (V{it})';
+                        Dr = U{it} * S{it} * V{it}';
                         tmp = Dr * w;
                         d_r = sqrt(w' * tmp);
                         if d_r > epsilon
@@ -190,7 +190,7 @@ classdef matRad_OptimizationProblem < handle
         
             w_last_radius_cached = optiProb.cache.w_last_radius;
             epsilon = 0.1;  % Relative difference threshold for partial clear
-            tolerance = 0.1;
+            tolerance = 0.0;
 
             % Compute relative change
             rel_diff = abs(w - w_last_radius_cached) ./ max(abs(w_last_radius_cached), eps);

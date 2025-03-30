@@ -93,13 +93,38 @@ dij_interval.targetSubIx = targetSubIx;
 
 % Target voxel batching
 tic
-maxBatchSize = 500;
-refnBatches = 20;
 
-% Initial estimate based on available workers
-nBatches = min([ceil(numel(targetSubIx)/(nWorkers/2)), refnBatches]);
+% Estimate the memory usage per voxel in MB (empirically estimated)
+estimatedMemoryPerVoxelMB = 10;
 
-% Dynamic adjustment: increase nBatches if batch size exceeds the maximum allowed
+% Get available RAM depending on OS
+if ispc
+    user = memory;
+    availableMB = user.MemAvailableAllArrays / 1e6;
+elseif isunix || ismac
+    [~, memInfo] = system('vm_stat');
+    pageSizeLine = regexp(memInfo, 'page size of (\d+) bytes', 'tokens', 'once');
+    pageSize = str2double(pageSizeLine{1});
+    freePages = sum(cellfun(@(x) sscanf(x{2}, '%d'), ...
+        regexp(memInfo, 'Pages (free|inactive|speculative):\s+(\d+)', 'tokens')));
+    availableMB = (freePages * pageSize) / 1e6;
+else
+    error('Unsupported OS');
+end
+
+% Compute the memory budget for all batches (e.g., 90% of available memory)
+totalBatchMemoryBudgetMB = 0.90 * availableMB;
+
+% Adjust the maximum batch size depending on memory per voxel and number of workers
+maxBatchSize = floor(totalBatchMemoryBudgetMB / (estimatedMemoryPerVoxelMB * nWorkers));
+
+% Print estimated configuration
+fprintf('Available RAM: %.1f MB | Estimated per-voxel: %.2f MB | nWorkers: %d | maxBatchSize: %d voxels\n', ...
+    availableMB, estimatedMemoryPerVoxelMB, nWorkers, maxBatchSize);
+
+nBatches=20;
+
+% Dynamically increase nBatches if the batch size exceeds the memory-safe threshold
 while ceil(numel(targetSubIx) / nBatches) > maxBatchSize
     nBatches = nBatches + 1;
 end
@@ -107,6 +132,12 @@ end
 % Recalculate target batch size after adjustment
 targetBatchSize = ceil(numel(targetSubIx) / nBatches);
 
+% Print and log results
+logMsg = sprintf(['[matRad batching log]\nTimestamp: %s\n', 'Available RAM: %.1f MB\nEstimated per-voxel: %.2f MB\n',...
+    'nWorkers: %d\nEstimated maxBatchSize: %d voxels\n', 'Final nBatches: %d | targetBatchSize: %d voxels\n\n'], ...
+    datestr(now), availableMB, estimatedMemoryPerVoxelMB, nWorkers, maxBatchSize, nBatches, targetBatchSize);
+
+fprintf(logMsg);
 
 if exist('parfor_progress.txt', 'file') ~= 2
     fclose(fopen('parfor_progress.txt', 'w'));
@@ -118,7 +149,7 @@ for b = 1:nBatches
     idx_end = min(b*targetBatchSize, numel(targetSubIx));
     currentBatch = targetSubIx(idx_start:idx_end);
 
-    fprintf('Processing batch %d of %d (%d voxeles)', b, nBatches, numel(currentBatch));
+    fprintf('Processing batch %d of %d (%d voxeles) \n', b, nBatches, numel(currentBatch));
     if exist('parfor_progress', 'file') == 2
         FlagParforProgressDisp = true;
         parfor_progress(round(numel(currentBatch)/10));  % http://de.mathworks.com/matlabcentral/fileexchange/32101-progress-monitor--progress-bar--that-works-with-parfor
@@ -158,7 +189,7 @@ for b = 1:nBatches
     
         % Optional progress display
         if FlagParforProgressDisp && mod(it,10)==0
-            fprintf('Processing batch %d of %d \n', b, nBatches);
+            %fprintf('Processing batch %d of %d \n', b, nBatches);
             parfor_progress;
         end
     end
@@ -204,19 +235,46 @@ dij_interval.OARSubIx = OARSubIx;
 
 % OAR voxel batching
 tic
-maxBatchSize = 10000;
-refnBatches = 10;
+
+% Estimate the memory usage per OAR voxel (can be slightly higher due to SVD storage)
+estimatedMemoryPerOARVoxelMB = 1;
+
+% Get available RAM depending on OS
+if ispc
+    user = memory;
+    availableMB = user.MemAvailableAllArrays / 1e6;
+elseif isunix || ismac
+    [~, memInfo] = system('vm_stat');
+    pageSizeLine = regexp(memInfo, 'page size of (\d+) bytes', 'tokens', 'once');
+    pageSize = str2double(pageSizeLine{1});
+    freePages = sum(cellfun(@(x) sscanf(x{2}, '%d'), ...
+        regexp(memInfo, 'Pages (free|inactive|speculative):\s+(\d+)', 'tokens')));
+    availableMB = (freePages * pageSize) / 1e6;
+else
+    error('Unsupported OS');
+end
+
+% Compute memory budget per worker (e.g., 90% of available memory)
+totalOARBatchMemoryBudgetMB = 0.90 * availableMB;
+maxOARBatchSize = floor(totalOARBatchMemoryBudgetMB / (estimatedMemoryPerOARVoxelMB * nWorkers));
 
 % Initial estimate based on available workers
-nOARBatches = min([ceil(numel(OARSubIx)/(nWorkers/2)), refnBatches]);
+nOARBatches = 10;
 
-% Dynamic adjustment: increase nOARBatches if batch size exceeds the maximum allowed
-while ceil(numel(OARSubIx) / nOARBatches) > maxBatchSize
+% Dynamically increase nOARBatches if the batch size exceeds the memory-safe threshold
+while ceil(numel(OARSubIx) / nOARBatches) > maxOARBatchSize
     nOARBatches = nOARBatches + 1;
 end
 
-% Recalculate target batch size after adjustment
+% Recalculate batch size after adjustment
 OARBatchSize = ceil(numel(OARSubIx) / nOARBatches);
+
+% Print and log results
+logMsg = sprintf(['[matRad OAR batching log]\nTimestamp: %s\n', 'Available RAM: %.1f MB\nEstimated per-OAR-voxel: %.2f MB\n',...
+    'nWorkers: %d\nEstimated maxOARBatchSize: %d voxels\n','Final nOARBatches: %d | OARBatchSize: %d voxels\n\n'], ...
+    datestr(now), availableMB, estimatedMemoryPerOARVoxelMB, nWorkers, maxOARBatchSize, nOARBatches, OARBatchSize);
+
+fprintf(logMsg);
 
 if exist('parfor_progress.txt', 'file') ~= 2
     fclose(fopen('parfor_progress.txt', 'w'));
@@ -227,7 +285,7 @@ for b = 1:nOARBatches
     idx_end = min(b*OARBatchSize, numel(OARSubIx));
     currentBatch = OARSubIx(idx_start:idx_end);
     
-    fprintf('Processing batch %d of %d (%d voxeles)', b, nOARBatches, numel(currentBatch));
+    fprintf('Processing batch %d of %d (%d voxeles) \n', b, nOARBatches, numel(currentBatch));
     if exist('parfor_progress', 'file') == 2
         FlagParforProgressDisp = true;
         parfor_progress(round(numel(currentBatch)/10));  % http://de.mathworks.com/matlabcentral/fileexchange/32101-progress-monitor--progress-bar--that-works-with-parfor
@@ -286,7 +344,7 @@ for b = 1:nOARBatches
     
         % Optional progress display inside the parfor loop
         if FlagParforProgressDisp && mod(it,10)==0
-            fprintf('Processing batch %d of %d \n', b, nOARBatches);
+            %fprintf('Processing batch %d of %d \n', b, nOARBatches);
             parfor_progress;
         end
     end
