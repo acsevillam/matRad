@@ -103,8 +103,15 @@ if ispc
     availableMB = user.MemAvailableAllArrays / 1e6;
 elseif isunix || ismac
     [~, memInfo] = system('vm_stat');
+    % Default page size (4KB), typical on macOS and Linux
+    defaultPageSize = 4096;
+    % Try to extract page size from vm_stat output
     pageSizeLine = regexp(memInfo, 'page size of (\d+) bytes', 'tokens', 'once');
-    pageSize = str2double(pageSizeLine{1});
+    if isempty(pageSizeLine)
+        pageSize = defaultPageSize;
+    else
+        pageSize = str2double(pageSizeLine{1});
+    end
     freePages = sum(cellfun(@(x) sscanf(x{2}, '%d'), ...
         regexp(memInfo, 'Pages (free|inactive|speculative):\s+(\d+)', 'tokens')));
     availableMB = (freePages * pageSize) / 1e6;
@@ -245,8 +252,15 @@ if ispc
     availableMB = user.MemAvailableAllArrays / 1e6;
 elseif isunix || ismac
     [~, memInfo] = system('vm_stat');
+    % Default page size (4KB), typical on macOS and Linux
+    defaultPageSize = 4096;
+    % Try to extract page size from vm_stat output
     pageSizeLine = regexp(memInfo, 'page size of (\d+) bytes', 'tokens', 'once');
-    pageSize = str2double(pageSizeLine{1});
+    if isempty(pageSizeLine)
+        pageSize = defaultPageSize;
+    else
+        pageSize = str2double(pageSizeLine{1});
+    end
     freePages = sum(cellfun(@(x) sscanf(x{2}, '%d'), ...
         regexp(memInfo, 'Pages (free|inactive|speculative):\s+(\d+)', 'tokens')));
     availableMB = (freePages * pageSize) / 1e6;
