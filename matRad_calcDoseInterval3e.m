@@ -101,20 +101,20 @@ estimatedMemoryPerVoxelMB = 10;
 if ispc
     user = memory;
     availableMB = user.MemAvailableAllArrays / 1e6;
-elseif isunix || ismac
+elseif ismac
     [~, memInfo] = system('vm_stat');
-    % Default page size (4KB), typical on macOS and Linux
-    defaultPageSize = 4096;
-    % Try to extract page size from vm_stat output
     pageSizeLine = regexp(memInfo, 'page size of (\d+) bytes', 'tokens', 'once');
-    if isempty(pageSizeLine)
-        pageSize = defaultPageSize;
-    else
-        pageSize = str2double(pageSizeLine{1});
-    end
+    pageSize = str2double(pageSizeLine{1});
     freePages = sum(cellfun(@(x) sscanf(x{2}, '%d'), ...
         regexp(memInfo, 'Pages (free|inactive|speculative):\s+(\d+)', 'tokens')));
     availableMB = (freePages * pageSize) / 1e6;
+elseif isunix
+    % Linux (incl. Rocky): Use /proc/meminfo
+    [~, memInfo] = system('grep MemAvailable /proc/meminfo');
+    tokens = regexp(memInfo, 'MemAvailable:\s+(\d+)\s+kB', 'tokens');
+    if ~isempty(tokens)
+        availableMB = str2double(tokens{1}) / 1024;
+    end
 else
     error('Unsupported OS');
 end
@@ -250,20 +250,20 @@ estimatedMemoryPerOARVoxelMB = 1;
 if ispc
     user = memory;
     availableMB = user.MemAvailableAllArrays / 1e6;
-elseif isunix || ismac
+elseif ismac
     [~, memInfo] = system('vm_stat');
-    % Default page size (4KB), typical on macOS and Linux
-    defaultPageSize = 4096;
-    % Try to extract page size from vm_stat output
     pageSizeLine = regexp(memInfo, 'page size of (\d+) bytes', 'tokens', 'once');
-    if isempty(pageSizeLine)
-        pageSize = defaultPageSize;
-    else
-        pageSize = str2double(pageSizeLine{1});
-    end
+    pageSize = str2double(pageSizeLine{1});
     freePages = sum(cellfun(@(x) sscanf(x{2}, '%d'), ...
         regexp(memInfo, 'Pages (free|inactive|speculative):\s+(\d+)', 'tokens')));
     availableMB = (freePages * pageSize) / 1e6;
+elseif isunix
+    % Linux (incl. Rocky): Use /proc/meminfo
+    [~, memInfo] = system('grep MemAvailable /proc/meminfo');
+    tokens = regexp(memInfo, 'MemAvailable:\s+(\d+)\s+kB', 'tokens');
+    if ~isempty(tokens)
+        availableMB = str2double(tokens{1}) / 1024;
+    end
 else
     error('Unsupported OS');
 end
