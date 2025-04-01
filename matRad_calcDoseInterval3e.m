@@ -95,7 +95,7 @@ dij_interval.targetSubIx = targetSubIx;
 tic
 
 % Estimate the memory usage per voxel in MB (empirically estimated)
-estimatedMemoryPerVoxelMB = 20;
+estimatedMemoryPerVoxelMB = 10;
 
 % Get available RAM depending on OS
 if ispc
