@@ -1,8 +1,12 @@
-function [dij_dummy, pln_dummy, dij, pln, dij_interval] = matRad_calcDoseInterval3e(ct, cst, stf, pln, dij, targetStructSel, OARStructSel, retentionThreshold)
+function [dij_dummy, pln_dummy, dij, pln, dij_interval] = matRad_calcDoseInterval3e(ct, cst, stf, pln, dij, targetStructSel, OARStructSel, retentionThreshold, kmax)
 
 matRad_cfg = MatRad_Config.instance();
 [env, envver] = matRad_getEnvironment();
 pln_dummy = pln;
+
+if ~exist('refScen','var') || isempty(kmax)
+    kmax=10;
+end
 
 % Retrieve dummy case scenario
 dummyScen = matRad_multScen(ct, 'nomScen');
@@ -95,7 +99,7 @@ dij_interval.targetSubIx = targetSubIx;
 tic
 
 % Estimate the memory usage per voxel in MB (empirically estimated)
-estimatedMemoryPerVoxelMB = 10;
+estimatedMemoryPerVoxelMB = (dij.totalNumOfBixels+dij.totalNumOfBixels*dij.totalNumOfBixels)*8/1E6;
 
 % Get available RAM depending on OS
 if ispc
@@ -119,8 +123,8 @@ else
     error('Unsupported OS');
 end
 
-% Compute the memory budget for all batches (e.g., 90% of available memory)
-totalBatchMemoryBudgetMB = 0.90 * availableMB;
+% Compute the memory budget for all batches (e.g., 80% of available memory)
+totalBatchMemoryBudgetMB = 0.80 * availableMB;
 
 % Adjust the maximum batch size depending on memory per voxel and number of workers
 maxBatchSize = floor(totalBatchMemoryBudgetMB / (estimatedMemoryPerVoxelMB * nWorkers));
@@ -129,7 +133,7 @@ maxBatchSize = floor(totalBatchMemoryBudgetMB / (estimatedMemoryPerVoxelMB * nWo
 fprintf('Available RAM: %.1f MB | Estimated per-voxel: %.2f MB | nWorkers: %d | maxBatchSize: %d voxels\n', ...
     availableMB, estimatedMemoryPerVoxelMB, nWorkers, maxBatchSize);
 
-nBatches=20;
+nBatches=1;
 
 % Dynamically increase nBatches if the batch size exceeds the memory-safe threshold
 while ceil(numel(targetSubIx) / nBatches) > maxBatchSize
@@ -244,7 +248,7 @@ dij_interval.OARSubIx = OARSubIx;
 tic
 
 % Estimate the memory usage per OAR voxel (can be slightly higher due to SVD storage)
-estimatedMemoryPerOARVoxelMB = 1;
+estimatedMemoryPerOARVoxelMB = (kmax*kmax + 2*kmax*dij.totalNumOfBixels)*8/1E6 ;
 
 % Get available RAM depending on OS
 if ispc
@@ -268,12 +272,12 @@ else
     error('Unsupported OS');
 end
 
-% Compute memory budget per worker (e.g., 90% of available memory)
-totalOARBatchMemoryBudgetMB = 0.90 * availableMB;
+% Compute memory budget per worker (e.g., 80% of available memory)
+totalOARBatchMemoryBudgetMB = 0.80 * availableMB;
 maxOARBatchSize = floor(totalOARBatchMemoryBudgetMB / (estimatedMemoryPerOARVoxelMB * nWorkers));
 
 % Initial estimate based on available workers
-nOARBatches = 10;
+nOARBatches = 1;
 
 % Dynamically increase nOARBatches if the batch size exceeds the memory-safe threshold
 while ceil(numel(OARSubIx) / nOARBatches) > maxOARBatchSize
@@ -340,7 +344,7 @@ for b = 1:nOARBatches
         % Note: covMatrix = E[d^2]-E[d]^2
     
         % Perform truncated Singular Value Decomposition (SVD)
-        [U, S, V] = svds(covMatrix, 10, 'largest');  % Keep top 10 singular values/vectors
+        [U, S, V] = svds(covMatrix, kmax, 'largest');  % Keep top 10 singular values/vectors
     
         % Extract singular values and compute total and cumulative energy
         singularValues = diag(S);
