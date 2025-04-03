@@ -871,6 +871,7 @@ now3 = tic();
 resultGUI_robust=cell(1, length(run_config.theta1));
 for planIx = 1:num_plans
     tic
+    disp(['!!--####################### PLAN No. ' num2str(planIx) ' of ' num2str(num_plans) ' #######################--!!']);
     switch run_config.robustness
         case {'INTERVAL2','INTERVAL3'}
             pln_robust.propOpt.theta1 = run_config.theta1(planIx);
@@ -888,6 +889,9 @@ end
 %% Indicator calculation and show DVH and QI
 
 for planIx = 1:num_plans
+
+    disp(['!!--####################### PLAN No. ' num2str(planIx) ' of ' num2str(num_plans) ' #######################--!!']);
+
     for scenIt = 1:pln_robust.multScen.totNumScen
         qi_robust{scenIt} = matRad_calcQualityIndicators(cst_robust,pln_robust,resultGUI_robust{planIx}.([pln_robust.bioParam.quantityVis '_' num2str(scenIt)])*pln_robust.numOfFractions,[],[]);
     end
@@ -916,6 +920,9 @@ numIteration=run_config.dose_pulling2_start+1;
 criteria_array = eval(run_config.dose_pulling2_criteria);
 
 for planIx = 1:num_plans
+
+    disp(['!!--####################### PLAN No. ' num2str(planIx) ' of ' num2str(num_plans) ' #######################--!!']);
+
     switch run_config.robustness
         case {'INTERVAL2','INTERVAL3'}
             pln_robust.propOpt.theta1 = run_config.theta1(planIx);
@@ -996,7 +1003,8 @@ end
 save([rootPath filesep 'resultGUI.mat'],'resultGUI','resultGUI_robust');
 
 %% Create an interactive plot to slide through axial slices
-for planIx = 1:num_plans
+%for planIx = 1:num_plans
+%    disp(['!!--####################### PLAN No. ' num2str(planIx) ' of ' num2str(num_plans) ' #######################--!!']);
 %   for numScen=1:pln_robust.multScen.totNumScen
 %
 %       if(pln_robust.multScen.totNumScen>1)
@@ -1045,7 +1053,7 @@ for planIx = 1:num_plans
 %   matRad_geo3DWrapper(gca,ct,cst_robust,resultGUI_robust{planIx}.physicalDose.*OAR_mask*pln_robust.numOfFractions,run_config.doseWindow,[0.002 0.00005],colorcube,[],'Dose [Gy]');
 %   savefig([folderPath{planIx} filesep 'OAR_dose3d_robust.fig']);
 
-end
+%end
 
 %% check sampling option is activated
 if ~run_config.sampling
@@ -1065,6 +1073,9 @@ structSel = {};
 
 %% Perform sampling for robust optimization results
 for planIx = 1:num_plans
+
+    disp(['!!--####################### PLAN No. ' num2str(planIx) ' of ' num2str(num_plans) ' #######################--!!']);
+
     [caSampRob, mSampDoseRob, plnSampRob, resultGUIRobNomScen,resultGUIsampledScenRob] = matRad_sampling(ct,stf_robust,cst_robust,pln_robust,resultGUI_robust{planIx}.w,structSel,multScen);
 
     %% Perform sampling analysis
