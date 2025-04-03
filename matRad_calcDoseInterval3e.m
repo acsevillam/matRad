@@ -1,11 +1,19 @@
-function [dij_dummy, pln_dummy, dij, pln, dij_interval] = matRad_calcDoseInterval3e(ct, cst, stf, pln, dij, targetStructSel, OARStructSel, retentionThreshold, kmax)
+function [dij_dummy, pln_dummy, dij, pln, dij_interval] = matRad_calcDoseInterval3e(ct, cst, stf, pln, dij, targetStructSel, OARStructSel, kdin, kmax, retentionThreshold)
 
 matRad_cfg = MatRad_Config.instance();
 [env, envver] = matRad_getEnvironment();
 pln_dummy = pln;
 
-if ~exist('refScen','var') || isempty(kmax)
+if ~exist('kdin','var') || isempty(kdin)
+    kdin='dinamic';
+end
+
+if ~exist('kmax','var') || isempty(kmax)
     kmax=10;
+end
+
+if ~exist('retentionThreshold','var') || isempty(retentionThreshold)
+    retentionThreshold=1.0;
 end
 
 % Retrieve dummy case scenario
@@ -342,23 +350,38 @@ for b = 1:nOARBatches
         covMatrix = dij_centered_weighted' * dij_centered_weighted;  % (numBixels x numBixels)
         %covMatrix=(dij_tmp'*diag(scenProb)*dij_tmp-dij_batch_OAR(it).center'*dij_batch_OAR(it).center); % (numBixels x numBixels)
         % Note: covMatrix = E[d^2]-E[d]^2
-    
-        % Perform truncated Singular Value Decomposition (SVD)
-        [U, S, V] = svds(covMatrix, kmax, 'largest');  % Keep top 10 singular values/vectors
-    
-        % Extract singular values and compute total and cumulative energy
-        singularValues = diag(S);
-        totalEnergy = sum(singularValues.^2);
-        cumulativeEnergy = cumsum(singularValues.^2);
-    
-        % Find number of components 'k' to retain enough energy (based on threshold)
-        k = find(cumulativeEnergy / totalEnergy >= retentionThreshold, 1, 'first');
-    
-        % Store reduced-rank SVD components in sparse format
-        dij_batch_OAR(it).k = k;
-        dij_batch_OAR(it).U = sparse(U(:, 1:k));
-        dij_batch_OAR(it).S = sparse(S(1:k, 1:k));
-        dij_batch_OAR(it).V = sparse(V(:, 1:k));
+           
+        % Select k according to kdin
+        if isequal(kdin,'dinamic')
+            % Perform truncated Singular Value Decomposition (SVD)
+            [U, S, V] = svds(covMatrix, kmax, 'largest');  % Keep top 10 singular values/vectors
+        
+            % Extract singular values and compute total and cumulative energy
+            singularValues = diag(S);
+            totalEnergy = sum(singularValues.^2);
+            cumulativeEnergy = cumsum(singularValues.^2);
+        
+            % Find number of components 'k' to retain enough energy (based on threshold)
+            k = find(cumulativeEnergy / totalEnergy >= retentionThreshold, 1, 'first');
+
+            % Store reduced-rank SVD components in sparse format
+            dij_batch_OAR(it).k = k;
+            dij_batch_OAR(it).U = sparse(U(:, 1:k));
+            dij_batch_OAR(it).S = sparse(S(1:k, 1:k));
+            dij_batch_OAR(it).V = sparse(V(:, 1:k));
+
+        elseif isequal(kdin,'static')
+            k=kmax;
+            % Perform truncated Singular Value Decomposition (SVD)
+            [U, S, V] = svds(covMatrix, k, 'largest');
+            % Store reduced-rank SVD components in sparse format
+            dij_batch_OAR(it).k = k;
+            dij_batch_OAR(it).U = sparse(U);
+            dij_batch_OAR(it).S = sparse(S);
+            dij_batch_OAR(it).V = sparse(V);            
+        else
+            disp('k dinamics did not find!');
+        end
     
         % Optional progress display inside the parfor loop
         if FlagParforProgressDisp && mod(it,10)==0

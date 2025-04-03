@@ -49,6 +49,7 @@ validDosePulling2Criteria = {'minQiTarget','meanQiTarget'};
 validPlanTargets = {'CTV','PTV'};
 validPlanBeams = {'5F','7F','9F'};
 validRobustness = {'none','STOCH','COWC','COWC2','c-COWC','c-COWC2','INTERVAL1','INTERVAL2','INTERVAL3'};
+validKdin = {'dinamic','static'};
 validScenModes = {'nomScen','wcScen','impScen5','impScen7','impScen_permuted5','impScen_permuted7','impScen_permuted_truncated5','impScen_permuted_truncated7','random','random_truncated'};
 
 defaultPatientID = '3482';
@@ -74,7 +75,8 @@ defaultWCFactor = 1.0;
 defaultP1 = 1;
 defaultP2 = 1;
 defaultTheta1 = 1.0;
-defaultK = 1;
+defaultKdin = 'dinamic';
+defaultKmax = 10;
 defaultRetentionThreshold = 0.95;
 defaultTheta2 = 1.0;
 defaultLoadDij = true;
@@ -116,7 +118,8 @@ addParameter(parser,'p1',defaultP1,@(x) validateattributes(x,{'numeric'},...
 addParameter(parser,'p2',defaultP2,@(x) validateattributes(x,{'numeric'},...
             {'nonempty','integer','positive'}));
 addParameter(parser,'theta1',defaultTheta1,@(x) numel(x) >= 1 && isnumeric(x) && all(x >= 0));
-addParameter(parser,'k',defaultK,@(x) validateattributes(x,{'numeric'},...
+addParameter(parser,'kdin',defaultKdin,@(x) any(validatestring(x,validKdin)));
+addParameter(parser,'kmax',defaultKmax,@(x) validateattributes(x,{'numeric'},...
             {'nonempty','integer','positive'}));
 addParameter(parser,'retentionThreshold',defaultRetentionThreshold,@(x) validateattributes(x,{'numeric'},...
             {'nonempty','nonnegative'}));
@@ -194,13 +197,13 @@ switch run_config.robustness
         end
     case "INTERVAL3"
         run_config.theta1 = parser.Results.theta1;
-        run_config.k = parser.Results.k;
+        run_config.kdin = parser.Results.kdin;
+        run_config.kmax = parser.Results.kmax;
         run_config.retentionThreshold = parser.Results.retentionThreshold;
         num_plans=length(run_config.theta1);
         run_config.theta2 = parser.Results.theta2;
         root_folder = ['output' filesep run_config.radiationMode filesep run_config.description filesep run_config.caseID filesep run_config.robustness filesep run_config.plan_target filesep run_config.plan_beams filesep run_config.plan_objectives filesep num2str(run_config.shiftSD(1)) 'x' num2str(run_config.shiftSD(2)) 'x' num2str(run_config.shiftSD(3)) filesep run_config.scen_mode filesep num2str(run_config.wcFactor)];
         output_folder=cell(1, length(run_config.theta1));
-
         if length(run_config.theta1)>1
             root_folder = [root_folder  filesep datestr(datetime,'yyyy-mm-dd HH-MM-SS')];
             for planIx = 1:num_plans
@@ -210,7 +213,11 @@ switch run_config.robustness
             output_folder{1} = [root_folder filesep num2str(run_config.theta1(1)) filesep num2str(run_config.retentionThreshold) filesep num2str(run_config.theta2) filesep datestr(datetime,'yyyy-mm-dd HH-MM-SS')];
             root_folder = output_folder{1};
         end
-        dij_interval_file = [run_config.rootPath  filesep 'jobs' filesep 'images' filesep run_config.description filesep run_config.caseID '_dij_interval3_' num2str(run_config.doseResolution(1)) '_' num2str(run_config.doseResolution(2)) '_' num2str(run_config.doseResolution(3)) '_' num2str(run_config.retentionThreshold) '.mat'];
+        if(isequal(run_config.kdin,'dinamic'))
+            dij_interval_file = [run_config.rootPath  filesep 'jobs' filesep 'images' filesep run_config.description filesep run_config.caseID '_dij_interval3_' num2str(run_config.doseResolution(1)) '_' num2str(run_config.doseResolution(2)) '_' num2str(run_config.doseResolution(3)) '_' num2str(run_config.retentionThreshold) '.mat'];
+        elseif(isequal(run_config.kdin,'static'))
+            dij_interval_file = [run_config.rootPath  filesep 'jobs' filesep 'images' filesep run_config.description filesep run_config.caseID '_dij_interval3_' num2str(run_config.doseResolution(1)) '_' num2str(run_config.doseResolution(2)) '_' num2str(run_config.doseResolution(3)) '_k_' num2str(run_config.kmax) '.mat'];
+        end 
         if run_config.loadDij && isfile(dij_interval_file)
             load(dij_interval_file,'dij_dummy','pln_dummy','pln_robust','dij_interval');
         end
@@ -698,8 +705,12 @@ switch run_config.robustness
         targetStructSel = {'CTV'};
         now2 = tic();
         if ~exist('dij_interval','var') || isempty(dij_interval)
-            [dij_dummy, pln_dummy,dij_robust,pln_robust,dij_interval] = matRad_calcDoseInterval3e(ct,cst,stf_robust,pln_robust,dij_robust,targetStructSel,OARStructSel,run_config.retentionThreshold);
-            dij_interval_file = [run_config.rootPath  filesep 'jobs' filesep 'images' filesep run_config.description filesep run_config.caseID '_dij_interval3_' num2str(run_config.doseResolution(1)) '_' num2str(run_config.doseResolution(2)) '_' num2str(run_config.doseResolution(3)) '_' num2str(run_config.retentionThreshold) '.mat'];
+            [dij_dummy, pln_dummy,dij_robust,pln_robust,dij_interval] = matRad_calcDoseInterval3e(ct,cst,stf_robust,pln_robust,dij_robust,targetStructSel,OARStructSel,run_config.kdin,run_config.kmax,run_config.retentionThreshold);
+            if(isequal(run_config.kdin,'dinamic'))
+                dij_interval_file = [run_config.rootPath  filesep 'jobs' filesep 'images' filesep run_config.description filesep run_config.caseID '_dij_interval3_' num2str(run_config.doseResolution(1)) '_' num2str(run_config.doseResolution(2)) '_' num2str(run_config.doseResolution(3)) '_' num2str(run_config.retentionThreshold) '.mat'];
+            elseif(isequal(run_config.kdin,'static'))
+                dij_interval_file = [run_config.rootPath  filesep 'jobs' filesep 'images' filesep run_config.description filesep run_config.caseID '_dij_interval3_' num2str(run_config.doseResolution(1)) '_' num2str(run_config.doseResolution(2)) '_' num2str(run_config.doseResolution(3)) '_k_' num2str(run_config.kmax) '.mat'];
+            end
             save(dij_interval_file,'dij_dummy','pln_dummy','pln_robust','dij_interval', '-v7.3');
         end
         dij_robust=dij_dummy;
