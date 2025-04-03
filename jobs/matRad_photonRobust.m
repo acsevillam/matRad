@@ -204,15 +204,27 @@ switch run_config.robustness
         run_config.theta2 = parser.Results.theta2;
         root_folder = ['output' filesep run_config.radiationMode filesep run_config.description filesep run_config.caseID filesep run_config.robustness filesep run_config.plan_target filesep run_config.plan_beams filesep run_config.plan_objectives filesep num2str(run_config.shiftSD(1)) 'x' num2str(run_config.shiftSD(2)) 'x' num2str(run_config.shiftSD(3)) filesep run_config.scen_mode filesep num2str(run_config.wcFactor)];
         output_folder=cell(1, length(run_config.theta1));
-        if length(run_config.theta1)>1
-            root_folder = [root_folder  filesep datestr(datetime,'yyyy-mm-dd HH-MM-SS')];
-            for planIx = 1:num_plans
-                output_folder{planIx} = [root_folder filesep num2str(run_config.theta1(planIx)) filesep num2str(run_config.retentionThreshold) filesep num2str(run_config.theta2)];
+        if(isequal(run_config.kdin,'dinamic'))
+            if length(run_config.theta1)>1
+                root_folder = [root_folder  filesep datestr(datetime,'yyyy-mm-dd HH-MM-SS')];
+                for planIx = 1:num_plans
+                    output_folder{planIx} = [root_folder filesep num2str(run_config.theta1(planIx)) filesep num2str(run_config.retentionThreshold) filesep num2str(run_config.theta2)];
+                end
+            else
+                output_folder{1} = [root_folder filesep num2str(run_config.theta1(1)) filesep num2str(run_config.retentionThreshold) filesep num2str(run_config.theta2) filesep datestr(datetime,'yyyy-mm-dd HH-MM-SS')];
+                root_folder = output_folder{1};
             end
-        else
-            output_folder{1} = [root_folder filesep num2str(run_config.theta1(1)) filesep num2str(run_config.retentionThreshold) filesep num2str(run_config.theta2) filesep datestr(datetime,'yyyy-mm-dd HH-MM-SS')];
-            root_folder = output_folder{1};
-        end
+        elseif(isequal(run_config.kdin,'static'))
+            if length(run_config.theta1)>1
+                root_folder = [root_folder  filesep datestr(datetime,'yyyy-mm-dd HH-MM-SS')];
+                for planIx = 1:num_plans
+                    output_folder{planIx} = [root_folder filesep num2str(run_config.theta1(planIx)) filesep 'k_' num2str(run_config.kmax) filesep num2str(run_config.theta2)];
+                end
+            else
+                output_folder{1} = [root_folder filesep num2str(run_config.theta1(1)) filesep 'k_' num2str(run_config.kmax) filesep num2str(run_config.theta2) filesep datestr(datetime,'yyyy-mm-dd HH-MM-SS')];
+                root_folder = output_folder{1};
+            end
+        end 
         if(isequal(run_config.kdin,'dinamic'))
             dij_interval_file = [run_config.rootPath  filesep 'jobs' filesep 'images' filesep run_config.description filesep run_config.caseID '_dij_interval3_' num2str(run_config.doseResolution(1)) '_' num2str(run_config.doseResolution(2)) '_' num2str(run_config.doseResolution(3)) '_' num2str(run_config.retentionThreshold) '.mat'];
         elseif(isequal(run_config.kdin,'static'))
