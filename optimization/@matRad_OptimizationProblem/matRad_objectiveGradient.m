@@ -66,7 +66,8 @@ f_COWC = zeros(size(dij.physicalDose));
 
 % Check if current w differs from cached w
 if ~isfield(optiProb.cache, 'w') || ~isequal(optiProb.cache.w, w)
-    optiProb.clearCache(w);        % Clear cache if different
+    optiProb.clearCache();        % Clear cache if different
+    optiProb.cache.w = w;
 end
 
 % compute objective function for every VOI.
@@ -292,14 +293,13 @@ for  i = 1:size(cst,1)
                                 wGradient{ixScen} = wGradient{ixScen} + objective.computeFluenceObjectiveGradient(w,subIx,optiProb.theta1,optiProb.dij_interval);
                             else
                                 [d_center, d_radius, fluenceGradient_center, fluenceGradient_radius] = getDoseInterval(optiProb, cst, i, w);
-                                                    
+                    
                                 % Calculamos la derivada respecto a dosis
                                 doseGradient_tmp = objective.computeDoseObjectiveGradient(d_center + optiProb.theta2 * d_radius);
                     
                                 % Operación vectorizada (sin for interno)
                                 wGradient{ixScen} = wGradient{ixScen} + ...
                                     (doseGradient_tmp' * fluenceGradient_center + optiProb.theta2 * doseGradient_tmp' * fluenceGradient_radius)';
-                    
                             end
                         end
           
