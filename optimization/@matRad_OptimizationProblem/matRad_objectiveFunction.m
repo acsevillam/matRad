@@ -56,7 +56,8 @@ f_COWC = zeros(numel(useScen),1);
 
 % Check if current w differs from cached w
 if ~isfield(optiProb.cache, 'w') || ~isequal(optiProb.cache.w, w)
-    optiProb.clearCache(w);        % Clear cache if different
+    optiProb.clearCache();        % Clear cache if different
+    optiProb.cache.w = w;
 end
 
 % compute objective function for every VOI.
@@ -222,8 +223,7 @@ for  i = 1:size(cst,1)
                         if isequal(cst{i,3},'TARGET')
                             f = f + objective.computeDoseObjectiveFunction(w, subIx, optiProb.theta1, optiProb.dij_interval);
                         else
-                            [d_center, d_radius, ~] = getDoseInterval(optiProb, cst, i, w);
-                  
+                            [d_center, d_radius, ~] = getDoseInterval(optiProb, cst, i, w);                  
                             % Evaluación única del objetivo con d_center + intervalo ponderado
                             f = f + objective.computeDoseObjectiveFunction(d_center + optiProb.theta2 * d_radius);
                         end
