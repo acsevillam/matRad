@@ -134,8 +134,8 @@ end
 % Compute the memory budget for all batches (e.g., 80% of available memory)
 totalBatchMemoryBudgetMB = 0.80 * availableMB;
 
-% Adjust the maximum batch size depending on memory per voxel and number of workers
-maxBatchSize = floor(totalBatchMemoryBudgetMB / (estimatedMemoryPerVoxelMB * nWorkers));
+% Adjust the maximum batch size depending on memory per voxel
+maxBatchSize = floor(totalBatchMemoryBudgetMB / (estimatedMemoryPerVoxelMB));
 
 % Print estimated configuration
 fprintf('Available RAM: %.1f MB | Estimated per-voxel: %.2f MB | nWorkers: %d | maxBatchSize: %d voxels\n', ...
@@ -282,7 +282,7 @@ end
 
 % Compute memory budget per worker (e.g., 80% of available memory)
 totalOARBatchMemoryBudgetMB = 0.80 * availableMB;
-maxOARBatchSize = floor(totalOARBatchMemoryBudgetMB / (estimatedMemoryPerOARVoxelMB * nWorkers));
+maxOARBatchSize = floor(totalOARBatchMemoryBudgetMB / (estimatedMemoryPerOARVoxelMB));
 
 % Initial estimate based on available workers
 nOARBatches = 1;
