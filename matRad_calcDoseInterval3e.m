@@ -136,6 +136,7 @@ totalBatchMemoryBudgetMB = 0.80 * availableMB;
 
 % Adjust the maximum batch size depending on memory per voxel
 maxBatchSize = floor(totalBatchMemoryBudgetMB / (estimatedMemoryPerVoxelMB));
+limitBatchSize = 1000;
 
 % Print estimated configuration
 fprintf('Available RAM: %.1f MB | Estimated per-voxel: %.2f MB | nWorkers: %d | maxBatchSize: %d voxels\n', ...
@@ -144,7 +145,7 @@ fprintf('Available RAM: %.1f MB | Estimated per-voxel: %.2f MB | nWorkers: %d | 
 nBatches=1;
 
 % Dynamically increase nBatches if the batch size exceeds the memory-safe threshold
-while ceil(numel(targetSubIx) / nBatches) > maxBatchSize
+while (ceil(numel(targetSubIx) / nBatches) > maxBatchSize) || nBatches == limitBatchSize
     nBatches = nBatches + 1;
 end
 
@@ -283,12 +284,13 @@ end
 % Compute memory budget per worker (e.g., 80% of available memory)
 totalOARBatchMemoryBudgetMB = 0.80 * availableMB;
 maxOARBatchSize = floor(totalOARBatchMemoryBudgetMB / (estimatedMemoryPerOARVoxelMB));
+limitOARBatchSize = 1000;
 
 % Initial estimate based on available workers
 nOARBatches = 1;
 
 % Dynamically increase nOARBatches if the batch size exceeds the memory-safe threshold
-while ceil(numel(OARSubIx) / nOARBatches) > maxOARBatchSize
+while (ceil(numel(OARSubIx) / nOARBatches) > maxOARBatchSize) || nOARBatches == nOARBatches
     nOARBatches = nOARBatches + 1;
 end
 
