@@ -1087,6 +1087,7 @@ structSel = {};
 for planIx = 1:num_plans
 
     disp(['!!--####################### PLAN No. ' num2str(planIx) ' of ' num2str(num_plans) ' #######################--!!']);
+    tic
 
     [caSampRob, mSampDoseRob, plnSampRob, resultGUIRobNomScen,resultGUIsampledScenRob] = matRad_sampling(ct,stf_robust,cst_robust,pln_robust,resultGUI_robust{planIx}.w,structSel,multScen);
 
@@ -1236,6 +1237,7 @@ for planIx = 1:num_plans
     % Save outputs
     save([folderPath{planIx}  filesep 'results.mat'],'results');
     save([folderPath{planIx} filesep 'sampling.mat'],'caSampRob', 'mSampDoseRob', 'plnSampRob', 'resultGUIRobNomScen', 'resultGUISampRob','cstStatRob','metaRob','qi','qi_robust');
+    toc
 
 end
 
