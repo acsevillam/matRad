@@ -888,7 +888,11 @@ for planIx = 1:num_plans
         case {'INTERVAL2','INTERVAL3'}
             pln_robust.propOpt.theta1 = run_config.theta1(planIx);
     end
-    resultGUI_robust{planIx} = matRad_fluenceOptimization(dij_robust,cst_robust,pln_robust);
+    if planIx == 1
+        resultGUI_robust{planIx} = matRad_fluenceOptimization(dij_robust,cst_robust,pln_robust);
+    else
+        resultGUI_robust{planIx} = matRad_fluenceOptimization(dij_robust,cst_robust,pln_robust,resultGUI_robust{planIx-1}.w);
+    end
     toc
 end
 
