@@ -115,7 +115,7 @@ if ~isempty(center_loaded) && ~isempty(radius_loaded)
     dij_interval.radius = radius_loaded;
 else
     % Estimate the memory usage per voxel in MB (empirically estimated)
-    memory_factor = 0.05;
+    memory_factor = 0.01;
     estimatedMemoryPerVoxelMB = (dij.totalNumOfBixels+dij.totalNumOfBixels*dij.totalNumOfBixels)*8/1E6 * memory_factor;
     
     % Get available RAM depending on OS
