@@ -124,7 +124,7 @@ else
     totalBatchMemoryBudgetMB = 0.80 * availableMB;
     
     % Adjust the maximum batch size depending on memory per voxel
-    maxBatchSize = floor(totalBatchMemoryBudgetMB / 2 * estimatedMemoryPerVoxelMB / nWorkers);
+    maxBatchSize = floor(totalBatchMemoryBudgetMB / (2 * estimatedMemoryPerVoxelMB) / nWorkers);
     
     % Print estimated configuration
     fprintf('Available RAM: %.1f MB | Estimated per-voxel: %.2f MB | nWorkers: %d | maxBatchSize: %d voxels\n', ...
@@ -255,7 +255,7 @@ availableMB = matRad_getAvailableMemoryMB();
 
 % Compute memory budget per worker (e.g., 80% of available memory)
 totalOARBatchMemoryBudgetMB = 0.80 * availableMB;
-maxOARBatchSize = floor(totalOARBatchMemoryBudgetMB / 2 * estimatedMemoryPerOARVoxelMB / nWorkers);
+maxOARBatchSize = floor(totalOARBatchMemoryBudgetMB / (2 * estimatedMemoryPerOARVoxelMB) / nWorkers);
 
 % Initial estimate based on available workers
 nOARBatches = 1;
