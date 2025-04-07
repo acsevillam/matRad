@@ -1,4 +1,4 @@
-function [dij_dummy, pln_dummy, dij, pln, dij_interval] = matRad_calcDoseInterval3e(ct, cst, stf, pln, dij, targetStructSel, OARStructSel, kdin, kmax, retentionThreshold)
+function [dij_dummy, pln_dummy, dij, pln, dij_interval] = matRad_calcDoseInterval3e(ct, cst, stf, pln, dij, targetStructSel, OARStructSel, kdin, kmax, retentionThreshold, file_pattern)
 
 matRad_cfg = MatRad_Config.instance();
 [env, envver] = matRad_getEnvironment();
@@ -106,141 +106,132 @@ dij_interval.targetSubIx = targetSubIx;
 % Target voxel batching
 tic
 
-% Estimate the memory usage per voxel in MB (empirically estimated)
-estimatedMemoryPerVoxelMB = (dij.totalNumOfBixels+dij.totalNumOfBixels*dij.totalNumOfBixels)*8/1E6;
+% Attempt to load precomputed dij_interval.center and dij_interval.radius
+[center_loaded, radius_loaded, file_loaded] = matRad_loadTargetDij(file_pattern, targetSubIx);
 
-% Get available RAM depending on OS
-if ispc
-    user = memory;
-    availableMB = user.MemAvailableAllArrays / 1e6;
-elseif ismac
-    [~, memInfo] = system('vm_stat');
-    pageSizeLine = regexp(memInfo, 'page size of (\d+) bytes', 'tokens', 'once');
-    pageSize = str2double(pageSizeLine{1});
-    freePages = sum(cellfun(@(x) sscanf(x{2}, '%d'), ...
-        regexp(memInfo, 'Pages (free|inactive|speculative):\s+(\d+)', 'tokens')));
-    availableMB = (freePages * pageSize) / 1e6;
-elseif isunix
-    % Linux (incl. Rocky): Use /proc/meminfo
-    [~, memInfo] = system('grep MemAvailable /proc/meminfo');
-    tokens = regexp(memInfo, 'MemAvailable:\s+(\d+)\s+kB', 'tokens');
-    if ~isempty(tokens)
-        availableMB = str2double(tokens{1}) / 1024;
-    end
+if ~isempty(center_loaded) && ~isempty(radius_loaded)
+    fprintf('[matRad_calcDoseInterval3e] Loaded precomputed center and radius from: %s\n', file_loaded);
+    dij_interval.center(targetSubIx, :) = center_loaded;
+    dij_interval.radius = radius_loaded;
 else
-    error('Unsupported OS');
-end
-
-% Compute the memory budget for all batches (e.g., 80% of available memory)
-totalBatchMemoryBudgetMB = 0.80 * availableMB;
-
-% Adjust the maximum batch size depending on memory per voxel
-maxBatchSize = floor(totalBatchMemoryBudgetMB / (estimatedMemoryPerVoxelMB));
-
-% Print estimated configuration
-fprintf('Available RAM: %.1f MB | Estimated per-voxel: %.2f MB | nWorkers: %d | maxBatchSize: %d voxels\n', ...
-    availableMB, estimatedMemoryPerVoxelMB, nWorkers, maxBatchSize);
-
-nBatches=1;
-limitBatches = 200;
-
-% Dynamically increase nBatches if the batch size exceeds the memory-safe threshold
-while (ceil(numel(targetSubIx) / nBatches) > maxBatchSize) || nBatches == limitBatches
-    nBatches = nBatches + 1;
-end
-
-% Recalculate target batch size after adjustment
-targetBatchSize = ceil(numel(targetSubIx) / nBatches);
-
-% Print and log results
-logMsg = sprintf(['[matRad batching log]\nTimestamp: %s\n', 'Available RAM: %.1f MB\nEstimated per-voxel: %.2f MB\n',...
-    'nWorkers: %d\nEstimated maxBatchSize: %d voxels\n', 'Final nBatches: %d | targetBatchSize: %d voxels\n\n'], ...
-    datestr(now), availableMB, estimatedMemoryPerVoxelMB, nWorkers, maxBatchSize, nBatches, targetBatchSize);
-
-fprintf(logMsg);
-
-if exist('parfor_progress.txt', 'file') ~= 2
-    fclose(fopen('parfor_progress.txt', 'w'));
-end
-
-for b = 1:nBatches
+    % Estimate the memory usage per voxel in MB (empirically estimated)
+    estimatedMemoryPerVoxelMB = (dij.totalNumOfBixels+dij.totalNumOfBixels*dij.totalNumOfBixels)*8/1E6;
     
-    idx_start = (b-1)*targetBatchSize + 1;
-    idx_end = min(b*targetBatchSize, numel(targetSubIx));
-    currentBatch = targetSubIx(idx_start:idx_end);
-
-    fprintf('Processing batch %d of %d (%d voxeles) \n', b, nBatches, numel(currentBatch));
-    if exist('parfor_progress', 'file') == 2
-        FlagParforProgressDisp = true;
-        parfor_progress(round(numel(currentBatch)/10));  % http://de.mathworks.com/matlabcentral/fileexchange/32101-progress-monitor--progress-bar--that-works-with-parfor
-    else
-        matRad_cfg.dispInfo('matRad: Consider downloading parfor_progress function from the matlab central fileexchange to get feedback from parfor loop.\n');
-        FlagParforProgressDisp = false;
+    % Get available RAM depending on OS
+    availableMB = matRad_getAvailableMemoryMB();
+    
+    % Compute the memory budget for all batches (e.g., 80% of available memory)
+    totalBatchMemoryBudgetMB = 0.80 * availableMB;
+    
+    % Adjust the maximum batch size depending on memory per voxel
+    maxBatchSize = floor(totalBatchMemoryBudgetMB / 2 * estimatedMemoryPerVoxelMB / nWorkers);
+    
+    % Print estimated configuration
+    fprintf('Available RAM: %.1f MB | Estimated per-voxel: %.2f MB | nWorkers: %d | maxBatchSize: %d voxels\n', ...
+        availableMB, estimatedMemoryPerVoxelMB, nWorkers, maxBatchSize);
+    
+    nBatches=1;
+    limitBatches = 1000;
+    
+    % Dynamically increase nBatches if the batch size exceeds the memory-safe threshold
+    while (ceil(numel(targetSubIx) / nBatches) > maxBatchSize) || nBatches == limitBatches
+        nBatches = nBatches + 1;
     end
-
-    % Outside parfor
-    numBixels = size(dij_list{1}, 2);
-    numVoxelsInBatch = numel(currentBatch);
     
-
-    dij_list_reduced = cellfun(@(data) data(currentBatch,:), dij_list, 'UniformOutput', false);
-    dij_batch = repmat(struct('Ix', [], 'center', [], 'radius', []), numel(currentBatch), 1);
+    % Recalculate target batch size after adjustment
+    targetBatchSize = ceil(numel(targetSubIx) / nBatches);
     
-
-    parfor it = 1:numel(currentBatch)
+    % Print and log results
+    logMsg = sprintf(['[matRad batching log]\nTimestamp: %s\n', 'Available RAM: %.1f MB\nEstimated per-voxel: %.2f MB\n',...
+        'nWorkers: %d\nEstimated maxBatchSize: %d voxels\n', 'Final nBatches: %d | targetBatchSize: %d voxels\n\n'], ...
+        datestr(now), availableMB, estimatedMemoryPerVoxelMB, nWorkers, maxBatchSize, nBatches, targetBatchSize);
+    
+    fprintf(logMsg);
+    
+    if exist('parfor_progress.txt', 'file') ~= 2
+        fclose(fopen('parfor_progress.txt', 'w'));
+    end
+    
+    for b = 1:nBatches
         
-        % Initialize temporary matrix to store dose values across scenarios for this voxel
-        dij_tmp = zeros(numel(dij_list_reduced), size(dij_list_reduced{1}, 2));  % (numScenarios x numBixels)
+        idx_start = (b-1)*targetBatchSize + 1;
+        idx_end = min(b*targetBatchSize, numel(targetSubIx));
+        currentBatch = targetSubIx(idx_start:idx_end);
     
-        % Fill dij_tmp with the dose contributions for voxel 'it' across all scenarios
-        for s = 1:numel(dij_list_reduced)
-            dij_tmp(s, :) = dij_list_reduced{s}(it, :);  % Row 'it' from scenario 's'
+        fprintf('Processing batch %d of %d (%d voxeles) \n', b, nBatches, numel(currentBatch));
+        if exist('parfor_progress', 'file') == 2
+            FlagParforProgressDisp = true;
+            parfor_progress(round(numel(currentBatch)/10));  % http://de.mathworks.com/matlabcentral/fileexchange/32101-progress-monitor--progress-bar--that-works-with-parfor
+        else
+            matRad_cfg.dispInfo('matRad: Consider downloading parfor_progress function from the matlab central fileexchange to get feedback from parfor loop.\n');
+            FlagParforProgressDisp = false;
         end
     
-        % Apply scenario probabilities to the dose values (weighted)
-        dij_tmp_weighted = dij_tmp .* scenProb;  % (numScenarios x numBixels)
+        % Outside parfor
+        numBixels = size(dij_list{1}, 2);
+        numVoxelsInBatch = numel(currentBatch);
+        
     
-        % Compute the expected dose per bixel for this voxel (center of interval)
-        dij_batch(it).center = sum(dij_tmp_weighted, 1)';  % (numBixels x 1)
+        dij_list_reduced = cellfun(@(data) data(currentBatch,:), dij_list, 'UniformOutput', false);
+        dij_batch = repmat(struct('Ix', [], 'center', [], 'radius', []), numel(currentBatch), 1);
+        
     
-        % Compute E[d^2] per bixel for this voxel
-        dij_batch(it).radius = (dij_tmp' * dij_tmp_weighted)';  % (numBixels x 1)
-        % Note: dij_tmp' * dij_tmp_weighted = sum_k w_k * d_k^2 (per bixel)
-    
-        % Optional progress display
-        if FlagParforProgressDisp && mod(it,10)==0
-            %fprintf('Processing batch %d of %d \n', b, nBatches);
-            parfor_progress;
+        parfor it = 1:numel(currentBatch)
+            
+            % Initialize temporary matrix to store dose values across scenarios for this voxel
+            dij_tmp = zeros(numel(dij_list_reduced), size(dij_list_reduced{1}, 2));  % (numScenarios x numBixels)
+        
+            % Fill dij_tmp with the dose contributions for voxel 'it' across all scenarios
+            for s = 1:numel(dij_list_reduced)
+                dij_tmp(s, :) = dij_list_reduced{s}(it, :);  % Row 'it' from scenario 's'
+            end
+        
+            % Apply scenario probabilities to the dose values (weighted)
+            dij_tmp_weighted = dij_tmp .* scenProb;  % (numScenarios x numBixels)
+        
+            % Compute the expected dose per bixel for this voxel (center of interval)
+            dij_batch(it).center = sum(dij_tmp_weighted, 1)';  % (numBixels x 1)
+        
+            % Compute E[d^2] per bixel for this voxel
+            dij_batch(it).radius = (dij_tmp' * dij_tmp_weighted)';  % (numBixels x 1)
+            % Note: dij_tmp' * dij_tmp_weighted = sum_k w_k * d_k^2 (per bixel)
+        
+            % Optional progress display
+            if FlagParforProgressDisp && mod(it,10)==0
+                %fprintf('Processing batch %d of %d \n', b, nBatches);
+                parfor_progress;
+            end
         end
-    end
-
-    if FlagParforProgressDisp
-        parfor_progress(0);
-    end
     
-    % Free memory (optional but useful in large cases)
-    clear dij_list_reduced;
-
-    fprintf('Finishing batch calculation ... \n');
-    toc
-    % Vectorized accumulation at the end of each batch
-
-    % Preallocate center and radius blocks for batch
-    centers_block = zeros(numVoxelsInBatch, numBixels);      % (voxels x bixels)
-    radius_block = zeros(numBixels, numBixels);              % (bixels x bixels)
-
-    for it = 1:numVoxelsInBatch
-        centers_block(it, :) = dij_batch(it).center;         % Store each voxel center
-        radius_block = radius_block + dij_batch(it).radius;  % Sum E[d^2] contributions
+        if FlagParforProgressDisp
+            parfor_progress(0);
+        end
+        
+        % Free memory (optional but useful in large cases)
+        clear dij_list_reduced;
+    
+        fprintf('Finishing batch calculation ... \n');
+        toc
+        % Vectorized accumulation at the end of each batch
+    
+        % Preallocate center and radius blocks for batch
+        centers_block = zeros(numVoxelsInBatch, numBixels);      % (voxels x bixels)
+        radius_block = zeros(numBixels, numBixels);              % (bixels x bixels)
+    
+        for it = 1:numVoxelsInBatch
+            centers_block(it, :) = dij_batch(it).center;         % Store each voxel center
+            radius_block = radius_block + dij_batch(it).radius;  % Sum E[d^2] contributions
+        end
+    
+        % Assign results in block (avoiding voxel-wise accumulation)
+        dij_interval.center(currentBatch, :) = centers_block;
+        dij_interval.radius = dij_interval.radius + radius_block;
+    
+        clear dij_batch;
+        fprintf('Finishing batch data storage ... \n');
+        toc
     end
 
-    % Assign results in block (avoiding voxel-wise accumulation)
-    dij_interval.center(currentBatch, :) = centers_block;
-    dij_interval.radius = dij_interval.radius + radius_block;
-
-    clear dij_batch;
-    fprintf('Finishing batch data storage ... \n');
-    toc
 end
 
 whos dij_interval;
@@ -260,34 +251,15 @@ tic
 estimatedMemoryPerOARVoxelMB = (kmax*kmax + 2*kmax*dij.totalNumOfBixels)*8/1E6 ;
 
 % Get available RAM depending on OS
-if ispc
-    user = memory;
-    availableMB = user.MemAvailableAllArrays / 1e6;
-elseif ismac
-    [~, memInfo] = system('vm_stat');
-    pageSizeLine = regexp(memInfo, 'page size of (\d+) bytes', 'tokens', 'once');
-    pageSize = str2double(pageSizeLine{1});
-    freePages = sum(cellfun(@(x) sscanf(x{2}, '%d'), ...
-        regexp(memInfo, 'Pages (free|inactive|speculative):\s+(\d+)', 'tokens')));
-    availableMB = (freePages * pageSize) / 1e6;
-elseif isunix
-    % Linux (incl. Rocky): Use /proc/meminfo
-    [~, memInfo] = system('grep MemAvailable /proc/meminfo');
-    tokens = regexp(memInfo, 'MemAvailable:\s+(\d+)\s+kB', 'tokens');
-    if ~isempty(tokens)
-        availableMB = str2double(tokens{1}) / 1024;
-    end
-else
-    error('Unsupported OS');
-end
+availableMB = matRad_getAvailableMemoryMB();
 
 % Compute memory budget per worker (e.g., 80% of available memory)
 totalOARBatchMemoryBudgetMB = 0.80 * availableMB;
-maxOARBatchSize = floor(totalOARBatchMemoryBudgetMB / (estimatedMemoryPerOARVoxelMB));
+maxOARBatchSize = floor(totalOARBatchMemoryBudgetMB / 2 * estimatedMemoryPerOARVoxelMB / nWorkers);
 
 % Initial estimate based on available workers
 nOARBatches = 1;
-limitOARBatches = 200;
+limitOARBatches = 100;
 
 % Dynamically increase nOARBatches if the batch size exceeds the memory-safe threshold
 while (ceil(numel(OARSubIx) / nOARBatches) > maxOARBatchSize) || nOARBatches == limitOARBatches
@@ -434,4 +406,107 @@ end
 whos dij_interval;
 toc
 
+end
+
+function [center, radius, fileName] = matRad_loadTargetDij(file_pattern, Ix)
+% matRad_loadTargetDij - Loads dij_interval.center and radius from the first matching file.
+%
+% Inputs:
+%   file_pattern : wildcard string pattern to match (e.g., 'folder/*.mat')
+%   Ix           : voxel indices to extract from dij_interval.center
+%
+% Outputs:
+%   center       : rows of dij_interval.center corresponding to Ix
+%   radius       : dij_interval.radius (full matrix)
+%   fileName     : full path of the loaded file, empty if none was loaded
+
+    center = [];
+    radius = [];
+    fileName = '';
+    
+    files = dir(file_pattern);
+    
+    if isempty(files)
+        fprintf('[matRad_loadTargetDij] No file found matching pattern: %s\n', file_pattern);
+        return;
+    end
+
+    % Take the first match
+    fileName = fullfile(files(1).folder, files(1).name);
+    fprintf('[matRad_loadTargetDij] Loading file: %s\n', fileName);
+    
+    try
+        f = load(fileName, 'dij_interval');
+        
+        if isfield(f, 'dij_interval')
+            dij = f.dij_interval;
+
+            % Extract center if available and Ix is valid
+            if isfield(dij, 'center') && ~isempty(Ix)
+                center = dij.center(Ix, :);
+            else
+                warning('[matRad_loadTargetDij] Field ''dij_interval.center'' missing or Ix invalid in %s.', fileName);
+                center = [];
+                fileName = '';
+            end
+
+            % Extract radius if available
+            if isfield(dij, 'radius')
+                radius = dij.radius;
+            else
+                warning('[matRad_loadTargetDij] Field ''dij_interval.radius'' not found in %s.', fileName);
+                radius = [];
+                fileName = '';
+            end
+        else
+            warning('[matRad_loadTargetDij] ''dij_interval'' structure not found in %s.', fileName);
+            center = [];
+            radius = [];
+            fileName = '';
+        end
+
+    catch ME
+        warning('[matRad_loadTargetDij] Failed to load file: %s\nError: %s', fileName, ME.message);
+        center = [];
+        radius = [];
+        fileName = '';
+    end
+end
+
+function availableMB = matRad_getAvailableMemoryMB()
+% matRad_getAvailableMemoryMB - Returns available system memory in MB
+% Works on Windows, macOS, and Linux (including Rocky).
+%
+% Output:
+%   availableMB : Approximate available RAM in MB.
+
+    if ispc
+        user = memory;
+        availableMB = user.MemAvailableAllArrays / 1e6;
+
+    elseif ismac
+        [~, memInfo] = system('vm_stat');
+        pageSizeLine = regexp(memInfo, 'page size of (\d+) bytes', 'tokens', 'once');
+        if isempty(pageSizeLine)
+            warning('Could not parse vm_stat output.');
+            availableMB = 0;
+            return;
+        end
+        pageSize = str2double(pageSizeLine{1});
+        freePages = sum(cellfun(@(x) sscanf(x{2}, '%d'), ...
+            regexp(memInfo, 'Pages (free|inactive|speculative):\s+(\d+)', 'tokens')));
+        availableMB = (freePages * pageSize) / 1e6;
+
+    elseif isunix
+        [~, memInfo] = system('grep MemAvailable /proc/meminfo');
+        tokens = regexp(memInfo, 'MemAvailable:\s+(\d+)\s+kB', 'tokens');
+        if ~isempty(tokens)
+            availableMB = str2double(tokens{1}) / 1024;
+        else
+            warning('Could not read /proc/meminfo.');
+            availableMB = 0;
+        end
+    else
+        error('Unsupported operating system.');
+    end
 end
