@@ -154,52 +154,54 @@ else
     end
     
     for b = 1:nBatches
-        
         idx_start = (b-1)*targetBatchSize + 1;
         idx_end = min(b*targetBatchSize, numel(targetSubIx));
         currentBatch = targetSubIx(idx_start:idx_end);
     
-        fprintf('Processing batch %d of %d (%d voxeles) \n', b, nBatches, numel(currentBatch));
+        fprintf('Processing batch %d of %d (%d voxels)\n', b, nBatches, numel(currentBatch));
         if exist('parfor_progress', 'file') == 2
             FlagParforProgressDisp = true;
-            parfor_progress(round(numel(currentBatch)/10));  % http://de.mathworks.com/matlabcentral/fileexchange/32101-progress-monitor--progress-bar--that-works-with-parfor
+            parfor_progress(round(numel(currentBatch)/10));
         else
-            matRad_cfg.dispInfo('matRad: Consider downloading parfor_progress function from the matlab central fileexchange to get feedback from parfor loop.\n');
             FlagParforProgressDisp = false;
         end
     
-        % Outside parfor
         numBixels = size(dij_list{1}, 2);
         numVoxelsInBatch = numel(currentBatch);
-        
     
+        % Reduce dose list for the current batch
         dij_list_reduced = cellfun(@(data) data(currentBatch,:), dij_list, 'UniformOutput', false);
-        dij_batch = repmat(struct('Ix', [], 'center', [], 'radius', []), numel(currentBatch), 1);
-        
+        numScenarios = numel(dij_list_reduced);
     
-        parfor it = 1:numel(currentBatch)
-            
-            % Initialize temporary matrix to store dose values across scenarios for this voxel
-            dij_tmp = zeros(numel(dij_list_reduced), size(dij_list_reduced{1}, 2));  % (numScenarios x numBixels)
-        
-            % Fill dij_tmp with the dose contributions for voxel 'it' across all scenarios
-            for s = 1:numel(dij_list_reduced)
-                dij_tmp(s, :) = dij_list_reduced{s}(it, :);  % Row 'it' from scenario 's'
+        % Preallocate result matrices
+        centers_block = zeros(numVoxelsInBatch, numBixels);
+        radius_block_local = zeros(numBixels, numBixels);  % Accumulated radius
+    
+        % Vectorized parfor
+        parfor it = 1:numVoxelsInBatch
+            dij_tmp = zeros(numScenarios, numBixels);
+    
+            for s = 1:numScenarios
+                dij_tmp(s, :) = dij_list_reduced{s}(it, :);
             end
-        
-            % Apply scenario probabilities to the dose values (weighted)
-            dij_tmp_weighted = dij_tmp .* scenProb;  % (numScenarios x numBixels)
-        
-            % Compute the expected dose per bixel for this voxel (center of interval)
-            dij_batch(it).center = sum(dij_tmp_weighted, 1)';  % (numBixels x 1)
-        
-            % Compute E[d^2] per bixel for this voxel
-            dij_batch(it).radius = (dij_tmp' * dij_tmp_weighted)';  % (numBixels x 1)
-            % Note: dij_tmp' * dij_tmp_weighted = sum_k w_k * d_k^2 (per bixel)
-        
-            % Optional progress display
+    
+            % Weighted contributions
+            dij_tmp_weighted = dij_tmp .* scenProb;
+    
+            % Center (E[d])
+            center_voxel = sum(dij_tmp_weighted, 1);
+    
+            % Radius (E[d^2])
+            radius_voxel = dij_tmp' * dij_tmp_weighted;
+    
+            % Store result
+            centers_block(it, :) = center_voxel;
+            
+            % Accumulate radius using reduction strategy
+            radius_block_local = radius_block_local + radius_voxel;
+    
+            % Optional progress
             if FlagParforProgressDisp && mod(it,10)==0
-                %fprintf('Processing batch %d of %d \n', b, nBatches);
                 parfor_progress;
             end
         end
@@ -207,29 +209,16 @@ else
         if FlagParforProgressDisp
             parfor_progress(0);
         end
-        
-        % Free memory (optional but useful in large cases)
-        clear dij_list_reduced;
-    
+
         fprintf('Finishing batch calculation ... \n');
         toc
-        % Vectorized accumulation at the end of each batch
     
-        % Preallocate center and radius blocks for batch
-        centers_block = zeros(numVoxelsInBatch, numBixels);      % (voxels x bixels)
-        radius_block = zeros(numBixels, numBixels);              % (bixels x bixels)
-    
-        for it = 1:numVoxelsInBatch
-            centers_block(it, :) = dij_batch(it).center;         % Store each voxel center
-            radius_block = radius_block + dij_batch(it).radius;  % Sum E[d^2] contributions
-        end
-    
-        % Assign results in block (avoiding voxel-wise accumulation)
+        % Assign result
         dij_interval.center(currentBatch, :) = centers_block;
-        dij_interval.radius = dij_interval.radius + radius_block;
+        dij_interval.radius = dij_interval.radius + radius_block_local;
     
-        clear dij_batch;
-        fprintf('Finishing batch data storage ... \n');
+        clear dij_list_reduced;
+        fprintf('Finishing batch %d storage ...\n', b);
         toc
     end
 
