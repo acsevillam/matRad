@@ -115,7 +115,8 @@ if ~isempty(center_loaded) && ~isempty(radius_loaded)
     dij_interval.radius = radius_loaded;
 else
     % Estimate the memory usage per voxel in MB (empirically estimated)
-    estimatedMemoryPerVoxelMB = (dij.totalNumOfBixels+dij.totalNumOfBixels*dij.totalNumOfBixels)*8/1E6;
+    memory_factor = 0.1;
+    estimatedMemoryPerVoxelMB = (dij.totalNumOfBixels+dij.totalNumOfBixels*dij.totalNumOfBixels)*8/1E6 * memory_factor;
     
     % Get available RAM depending on OS
     availableMB = matRad_getAvailableMemoryMB();
@@ -124,7 +125,7 @@ else
     totalBatchMemoryBudgetMB = 0.80 * availableMB;
     
     % Adjust the maximum batch size depending on memory per voxel
-    maxBatchSize = floor(totalBatchMemoryBudgetMB / (2 * estimatedMemoryPerVoxelMB) / nWorkers);
+    maxBatchSize = floor(totalBatchMemoryBudgetMB / estimatedMemoryPerVoxelMB / nWorkers);
     
     % Print estimated configuration
     fprintf('Available RAM: %.1f MB | Estimated per-voxel: %.2f MB | nWorkers: %d | maxBatchSize: %d voxels\n', ...
@@ -248,14 +249,15 @@ dij_interval.OARSubIx = OARSubIx;
 tic
 
 % Estimate the memory usage per OAR voxel (can be slightly higher due to SVD storage)
-estimatedMemoryPerOARVoxelMB = (kmax*kmax + 2*kmax*dij.totalNumOfBixels)*8/1E6 ;
+memory_factor = 1;
+estimatedMemoryPerOARVoxelMB = (kmax*kmax + 2*kmax*dij.totalNumOfBixels)*8/1E6 * memory_factor;
 
 % Get available RAM depending on OS
 availableMB = matRad_getAvailableMemoryMB();
 
 % Compute memory budget per worker (e.g., 80% of available memory)
 totalOARBatchMemoryBudgetMB = 0.80 * availableMB;
-maxOARBatchSize = floor(totalOARBatchMemoryBudgetMB / (2 * estimatedMemoryPerOARVoxelMB) / nWorkers);
+maxOARBatchSize = floor(totalOARBatchMemoryBudgetMB / estimatedMemoryPerOARVoxelMB / nWorkers);
 
 % Initial estimate based on available workers
 nOARBatches = 1;
