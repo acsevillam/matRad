@@ -94,6 +94,185 @@ if isnan(nWorkers) || nWorkers == 0
     nWorkers = max(1, nCores - 2);
 end
 
+%%
+% Inicia el parpool solo si no está abierto
+if isempty(gcp('nocreate'))
+    parpool('local', nWorkers);
+end
+
+dij_interval.OARSubIx = OARSubIx;
+
+% OAR voxel batching
+tic
+
+% Estimate the memory usage per OAR voxel (can be slightly higher due to SVD storage)
+memory_factor = 1;
+estimatedMemoryPerOARVoxelMB = (kmax*kmax + 2*kmax*dij.totalNumOfBixels)*8/1E6 * memory_factor;
+
+% Get available RAM depending on OS
+availableMB = matRad_getAvailableMemoryMB();
+
+% Compute memory budget per worker (e.g., 80% of available memory)
+totalOARBatchMemoryBudgetMB = 0.80 * availableMB;
+maxOARBatchSize = floor(totalOARBatchMemoryBudgetMB / estimatedMemoryPerOARVoxelMB / nWorkers);
+
+% Initial estimate based on available workers
+nOARBatches = 1;
+limitOARBatches = 100;
+
+% Dynamically increase nOARBatches if the batch size exceeds the memory-safe threshold
+while (ceil(numel(OARSubIx) / nOARBatches) > maxOARBatchSize) || nOARBatches == limitOARBatches
+    nOARBatches = nOARBatches + 1;
+end
+
+% Recalculate batch size after adjustment
+OARBatchSize = ceil(numel(OARSubIx) / nOARBatches);
+
+% Print and log results
+logMsg = sprintf(['[matRad OAR batching log]\nTimestamp: %s\n', 'Available RAM: %.1f MB\nEstimated per-OAR-voxel: %.2f MB\n',...
+    'nWorkers: %d\nEstimated maxOARBatchSize: %d voxels\n','Final nOARBatches: %d | OARBatchSize: %d voxels\n\n'], ...
+    datestr(now), availableMB, estimatedMemoryPerOARVoxelMB, nWorkers, maxOARBatchSize, nOARBatches, OARBatchSize);
+
+fprintf(logMsg);
+
+if exist('parfor_progress.txt', 'file') ~= 2
+    fclose(fopen('parfor_progress.txt', 'w'));
+end
+
+for b = 1:nOARBatches
+    idx_start = (b-1)*OARBatchSize + 1;
+    idx_end = min(b*OARBatchSize, numel(OARSubIx));
+    currentBatch = OARSubIx(idx_start:idx_end);
+    
+    fprintf('Processing batch %d of %d (%d voxeles) \n', b, nOARBatches, numel(currentBatch));
+    if exist('parfor_progress', 'file') == 2
+        FlagParforProgressDisp = true;
+        parfor_progress(round(numel(currentBatch)/10));  % http://de.mathworks.com/matlabcentral/fileexchange/32101-progress-monitor--progress-bar--that-works-with-parfor
+    else
+        matRad_cfg.dispInfo('matRad: Consider downloading parfor_progress function from the matlab central fileexchange to get feedback from parfor loop.\n');
+        FlagParforProgressDisp = false;
+    end
+
+    numBixels = size(dij_list{1}, 2);
+    numOARVoxelsInBatch = numel(currentBatch);
+
+    % Reduce dose list for the current batch
+    dij_list_reduced = cellfun(@(data) data(currentBatch,:), dij_list, 'UniformOutput', false);
+    numScenarios = numel(dij_list_reduced);
+
+    % Preallocate result matrices
+    centers_block = zeros(numOARVoxelsInBatch, numBixels);
+    radius_block = repmat(struct('k', [], 'U', [], 'S', [], 'V', []), numel(currentBatch), 1);
+
+    parfor it = 1:numel(currentBatch)
+
+        dij_tmp = zeros(numScenarios, numBixels);
+
+        for s = 1:numScenarios
+            dij_tmp(s, :) = dij_list_reduced{s}(it, :);
+        end
+
+        % Weighted contributions
+        dij_tmp_weighted = dij_tmp .* scenProb;
+
+        % Center (E[d])
+        center_voxel = sum(dij_tmp_weighted, 1);
+    
+        % Compute the expected dose (center of the dose interval) across scenarios
+        centers_block(it, :) = center_voxel;  % (1 x numBixels)
+
+        % Center the dose matrix by subtracting the expected dose
+        dij_centered = dij_tmp - center_voxel;  % (numScenarios x numBixels)
+    
+        % Apply square root of scenario probabilities (for weighted covariance)
+        dij_centered_weighted = dij_centered .* sqrt(scenProb);  % (numScenarios x numBixels)
+    
+        % Compute the weighted covariance matrix for the bixels
+        covMatrix = dij_centered_weighted' * dij_centered_weighted;  % (numBixels x numBixels)
+        %covMatrix=(dij_tmp'*diag(scenProb)*dij_tmp-dij_batch_OAR(it).center'*dij_batch_OAR(it).center); % (numBixels x numBixels)
+        % Note: covMatrix = E[d^2]-E[d]^2
+           
+        % Select k according to kdin
+        if isequal(kdin,'dinamic')
+            % Perform truncated Singular Value Decomposition (SVD)
+            [U, S, V] = svds(covMatrix, kmax, 'largest');  % Keep top 10 singular values/vectors
+        
+            % Extract singular values and compute total and cumulative energy
+            singularValues = diag(S);
+            totalEnergy = sum(singularValues.^2);
+            cumulativeEnergy = cumsum(singularValues.^2);
+        
+            % Find number of components 'k' to retain enough energy (based on threshold)
+            k = find(cumulativeEnergy / totalEnergy >= retentionThreshold, 1, 'first');
+
+            % Store reduced-rank SVD components in sparse format
+            radius_block(it).k = k;
+            radius_block(it).U = sparse(U(:, 1:k));
+            radius_block(it).S = sparse(S(1:k, 1:k));
+            radius_block(it).V = sparse(V(:, 1:k));
+
+        elseif isequal(kdin,'static')
+            k=kmax;
+            % Perform truncated Singular Value Decomposition (SVD)
+            [U, S, V] = svds(covMatrix, k, 'largest');
+            % Store reduced-rank SVD components in sparse format
+            radius_block(it).k = k;
+            radius_block(it).U = sparse(U);
+            radius_block(it).S = sparse(S);
+            radius_block(it).V = sparse(V);            
+        else
+            disp('k dinamics did not find!');
+        end
+    
+        % Optional progress display inside the parfor loop
+        if FlagParforProgressDisp && mod(it,10)==0
+            %fprintf('Processing batch %d of %d \n', b, nOARBatches);
+            parfor_progress;
+        end
+    end
+
+    if FlagParforProgressDisp
+        parfor_progress(0);
+    end
+
+    % Free memory (optional but useful in large cases)
+    clear dij_list_reduced;
+
+    fprintf('Finishing batch calculation ... \n');
+    toc
+
+    % Preallocate radius blocks for batch
+    k_block = zeros(numOARVoxelsInBatch, 1);      % (voxels x bixels)
+    U_block = cell(numOARVoxelsInBatch, 1);
+    S_block = cell(numOARVoxelsInBatch, 1);
+    V_block = cell(numOARVoxelsInBatch, 1);
+
+    for it = 1:numOARVoxelsInBatch
+        % Store each voxel center
+        k_block(it, :) = radius_block(it).k;
+        U_block{it} = radius_block(it).U;
+        S_block{it} = radius_block(it).S;
+        V_block{it} = radius_block(it).V;
+    end
+
+    % Assign in block
+    dij_interval.center(currentBatch, :) = centers_block;
+    dij_interval.k(currentBatch, :) = k_block;
+    dij_interval.U(idx_start:idx_end) = U_block;
+    dij_interval.S(idx_start:idx_end) = S_block;
+    dij_interval.V(idx_start:idx_end) = V_block;
+    
+    clear dij_batch_OAR;
+    fprintf('Finishing batch data storage ... \n');
+    toc
+
+end
+
+whos dij_interval;
+toc
+
+%%
+
 % Inicia el parpool solo si no está abierto
 if isempty(gcp('nocreate'))
     parpool('local', nWorkers);
@@ -221,183 +400,6 @@ else
         fprintf('Finishing batch %d storage ...\n', b);
         toc
     end
-
-end
-
-whos dij_interval;
-toc
-
-% Inicia el parpool solo si no está abierto
-if isempty(gcp('nocreate'))
-    parpool('local', nWorkers);
-end
-
-dij_interval.OARSubIx = OARSubIx;
-
-% OAR voxel batching
-tic
-
-% Estimate the memory usage per OAR voxel (can be slightly higher due to SVD storage)
-memory_factor = 1;
-estimatedMemoryPerOARVoxelMB = (kmax*kmax + 2*kmax*dij.totalNumOfBixels)*8/1E6 * memory_factor;
-
-% Get available RAM depending on OS
-availableMB = matRad_getAvailableMemoryMB();
-
-% Compute memory budget per worker (e.g., 80% of available memory)
-totalOARBatchMemoryBudgetMB = 0.80 * availableMB;
-maxOARBatchSize = floor(totalOARBatchMemoryBudgetMB / estimatedMemoryPerOARVoxelMB / nWorkers);
-
-% Initial estimate based on available workers
-nOARBatches = 1;
-limitOARBatches = 100;
-
-% Dynamically increase nOARBatches if the batch size exceeds the memory-safe threshold
-while (ceil(numel(OARSubIx) / nOARBatches) > maxOARBatchSize) || nOARBatches == limitOARBatches
-    nOARBatches = nOARBatches + 1;
-end
-
-% Recalculate batch size after adjustment
-OARBatchSize = ceil(numel(OARSubIx) / nOARBatches);
-
-% Print and log results
-logMsg = sprintf(['[matRad OAR batching log]\nTimestamp: %s\n', 'Available RAM: %.1f MB\nEstimated per-OAR-voxel: %.2f MB\n',...
-    'nWorkers: %d\nEstimated maxOARBatchSize: %d voxels\n','Final nOARBatches: %d | OARBatchSize: %d voxels\n\n'], ...
-    datestr(now), availableMB, estimatedMemoryPerOARVoxelMB, nWorkers, maxOARBatchSize, nOARBatches, OARBatchSize);
-
-fprintf(logMsg);
-
-if exist('parfor_progress.txt', 'file') ~= 2
-    fclose(fopen('parfor_progress.txt', 'w'));
-end
-
-%%
-for b = 1:nOARBatches
-    idx_start = (b-1)*OARBatchSize + 1;
-    idx_end = min(b*OARBatchSize, numel(OARSubIx));
-    currentBatch = OARSubIx(idx_start:idx_end);
-    
-    fprintf('Processing batch %d of %d (%d voxeles) \n', b, nOARBatches, numel(currentBatch));
-    if exist('parfor_progress', 'file') == 2
-        FlagParforProgressDisp = true;
-        parfor_progress(round(numel(currentBatch)/10));  % http://de.mathworks.com/matlabcentral/fileexchange/32101-progress-monitor--progress-bar--that-works-with-parfor
-    else
-        matRad_cfg.dispInfo('matRad: Consider downloading parfor_progress function from the matlab central fileexchange to get feedback from parfor loop.\n');
-        FlagParforProgressDisp = false;
-    end
-
-    numBixels = size(dij_list{1}, 2);
-    numOARVoxelsInBatch = numel(currentBatch);
-
-    % Reduce dose list for the current batch
-    dij_list_reduced = cellfun(@(data) data(currentBatch,:), dij_list, 'UniformOutput', false);
-    numScenarios = numel(dij_list_reduced);
-
-    % Preallocate result matrices
-    centers_block = zeros(numOARVoxelsInBatch, numBixels);
-    radius_block = repmat(struct('k', [], 'U', [], 'S', [], 'V', []), numel(currentBatch), 1);
-
-    parfor it = 1:numel(currentBatch)
-
-        dij_tmp = zeros(numScenarios, numBixels);
-
-        for s = 1:numScenarios
-            dij_tmp(s, :) = dij_list_reduced{s}(it, :);
-        end
-
-        % Weighted contributions
-        dij_tmp_weighted = dij_tmp .* scenProb;
-
-        % Center (E[d])
-        center_voxel = sum(dij_tmp_weighted, 1);
-    
-        % Compute the expected dose (center of the dose interval) across scenarios
-        centers_block(it, :) = center_voxel;  % (1 x numBixels)
-
-        % Center the dose matrix by subtracting the expected dose
-        dij_centered = dij_tmp - center_voxel;  % (numScenarios x numBixels)
-    
-        % Apply square root of scenario probabilities (for weighted covariance)
-        dij_centered_weighted = dij_centered .* sqrt(scenProb);  % (numScenarios x numBixels)
-    
-        % Compute the weighted covariance matrix for the bixels
-        covMatrix = dij_centered_weighted' * dij_centered_weighted;  % (numBixels x numBixels)
-        %covMatrix=(dij_tmp'*diag(scenProb)*dij_tmp-dij_batch_OAR(it).center'*dij_batch_OAR(it).center); % (numBixels x numBixels)
-        % Note: covMatrix = E[d^2]-E[d]^2
-           
-        % Select k according to kdin
-        if isequal(kdin,'dinamic')
-            % Perform truncated Singular Value Decomposition (SVD)
-            [U, S, V] = svds(covMatrix, kmax, 'largest');  % Keep top 10 singular values/vectors
-        
-            % Extract singular values and compute total and cumulative energy
-            singularValues = diag(S);
-            totalEnergy = sum(singularValues.^2);
-            cumulativeEnergy = cumsum(singularValues.^2);
-        
-            % Find number of components 'k' to retain enough energy (based on threshold)
-            k = find(cumulativeEnergy / totalEnergy >= retentionThreshold, 1, 'first');
-
-            % Store reduced-rank SVD components in sparse format
-            radius_block(it).k = k;
-            radius_block(it).U = sparse(U(:, 1:k));
-            radius_block(it).S = sparse(S(1:k, 1:k));
-            radius_block(it).V = sparse(V(:, 1:k));
-
-        elseif isequal(kdin,'static')
-            k=kmax;
-            % Perform truncated Singular Value Decomposition (SVD)
-            [U, S, V] = svds(covMatrix, k, 'largest');
-            % Store reduced-rank SVD components in sparse format
-            radius_block(it).k = k;
-            radius_block(it).U = sparse(U);
-            radius_block(it).S = sparse(S);
-            radius_block(it).V = sparse(V);            
-        else
-            disp('k dinamics did not find!');
-        end
-    
-        % Optional progress display inside the parfor loop
-        if FlagParforProgressDisp && mod(it,10)==0
-            %fprintf('Processing batch %d of %d \n', b, nOARBatches);
-            parfor_progress;
-        end
-    end
-
-    if FlagParforProgressDisp
-        parfor_progress(0);
-    end
-
-    % Free memory (optional but useful in large cases)
-    clear dij_list_reduced;
-
-    fprintf('Finishing batch calculation ... \n');
-    toc
-
-    % Preallocate radius blocks for batch
-    k_block = zeros(numOARVoxelsInBatch, 1);      % (voxels x bixels)
-    U_block = cell(numOARVoxelsInBatch, 1);
-    S_block = cell(numOARVoxelsInBatch, 1);
-    V_block = cell(numOARVoxelsInBatch, 1);
-
-    for it = 1:numOARVoxelsInBatch
-        % Store each voxel center
-        k_block(it, :) = radius_block(it).k;
-        U_block{it} = radius_block(it).U;
-        S_block{it} = radius_block(it).S;
-        V_block{it} = radius_block(it).V;
-    end
-
-    % Assign in block
-    dij_interval.center(currentBatch, :) = centers_block;
-    dij_interval.k(currentBatch, :) = k_block;
-    dij_interval.U(idx_start:idx_end) = U_block;
-    dij_interval.S(idx_start:idx_end) = S_block;
-    dij_interval.V(idx_start:idx_end) = V_block;
-    
-    clear dij_batch_OAR;
-    fprintf('Finishing batch data storage ... \n');
-    toc
 
 end
 
