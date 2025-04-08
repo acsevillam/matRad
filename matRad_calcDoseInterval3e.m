@@ -100,6 +100,7 @@ if isempty(gcp('nocreate'))
     parpool('local', nWorkers);
 end
 
+dij_interval.center = sparse(dij.doseGrid.numOfVoxels, dij.totalNumOfBixels);
 dij_interval.OARSubIx = OARSubIx;
 
 % OAR voxel batching
@@ -262,11 +263,12 @@ for b = 1:nOARBatches
     dij_interval.S(idx_start:idx_end) = S_block;
     dij_interval.V(idx_start:idx_end) = V_block;
     
-    clear dij_batch_OAR;
-    fprintf('Finishing batch data storage ... \n');
+    fprintf('Finishing batch %d storage ...\n', b);
     toc
 
 end
+
+clear dij_list_reduced k_block U_block S_block V_block;
 
 whos dij_interval;
 toc
@@ -278,7 +280,6 @@ if isempty(gcp('nocreate'))
     parpool('local', nWorkers);
 end
 
-dij_interval.center = sparse(dij.doseGrid.numOfVoxels, dij.totalNumOfBixels);
 dij_interval.radius = sparse(dij.totalNumOfBixels, dij.totalNumOfBixels);
 dij_interval.targetSubIx = targetSubIx;
 
@@ -396,10 +397,11 @@ else
         dij_interval.center(currentBatch, :) = centers_block;
         dij_interval.radius = dij_interval.radius + radius_block_local;
     
-        clear dij_list_reduced;
         fprintf('Finishing batch %d storage ...\n', b);
         toc
     end
+
+    clear dij_list_reduced centers_block radius_block_local;
 
 end
 
