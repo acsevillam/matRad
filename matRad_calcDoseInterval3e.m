@@ -271,6 +271,7 @@ if exist('parfor_progress.txt', 'file') ~= 2
     fclose(fopen('parfor_progress.txt', 'w'));
 end
 
+%%
 for b = 1:nOARBatches
     idx_start = (b-1)*OARBatchSize + 1;
     idx_end = min(b*OARBatchSize, numel(OARSubIx));
@@ -285,28 +286,36 @@ for b = 1:nOARBatches
         FlagParforProgressDisp = false;
     end
 
-    % Outside parfor
     numBixels = size(dij_list{1}, 2);
     numOARVoxelsInBatch = numel(currentBatch);
 
+    % Reduce dose list for the current batch
     dij_list_reduced = cellfun(@(data) data(currentBatch,:), dij_list, 'UniformOutput', false);
-    dij_batch_OAR = repmat(struct('Ix', [], 'center', [], 'k', [], 'U', [], 'S', [], 'V', []), numel(currentBatch), 1);
+    numScenarios = numel(dij_list_reduced);
+
+    % Preallocate result matrices
+    centers_block = zeros(numOARVoxelsInBatch, numBixels);
+    radius_block = repmat(struct('k', [], 'U', [], 'S', [], 'V', []), numel(currentBatch), 1);
 
     parfor it = 1:numel(currentBatch)
-    
-        % Initialize temporary matrix to store dose values across scenarios for this voxel
-        dij_tmp = zeros(numel(dij_list_reduced), size(dij_list_reduced{1}, 2));  % (numScenarios x numBixels)
-    
-        % Fill dij_tmp with the dose contributions for voxel 'it' across all scenarios
-        for s = 1:numel(dij_list_reduced)
-            dij_tmp(s, :) = dij_list_reduced{s}(it, :);  % Row 'it' from scenario 's'
+
+        dij_tmp = zeros(numScenarios, numBixels);
+
+        for s = 1:numScenarios
+            dij_tmp(s, :) = dij_list_reduced{s}(it, :);
         end
+
+        % Weighted contributions
+        dij_tmp_weighted = dij_tmp .* scenProb;
+
+        % Center (E[d])
+        center_voxel = sum(dij_tmp_weighted, 1);
     
         % Compute the expected dose (center of the dose interval) across scenarios
-        dij_batch_OAR(it).center = sum(dij_tmp .* scenProb, 1);  % (1 x numBixels)
-    
+        centers_block(it, :) = center_voxel;  % (1 x numBixels)
+
         % Center the dose matrix by subtracting the expected dose
-        dij_centered = dij_tmp - dij_batch_OAR(it).center;  % (numScenarios x numBixels)
+        dij_centered = dij_tmp - center_voxel;  % (numScenarios x numBixels)
     
         % Apply square root of scenario probabilities (for weighted covariance)
         dij_centered_weighted = dij_centered .* sqrt(scenProb);  % (numScenarios x numBixels)
@@ -330,20 +339,20 @@ for b = 1:nOARBatches
             k = find(cumulativeEnergy / totalEnergy >= retentionThreshold, 1, 'first');
 
             % Store reduced-rank SVD components in sparse format
-            dij_batch_OAR(it).k = k;
-            dij_batch_OAR(it).U = sparse(U(:, 1:k));
-            dij_batch_OAR(it).S = sparse(S(1:k, 1:k));
-            dij_batch_OAR(it).V = sparse(V(:, 1:k));
+            radius_block(it).k = k;
+            radius_block(it).U = sparse(U(:, 1:k));
+            radius_block(it).S = sparse(S(1:k, 1:k));
+            radius_block(it).V = sparse(V(:, 1:k));
 
         elseif isequal(kdin,'static')
             k=kmax;
             % Perform truncated Singular Value Decomposition (SVD)
             [U, S, V] = svds(covMatrix, k, 'largest');
             % Store reduced-rank SVD components in sparse format
-            dij_batch_OAR(it).k = k;
-            dij_batch_OAR(it).U = sparse(U);
-            dij_batch_OAR(it).S = sparse(S);
-            dij_batch_OAR(it).V = sparse(V);            
+            radius_block(it).k = k;
+            radius_block(it).U = sparse(U);
+            radius_block(it).S = sparse(S);
+            radius_block(it).V = sparse(V);            
         else
             disp('k dinamics did not find!');
         end
@@ -364,21 +373,19 @@ for b = 1:nOARBatches
 
     fprintf('Finishing batch calculation ... \n');
     toc
-    % Vectorized accumulation at the end of each batch
 
-    % Preallocate center and radius blocks for batch
-    centers_block = zeros(numOARVoxelsInBatch, numBixels);      % (voxels x bixels)
+    % Preallocate radius blocks for batch
     k_block = zeros(numOARVoxelsInBatch, 1);      % (voxels x bixels)
     U_block = cell(numOARVoxelsInBatch, 1);
     S_block = cell(numOARVoxelsInBatch, 1);
     V_block = cell(numOARVoxelsInBatch, 1);
 
     for it = 1:numOARVoxelsInBatch
-        centers_block(it, :) = dij_batch_OAR(it).center;         % Store each voxel center
-        k_block(it, :) = dij_batch_OAR(it).k;
-        U_block{it} = dij_batch_OAR(it).U;
-        S_block{it} = dij_batch_OAR(it).S;
-        V_block{it} = dij_batch_OAR(it).V;
+        % Store each voxel center
+        k_block(it, :) = radius_block(it).k;
+        U_block{it} = radius_block(it).U;
+        S_block{it} = radius_block(it).S;
+        V_block{it} = radius_block(it).V;
     end
 
     % Assign in block
