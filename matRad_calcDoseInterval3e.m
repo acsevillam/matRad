@@ -107,7 +107,7 @@ dij_interval.OARSubIx = OARSubIx;
 tic
 
 % Estimate the memory usage per OAR voxel (can be slightly higher due to SVD storage)
-memory_factor = 0.2;
+memory_factor = 1;
 estimatedMemoryPerOARVoxelMB = (kmax*kmax + 2*kmax*dij.totalNumOfBixels)*8/1E6 * memory_factor;
 
 % Get available RAM depending on OS
