@@ -156,14 +156,21 @@ resultGUInomScen.cst = cst;
 
 %% perform parallel sampling
 if FlagParallToolBoxLicensed
-    % Create parallel pool on cluster
-    p = gcp(); % If no pool, create new one.
+
+    nWorkers = str2double(getenv('SLURM_CPUS_PER_TASK'));
     
-    if isempty(p)
-        poolSize = 1;
-    else
-        poolSize = p.NumWorkers;
+    % Fallback para pruebas locales
+    if isnan(nWorkers) || nWorkers == 0
+        nCores = feature('numcores');
+        nWorkers = max(1, nCores - 2);
     end
+
+    if isempty(gcp('nocreate'))
+        parpool('local', nWorkers);
+    end
+    
+    poolSize = nWorkers;
+
     % rough estimate of total computation time
     totCompTime = ceil(pln.multScen.totNumScen / poolSize) * nomScenTime * 1.35;
     matRad_cfg.dispInfo(['Approximate Total calculation time: ', num2str(round(totCompTime / 3600)), ...
