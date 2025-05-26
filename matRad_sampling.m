@@ -157,19 +157,33 @@ resultGUInomScen.cst = cst;
 %% perform parallel sampling
 if FlagParallToolBoxLicensed
 
-    nWorkers = str2double(getenv('SLURM_CPUS_PER_TASK'));
+    slurmCpus = str2double(getenv('SLURM_CPUS_PER_TASK'));
     
-    % Fallback para pruebas locales
-    if isnan(nWorkers) || nWorkers == 0
-        nCores = feature('numcores');
-        nWorkers = max(1, nCores - 2);
+    if isnan(slurmCpus) || slurmCpus <= 0
+        slurmCpus = max(1, feature('numcores') - 2);  % fallback local
     end
-
+    
+    fprintf('[matRad_sampling] SLURM_CPUS_PER_TASK: %d\n', slurmCpus);
+    
+    p = gcp('nocreate');
+    if ~isempty(p)
+        if p.NumWorkers ~= slurmCpus
+            fprintf('[matRad_sampling] closing existing parpool with %d workers\n', p.NumWorkers);
+            delete(p);
+        end
+    end
+    
+    % Intentar abrir el nuevo parpool
     if isempty(gcp('nocreate'))
-        parpool('local', nWorkers);
+        try
+            parpool('local', slurmCpus);
+        catch ME
+            warning('[matRad_sampling] Error at initialize parpool: %s', ME.message);
+            rethrow(ME);
+        end
     end
     
-    poolSize = nWorkers;
+    poolSize = slurmCpus;
 
     % rough estimate of total computation time
     totCompTime = ceil(pln.multScen.totNumScen / poolSize) * nomScenTime * 1.35;
