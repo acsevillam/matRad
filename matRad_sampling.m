@@ -156,39 +156,23 @@ resultGUInomScen.cst = cst;
 
 %% perform parallel sampling
 if FlagParallToolBoxLicensed
-    % === Robust parpool initialization (only if not already active) ===
-    % Read the number of CPUs requested by SLURM
-    slurmCpus = str2double(getenv('SLURM_CPUS_PER_TASK'));
-    if isnan(slurmCpus) || slurmCpus <= 0
-        slurmCpus = max(1, feature('numcores') - 2);  % fallback for local use
+
+    nWorkers = str2double(getenv('SLURM_CPUS_PER_TASK'));
+    
+    % Fallback para pruebas locales
+    if isnan(nWorkers) || nWorkers == 0
+        nCores = feature('numcores');
+        nWorkers = max(1, nCores - 2);
     end
     
-    % Limit the number of workers to the max allowed by 'local' profile
-    try
-        maxLocalWorkers = parcluster('local').NumWorkers;
-        slurmCpus = min(slurmCpus, maxLocalWorkers);
-    catch
-        warning('[matRad_sampling] Could not retrieve NumWorkers from ''local'' profile. Using %d.', slurmCpus);
+    %%
+    % Inicia el parpool solo si no está abierto
+    if isempty(gcp('nocreate'))
+        parpool('local', nWorkers);
     end
-    
-    % Check if a pool is already active; if not, create one
-    p = gcp('nocreate');
-    if isempty(p)
-        fprintf('[matRad_sampling] Starting parpool with %d workers...\n', slurmCpus);
-        try
-            parpool('local', slurmCpus);
-        catch ME
-            warning('[matRad_sampling] Failed to start parpool: %s', ME.message);
-            rethrow(ME);
-        end
-    else
-        fprintf('[matRad_sampling] Existing parpool with %d workers detected.\n', p.NumWorkers);
-    end
-    
-    poolSize = slurmCpus;
 
     % rough estimate of total computation time
-    totCompTime = ceil(pln.multScen.totNumScen / poolSize) * nomScenTime * 1.35;
+    totCompTime = ceil(pln.multScen.totNumScen / nWorkers) * nomScenTime * 1.35;
     matRad_cfg.dispInfo(['Approximate Total calculation time: ', num2str(round(totCompTime / 3600)), ...
         'h. Estimated finish: ', datestr(datetime('now') + seconds(totCompTime)), '\n']);
     
@@ -283,6 +267,9 @@ if FlagParallToolBoxLicensed
     if FlagParforProgressDisp
         parfor_progress(0);
     end
+
+    % Clean up parpool after parallel sampling
+    delete(gcp('nocreate'));
     
 else
     %% perform seriel sampling
