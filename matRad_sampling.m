@@ -165,25 +165,38 @@ if FlagParallToolBoxLicensed
     
     fprintf('[matRad_sampling] SLURM_CPUS_PER_TASK: %d\n', slurmCpus);
     
-    p = gcp('nocreate');
-    if ~isempty(p)
-        if p.NumWorkers ~= slurmCpus
-            fprintf('[matRad_sampling] closing existing parpool with %d workers\n', p.NumWorkers);
-            delete(p);
+    % === Robust parpool initialization (only if not already active) ===
+    if FlagParallToolBoxLicensed
+        % Read the number of CPUs requested by SLURM
+        slurmCpus = str2double(getenv('SLURM_CPUS_PER_TASK'));
+        if isnan(slurmCpus) || slurmCpus <= 0
+            slurmCpus = max(1, feature('numcores') - 2);  % fallback for local use
         end
-    end
     
-    % Intentar abrir el nuevo parpool
-    if isempty(gcp('nocreate'))
+        % Limit the number of workers to the max allowed by 'local' profile
         try
-            parpool('local', slurmCpus);
-        catch ME
-            warning('[matRad_sampling] Error at initialize parpool: %s', ME.message);
-            rethrow(ME);
+            maxLocalWorkers = parcluster('local').NumWorkers;
+            slurmCpus = min(slurmCpus, maxLocalWorkers);
+        catch
+            warning('[matRad_sampling] Could not retrieve NumWorkers from ''local'' profile. Using %d.', slurmCpus);
         end
-    end
     
-    poolSize = slurmCpus;
+        % Check if a pool is already active; if not, create one
+        p = gcp('nocreate');
+        if isempty(p)
+            fprintf('[matRad_sampling] Starting parpool with %d workers...\n', slurmCpus);
+            try
+                parpool('local', slurmCpus);
+            catch ME
+                warning('[matRad_sampling] Failed to start parpool: %s', ME.message);
+                rethrow(ME);
+            end
+        else
+            fprintf('[matRad_sampling] Existing parpool with %d workers detected.\n', p.NumWorkers);
+        end
+    
+        poolSize = slurmCpus;
+    end
 
     % rough estimate of total computation time
     totCompTime = ceil(pln.multScen.totNumScen / poolSize) * nomScenTime * 1.35;
