@@ -156,47 +156,36 @@ resultGUInomScen.cst = cst;
 
 %% perform parallel sampling
 if FlagParallToolBoxLicensed
-
-    slurmCpus = str2double(getenv('SLURM_CPUS_PER_TASK'));
-    
-    if isnan(slurmCpus) || slurmCpus <= 0
-        slurmCpus = max(1, feature('numcores') - 2);  % fallback local
-    end
-    
-    fprintf('[matRad_sampling] SLURM_CPUS_PER_TASK: %d\n', slurmCpus);
-    
     % === Robust parpool initialization (only if not already active) ===
-    if FlagParallToolBoxLicensed
-        % Read the number of CPUs requested by SLURM
-        slurmCpus = str2double(getenv('SLURM_CPUS_PER_TASK'));
-        if isnan(slurmCpus) || slurmCpus <= 0
-            slurmCpus = max(1, feature('numcores') - 2);  % fallback for local use
-        end
-    
-        % Limit the number of workers to the max allowed by 'local' profile
-        try
-            maxLocalWorkers = parcluster('local').NumWorkers;
-            slurmCpus = min(slurmCpus, maxLocalWorkers);
-        catch
-            warning('[matRad_sampling] Could not retrieve NumWorkers from ''local'' profile. Using %d.', slurmCpus);
-        end
-    
-        % Check if a pool is already active; if not, create one
-        p = gcp('nocreate');
-        if isempty(p)
-            fprintf('[matRad_sampling] Starting parpool with %d workers...\n', slurmCpus);
-            try
-                parpool('local', slurmCpus);
-            catch ME
-                warning('[matRad_sampling] Failed to start parpool: %s', ME.message);
-                rethrow(ME);
-            end
-        else
-            fprintf('[matRad_sampling] Existing parpool with %d workers detected.\n', p.NumWorkers);
-        end
-    
-        poolSize = slurmCpus;
+    % Read the number of CPUs requested by SLURM
+    slurmCpus = str2double(getenv('SLURM_CPUS_PER_TASK'));
+    if isnan(slurmCpus) || slurmCpus <= 0
+        slurmCpus = max(1, feature('numcores') - 2);  % fallback for local use
     end
+    
+    % Limit the number of workers to the max allowed by 'local' profile
+    try
+        maxLocalWorkers = parcluster('local').NumWorkers;
+        slurmCpus = min(slurmCpus, maxLocalWorkers);
+    catch
+        warning('[matRad_sampling] Could not retrieve NumWorkers from ''local'' profile. Using %d.', slurmCpus);
+    end
+    
+    % Check if a pool is already active; if not, create one
+    p = gcp('nocreate');
+    if isempty(p)
+        fprintf('[matRad_sampling] Starting parpool with %d workers...\n', slurmCpus);
+        try
+            parpool('local', slurmCpus);
+        catch ME
+            warning('[matRad_sampling] Failed to start parpool: %s', ME.message);
+            rethrow(ME);
+        end
+    else
+        fprintf('[matRad_sampling] Existing parpool with %d workers detected.\n', p.NumWorkers);
+    end
+    
+    poolSize = slurmCpus;
 
     % rough estimate of total computation time
     totCompTime = ceil(pln.multScen.totNumScen / poolSize) * nomScenTime * 1.35;
