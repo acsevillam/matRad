@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<clusterProfile>
+  <Name>slurm_local</Name>
+  <NumWorkers>24</NumWorkers>
+  <Description>SLURM-compatible local profile for MATLAB parpool</Description>
+  <JobStorageLocation>$HOME/matlab_jobs</JobStorageLocation>
+  <ClusterMatlabRoot></ClusterMatlabRoot>
+  <OperatingSystem>unix</OperatingSystem>
+  <HasSharedFilesystem>true</HasSharedFilesystem>
+  <AdditionalProperties/>
+  <Plugin>local</Plugin>
+</clusterProfile>

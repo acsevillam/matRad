@@ -157,16 +157,6 @@ resultGUInomScen.cst = cst;
 %% perform parallel sampling
 if FlagParallToolBoxLicensed
 
-    nWorkers = str2double(getenv('SLURM_CPUS_PER_TASK'));
-    
-    % Fallback para pruebas locales
-    if isnan(nWorkers) || nWorkers <= 0
-        nCores = feature('numcores');
-        nWorkers = max(1, nCores - 2);
-    end
-
-    fprintf('[matRad_sampling] SLURM_CPUS_PER_TASK: %d\n', nWorkers);
-
     p = gcp('nocreate');
     if ~isempty(p)
         if p.NumWorkers ~= nWorkers
@@ -177,10 +167,14 @@ if FlagParallToolBoxLicensed
 
     % Intentar abrir el nuevo parpool
     if isempty(gcp('nocreate'))
+        
+        % === Safe parallel pool initialization with custom SLURM-compatible profile ===
         try
-            parpool('local', nWorkers);
+        cluster = matRad_setupSLURMParcluster();
+        parpool(cluster, cluster.NumWorkers);
+                
         catch ME
-            warning('[matRad_sampling] Error at initialize parpool: %s', ME.message);
+            warning('[matRad_sampling] Could not initialize parpool: %s', ME.message);
             rethrow(ME);
         end
     end
