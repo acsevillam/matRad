@@ -1093,6 +1093,8 @@ structSel = {};
 %% Perform sampling for robust optimization results
 for planIx = 1:num_plans
 
+    delete(gcp('nocreate'));
+
     disp(['!!--####################### PLAN No. ' num2str(planIx) ' of ' num2str(num_plans) ' #######################--!!']);
     tic
 
