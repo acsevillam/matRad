@@ -36,6 +36,14 @@ param.logLevel=1;
 s = settings;
 s.matlab.general.matfile.SaveFormat.TemporaryValue = 'v7.3';
 
+%% Parallel pool test
+matRad_testSLURMParpool();
+matRad_testSLURMParpool();
+ok = matRad_testSLURMParpool();
+if ~ok
+    error('Parallel pool test failed.');
+end
+
 %% Set function parameters
 
 validRadiationModes = {'photons','protons'};
@@ -271,14 +279,6 @@ end
 %% Initiallize diary log
 diary([rootPath filesep 'diary.log'])
 diary on
-
-%% Parallel pool test
-matRad_testSLURMParpool();
-matRad_testSLURMParpool();
-ok = matRad_testSLURMParpool();
-if ~ok
-    error('Parallel pool test failed.');
-end
 
 %% Set matRad runtime configuration
 matRad_rc
