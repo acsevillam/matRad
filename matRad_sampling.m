@@ -157,30 +157,11 @@ resultGUInomScen.cst = cst;
 %% perform parallel sampling
 if FlagParallToolBoxLicensed
 
-    p = gcp('nocreate');
-    if ~isempty(p)
-        if p.NumWorkers ~= nWorkers
-            fprintf('[matRad_sampling] closing existing parpool with %d workers\n', p.NumWorkers);
-            delete(p);
-        end
-    end
-
-    % Intentar abrir el nuevo parpool
-    if isempty(gcp('nocreate'))
-        
-        % === Safe parallel pool initialization with custom SLURM-compatible profile ===
-        try
-        cluster = matRad_setupSLURMParcluster();
-        parpool(cluster, cluster.NumWorkers);
-                
-        catch ME
-            warning('[matRad_sampling] Could not initialize parpool: %s', ME.message);
-            rethrow(ME);
-        end
-    end
+    % Initialize the cluster and parpool
+    cluster=matRad_setupSLURMParcluster();
 
     % rough estimate of total computation time
-    totCompTime = ceil(pln.multScen.totNumScen / nWorkers) * nomScenTime * 1.35;
+    totCompTime = ceil(pln.multScen.totNumScen / cluster.NumWorkers) * nomScenTime * 1.35;
     matRad_cfg.dispInfo(['Approximate Total calculation time: ', num2str(round(totCompTime / 3600)), ...
         'h. Estimated finish: ', datestr(datetime('now') + seconds(totCompTime)), '\n']);
     
@@ -276,12 +257,7 @@ if FlagParallToolBoxLicensed
         parfor_progress(0);
     end
 
-    if ~isempty(p)
-        if p.NumWorkers ~= nWorkers
-            fprintf('[matRad_sampling] closing existing parpool with %d workers\n', p.NumWorkers);
-            delete(p);
-        end
-    end
+    delete(gcp('nocreate'));
     
 else
     %% perform seriel sampling
