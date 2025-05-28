@@ -160,15 +160,29 @@ if FlagParallToolBoxLicensed
     nWorkers = str2double(getenv('SLURM_CPUS_PER_TASK'));
     
     % Fallback para pruebas locales
-    if isnan(nWorkers) || nWorkers == 0
+    if isnan(nWorkers) || nWorkers <= 0
         nCores = feature('numcores');
         nWorkers = max(1, nCores - 2);
     end
-    
-    %%
-    % Inicia el parpool solo si no está abierto
+
+    fprintf('[matRad_sampling] SLURM_CPUS_PER_TASK: %d\n', nWorkers);
+
+    p = gcp('nocreate');
+    if ~isempty(p)
+        if p.NumWorkers ~= nWorkers
+            fprintf('[matRad_sampling] closing existing parpool with %d workers\n', p.NumWorkers);
+            delete(p);
+        end
+    end
+
+    % Intentar abrir el nuevo parpool
     if isempty(gcp('nocreate'))
-        parpool('local', nWorkers);
+        try
+            parpool('local', nWorkers);
+        catch ME
+            warning('[matRad_sampling] Error at initialize parpool: %s', ME.message);
+            rethrow(ME);
+        end
     end
 
     % rough estimate of total computation time
@@ -268,8 +282,12 @@ if FlagParallToolBoxLicensed
         parfor_progress(0);
     end
 
-    % Clean up parpool after parallel sampling
-    delete(gcp('nocreate'));
+    if ~isempty(p)
+        if p.NumWorkers ~= nWorkers
+            fprintf('[matRad_sampling] closing existing parpool with %d workers\n', p.NumWorkers);
+            delete(p);
+        end
+    end
     
 else
     %% perform seriel sampling
