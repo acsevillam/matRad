@@ -2,8 +2,15 @@
 
 function cluster = matRad_setupSLURMParcluster()
 
+    % Close any active pool
+    currentPool = gcp('nocreate');
+    if ~isempty(currentPool)
+        fprintf('[matRad_testSLURMParpool] Closing existing parpool with %d workers...\n', currentPool.NumWorkers);
+        delete(currentPool);
+    end
+
     % Define the expected location of the slurm_local.settings profile file
-    profilePath = fullfile('matlab_profiles', 'slurm_local.settings');
+    profilePath = fullfile('matlab_profiles', 'slurm_local.mlsettings');
 
     % Import the profile only if it is not already available
     if ~any(strcmp(parallel.clusterProfiles, 'slurm_local'))

@@ -272,6 +272,14 @@ end
 diary([rootPath filesep 'diary.log'])
 diary on
 
+%% Parallel pool test
+matRad_testSLURMParpool();
+matRad_testSLURMParpool();
+ok = matRad_testSLURMParpool();
+if ~ok
+    error('Parallel pool test failed.');
+end
+
 %% Set matRad runtime configuration
 matRad_rc
 param.logLevel=1;
@@ -1009,8 +1017,6 @@ for planIx = 1:num_plans
     save([folderPath{planIx} filesep 'profiler'],'profiler');
 
 end
-
-delete(gcp('nocreate'));
 
 %% Plot robust fluence
 for planIx = 1:num_plans

@@ -86,19 +86,9 @@ end
 clear OARV;
 clear counter;
 
-nWorkers = str2double(getenv('SLURM_CPUS_PER_TASK'));
-
-% Fallback para pruebas locales
-if isnan(nWorkers) || nWorkers == 0
-    nCores = feature('numcores');
-    nWorkers = max(1, nCores - 2);
-end
-
 %%
-% Inicia el parpool solo si no está abierto
-if isempty(gcp('nocreate'))
-    parpool('local', nWorkers);
-end
+% Initialize the cluster and parpool
+cluster = matRad_setupSLURMParcluster();
 
 dij_interval.center = sparse(dij.doseGrid.numOfVoxels, dij.totalNumOfBixels);
 dij_interval.OARSubIx = OARSubIx;
@@ -115,7 +105,7 @@ availableMB = matRad_getAvailableMemoryMB();
 
 % Compute memory budget per worker (e.g., 80% of available memory)
 totalOARBatchMemoryBudgetMB = 0.80 * availableMB;
-maxOARBatchSize = floor(totalOARBatchMemoryBudgetMB / estimatedMemoryPerOARVoxelMB / nWorkers);
+maxOARBatchSize = floor(totalOARBatchMemoryBudgetMB / estimatedMemoryPerOARVoxelMB / cluster.NumWorkers);
 
 % Initial estimate based on available workers
 nOARBatches = 1;
@@ -131,8 +121,8 @@ OARBatchSize = ceil(numel(OARSubIx) / nOARBatches);
 
 % Print and log results
 logMsg = sprintf(['[matRad OAR batching log]\nTimestamp: %s\n', 'Available RAM: %.1f MB\nEstimated per-OAR-voxel: %.2f MB\n',...
-    'nWorkers: %d\nEstimated maxOARBatchSize: %d voxels\n','Final nOARBatches: %d | OARBatchSize: %d voxels\n\n'], ...
-    datestr(now), availableMB, estimatedMemoryPerOARVoxelMB, nWorkers, maxOARBatchSize, nOARBatches, OARBatchSize);
+    'NumWorkers: %d\nEstimated maxOARBatchSize: %d voxels\n','Final nOARBatches: %d | OARBatchSize: %d voxels\n\n'], ...
+    datestr(now), availableMB, estimatedMemoryPerOARVoxelMB, cluster.NumWorkers, maxOARBatchSize, nOARBatches, OARBatchSize);
 
 fprintf(logMsg);
 
@@ -266,12 +256,12 @@ end
 whos dij_interval;
 toc
 
+delete(gcp('nocreate'));
+
 %%
 
-% Inicia el parpool solo si no está abierto
-if isempty(gcp('nocreate'))
-    parpool('local', nWorkers);
-end
+% Create a cluster
+cluster = matRad_setupSLURMParcluster();
 
 dij_interval.radius = sparse(dij.totalNumOfBixels, dij.totalNumOfBixels);
 dij_interval.targetSubIx = targetSubIx;
@@ -298,13 +288,13 @@ else
     totalBatchMemoryBudgetMB = 0.80 * availableMB;
     
     % Adjust the maximum batch size depending on memory per voxel
-    maxBatchSize = floor(totalBatchMemoryBudgetMB / estimatedMemoryPerVoxelMB / nWorkers);
+    maxBatchSize = floor(totalBatchMemoryBudgetMB / estimatedMemoryPerVoxelMB / cluster.NumWorkers);
     
     % Print estimated configuration
-    fprintf('Available RAM: %.1f MB | Estimated per-voxel: %.2f MB | nWorkers: %d | maxBatchSize: %d voxels\n', ...
-        availableMB, estimatedMemoryPerVoxelMB, nWorkers, maxBatchSize);
+    fprintf('Available RAM: %.1f MB | Estimated per-voxel: %.2f MB | NumWorkers: %d | maxBatchSize: %d voxels\n', ...
+        availableMB, estimatedMemoryPerVoxelMB, cluster.NumWorkers, maxBatchSize);
     
-    nBatches=1;
+    nBatches=2;
     limitBatches = 1000;
     
     % Dynamically increase nBatches if the batch size exceeds the memory-safe threshold
@@ -317,8 +307,8 @@ else
     
     % Print and log results
     logMsg = sprintf(['[matRad batching log]\nTimestamp: %s\n', 'Available RAM: %.1f MB\nEstimated per-voxel: %.2f MB\n',...
-        'nWorkers: %d\nEstimated maxBatchSize: %d voxels\n', 'Final nBatches: %d | targetBatchSize: %d voxels\n\n'], ...
-        datestr(now), availableMB, estimatedMemoryPerVoxelMB, nWorkers, maxBatchSize, nBatches, targetBatchSize);
+        'NumWorkers: %d\nEstimated maxBatchSize: %d voxels\n', 'Final nBatches: %d | targetBatchSize: %d voxels\n\n'], ...
+        datestr(now), availableMB, estimatedMemoryPerVoxelMB, cluster.NumWorkers, maxBatchSize, nBatches, targetBatchSize);
     
     fprintf(logMsg);
     
@@ -400,6 +390,8 @@ end
 
 whos dij_interval;
 toc
+
+delete(gcp('nocreate'));
 
 end
 
