@@ -157,11 +157,17 @@ resultGUInomScen.cst = cst;
 %% perform parallel sampling
 if FlagParallToolBoxLicensed
 
-    % Initialize the cluster and parpool
-    cluster=matRad_setupSLURMParcluster();
+    % Create parallel pool on cluster
+    %cluster = gcp(); % If no pool, create new one.
+
+    %if isempty(cluster)
+    poolSize = 1;
+    %else
+    %    poolSize = cluster.NumWorkers;
+    %end
 
     % rough estimate of total computation time
-    totCompTime = ceil(pln.multScen.totNumScen / cluster.NumWorkers) * nomScenTime * 1.35;
+    totCompTime = ceil(pln.multScen.totNumScen / poolSize) * nomScenTime * 1.35;
     matRad_cfg.dispInfo(['Approximate Total calculation time: ', num2str(round(totCompTime / 3600)), ...
         'h. Estimated finish: ', datestr(datetime('now') + seconds(totCompTime)), '\n']);
     
@@ -256,8 +262,6 @@ if FlagParallToolBoxLicensed
     if FlagParforProgressDisp
         parfor_progress(0);
     end
-
-    delete(gcp('nocreate'));
     
 else
     %% perform seriel sampling

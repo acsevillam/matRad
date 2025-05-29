@@ -1096,10 +1096,11 @@ end
 structSel = {};
 [multScen] = matRad_multiScenGenerator(run_config.sampling_mode,run_config,'sampling',ct);
 
+%%
+%matRad_setupSLURMParcluster();
+
 %% Perform sampling for robust optimization results
 for planIx = 1:num_plans
-
-    delete(gcp('nocreate'));
 
     disp(['!!--####################### PLAN No. ' num2str(planIx) ' of ' num2str(num_plans) ' #######################--!!']);
     tic
@@ -1255,6 +1256,8 @@ for planIx = 1:num_plans
     toc
 
 end
+
+%delete(gcp('nocreate'));
 
 % print results
 disp('Performance:');
