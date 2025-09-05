@@ -31,28 +31,32 @@ function [cst,ixRing] = matRad_createRing(ixBase,ixLimit,cst,ct,vOuterMargin,vIn
 %
 % %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-VOIBase=cst{ixBase,4}{1,1};
-VOILimit=cst{ixLimit,4}{1,1};
+VOIRing = cell(1, ct.numOfCtScen);
 
-geo_tmp=zeros(ct.cubeDim);
-geo_tmp(VOIBase)=1;
-
-% Add margin to base volume
-VOIEnlargedOuter=find(matRad_addMargin(geo_tmp,cst,ct.resolution, vOuterMargin));
-VOIEnlargedInner=find(matRad_addMargin(geo_tmp,cst,ct.resolution, vInnerMargin));
-
-% Delete voxels from base volume
-VOIRing=setdiff(VOIEnlargedOuter,VOIEnlargedInner);
-
-% Delete voxels outside limit volume
-VOIRing=intersect(VOIRing,VOILimit);
+for scen_iterator = 1:ct.numOfCtScen
+    VOIBase=cst{ixBase,4}{scen_iterator};
+    VOILimit=cst{ixLimit,4}{scen_iterator};
+    
+    geo_tmp=zeros(ct.cubeDim);
+    geo_tmp(VOIBase)=1;
+    
+    % Add margin to base volume
+    VOIEnlargedOuter=find(matRad_addMargin(geo_tmp,cst,ct.resolution, vOuterMargin));
+    VOIEnlargedInner=find(matRad_addMargin(geo_tmp,cst,ct.resolution, vInnerMargin));
+    
+    % Delete voxels from base volume
+    VOIRing{scen_iterator}=setdiff(VOIEnlargedOuter,VOIEnlargedInner);
+    
+    % Delete voxels outside limit volume
+    VOIRing{scen_iterator}=intersect(VOIRing{scen_iterator},VOILimit);
+end
 
 ixRing=size(cst,1)+1;
-
+    
 cst{ixRing,1}=cst{end,1}+1;
 cst{ixRing,2}=metadata.name;
 cst{ixRing,3}=metadata.type;
-cst{ixRing,4}{1,1}=VOIRing;
+cst{ixRing,4}=VOIRing;
 cst{ixRing,5}=cst{ixBase,5};
 cst{ixRing,5}.visibleColor=metadata.visibleColor;
 

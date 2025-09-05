@@ -77,7 +77,7 @@ switch description
             %PTV
             if exist('ixPTV','var') && ixPTV~=0
                 % PTV = PTV + CTV
-                for i=1:size(cst{ixPTV,4})
+                for i = 1:size(cst{ixPTV,4},2)                    
                     cst{ixPTV,4}{i} = union(cst{ixCTV,4}{i},cst{ixPTV,4}{i});
                 end
             end

@@ -39,7 +39,10 @@ dij_dummy = matRad_calcPhotonDose(ct, stf, pln_dummy, cst);
 % Scenario probabilities and dose list
 scenIx = find(pln.multScen.scenMask);
 dij_list = dij.physicalDose(scenIx);
-scenProb = pln.multScen.scenProb;
+shiftScen = pln.multScen.linearMask(:,2);
+shiftScenCumProb = pln.multScen.scenProb;
+shiftScenProb = shiftScenCumProb ./ accumarray(shiftScen,1);
+scenProb = shiftScenProb(shiftScen);
 
 % Resize cst to dose grid
 cst = matRad_resizeCstToGrid(cst, dij.ctGrid.x, dij.ctGrid.y, dij.ctGrid.z, dij.doseGrid.x, dij.doseGrid.y, dij.doseGrid.z);
