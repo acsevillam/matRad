@@ -58,22 +58,7 @@ meta.sufficientStatistics = matRad_checkSampIntegrity(pln.multScen);
 ix    = pln.subIx;
 
 %% Calculate scenarios probabilities
-
-vProb = zeros(numel(caSampRes),1);
-
-for l = 1:numel(caSampRes)
-    
-    [ctScen,shiftScen,RangeScen] = deal(pln.multScen.linearMask(l,1),pln.multScen.linearMask(l,2),pln.multScen.linearMask(l,3));
-    shiftScenMask = find(squeeze(pln.multScen.scenMask(1,:,:)));
-    indProb = sub2ind([pln.multScen.totNumShiftScen pln.multScen.totNumRangeScen],shiftScen,RangeScen);
-    
-    numCtScen = nnz(pln.multScen.scenMask(:,shiftScen,RangeScen));
-    if(numCtScen>1)
-        vProb(l)=pln.multScen.scenProb(find(shiftScenMask==indProb))*phaseProb(ctScen);
-    else
-        vProb(l)=pln.multScen.scenProb(find(shiftScenMask==indProb));
-    end
-end
+vProb = matRad_getScenProb(pln,phaseProb);
 
 %% generate structurewise statistics
 cstStat = struct();

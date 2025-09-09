@@ -1,4 +1,4 @@
-function [dij_dummy, pln_dummy, dij, pln, dij_interval] = matRad_calcDoseInterval3e(ct, cst, stf, pln, dij, targetStructSel, OARStructSel, kdin, kmax, retentionThreshold, file_pattern)
+function [dij_dummy, pln_dummy, dij, pln, dij_interval] = matRad_calcDoseInterval3e(ct, cst, stf, pln, dij, phaseProb, targetStructSel, OARStructSel, kdin, kmax, retentionThreshold, file_pattern)
 
 matRad_cfg = MatRad_Config.instance();
 [env, envver] = matRad_getEnvironment();
@@ -36,13 +36,10 @@ end
 % Calculate dummy dose
 dij_dummy = matRad_calcPhotonDose(ct, stf, pln_dummy, cst);
 
-% Scenario probabilities and dose list
+% Calculate scenarios probabilities
 scenIx = find(pln.multScen.scenMask);
 dij_list = dij.physicalDose(scenIx);
-shiftScen = pln.multScen.linearMask(:,2);
-shiftScenCumProb = pln.multScen.scenProb;
-shiftScenProb = shiftScenCumProb ./ accumarray(shiftScen,1);
-scenProb = shiftScenProb(shiftScen);
+vProb = matRad_getScenProb(pln,phaseProb);
 
 % Resize cst to dose grid
 cst = matRad_resizeCstToGrid(cst, dij.ctGrid.x, dij.ctGrid.y, dij.ctGrid.z, dij.doseGrid.x, dij.doseGrid.y, dij.doseGrid.z);
@@ -165,17 +162,17 @@ for b = 1:nOARBatches
         end
     
         % Compute the expected dose (center of the dose interval) across scenarios
-        dij_batch_OAR(it).center = sum(dij_tmp .* scenProb, 1);  % (1 x numBixels)
+        dij_batch_OAR(it).center = sum(dij_tmp .* vProb, 1);  % (1 x numBixels)
     
         % Center the dose matrix by subtracting the expected dose
         dij_centered = dij_tmp - dij_batch_OAR(it).center;  % (numScenarios x numBixels)
     
         % Apply square root of scenario probabilities (for weighted covariance)
-        dij_centered_weighted = dij_centered .* sqrt(scenProb);  % (numScenarios x numBixels)
+        dij_centered_weighted = dij_centered .* sqrt(vProb);  % (numScenarios x numBixels)
     
         % Compute the weighted covariance matrix for the bixels
         covMatrix = dij_centered_weighted' * dij_centered_weighted;  % (numBixels x numBixels)
-        %covMatrix=(dij_tmp'*diag(scenProb)*dij_tmp-dij_batch_OAR(it).center'*dij_batch_OAR(it).center); % (numBixels x numBixels)
+        %covMatrix=(dij_tmp'*diag(vProb)*dij_tmp-dij_batch_OAR(it).center'*dij_batch_OAR(it).center); % (numBixels x numBixels)
         % Note: covMatrix = E[d^2]-E[d]^2
            
         % Select k according to kdin
@@ -256,7 +253,6 @@ for b = 1:nOARBatches
 
 end
 
-whos dij_interval;
 toc
 
 delete(gcp('nocreate'));
@@ -352,7 +348,7 @@ else
             end
     
             % Weighted contributions
-            dij_tmp_weighted = dij_tmp .* scenProb;
+            dij_tmp_weighted = dij_tmp .* vProb;
     
             % Center (E[d])
             center_voxel = sum(dij_tmp_weighted, 1);

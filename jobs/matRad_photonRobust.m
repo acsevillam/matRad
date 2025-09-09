@@ -673,6 +673,9 @@ pln_robust=pln;
 %% retrieve scenarios for dose calculation and optimziation
 [multScen] = matRad_multiScenGenerator(run_config.scen_mode,run_config,'optimization',ct);
 
+%% Phase Probability
+phaseProb = ones(1,ct.numOfCtScen)/ct.numOfCtScen;
+
 %% save multi scenarios to plan
 pln_robust.multScen=multScen;
 
@@ -728,7 +731,7 @@ switch run_config.robustness
         dij_interval_file_pattern = [run_config.rootPath  filesep 'jobs' filesep 'images' filesep run_config.description filesep run_config.caseID '_dij_interval3_' num2str(run_config.doseResolution(1)) '_' num2str(run_config.doseResolution(2)) '_' num2str(run_config.doseResolution(3)) '*' '.mat'];
 
         if ~exist('dij_interval','var') || isempty(dij_interval)
-            [dij_dummy, pln_dummy,dij_robust,pln_robust,dij_interval] = matRad_calcDoseInterval3e(ct,cst,stf_robust,pln_robust,dij_robust,targetStructSel,OARStructSel,run_config.kdin,run_config.kmax,run_config.retentionThreshold,dij_interval_file_pattern);
+            [dij_dummy, pln_dummy,dij_robust,pln_robust,dij_interval] = matRad_calcDoseInterval3e(ct,cst,stf_robust,pln_robust,dij_robust,phaseProb,targetStructSel,OARStructSel,run_config.kdin,run_config.kmax,run_config.retentionThreshold,dij_interval_file_pattern);
             if(isequal(run_config.kdin,'dinamic'))
                 dij_interval_file = [run_config.rootPath  filesep 'jobs' filesep 'images' filesep run_config.description filesep run_config.caseID '_dij_interval3_' num2str(run_config.doseResolution(1)) '_' num2str(run_config.doseResolution(2)) '_' num2str(run_config.doseResolution(3)) '_' num2str(run_config.retentionThreshold) '.mat'];
             elseif(isequal(run_config.kdin,'static'))
@@ -736,11 +739,13 @@ switch run_config.robustness
             end
             save(dij_interval_file,'dij_dummy','pln_dummy','pln_robust','dij_interval', '-v7.3');
         end
+        whos('dij_interval');
         dij_robust=dij_dummy;
         pln_robust=pln_dummy;
         IDCTime_robust = toc(now2);
         time2=sprintf('IDCTime_robust: %.2f\n',IDCTime_robust); disp(time2);
         results.performance.IDCTime_robust=IDCTime_robust;
+        whos dij_interval;
 end
 
 
@@ -915,6 +920,8 @@ end
 
 %% Indicator calculation and show DVH and QI
 
+vProb_robust = matRad_getScenProb(pln_robust,phaseProb);
+
 for planIx = 1:num_plans
 
     disp(['!!--####################### PLAN No. ' num2str(planIx) ' of ' num2str(num_plans) ' #######################--!!']);
@@ -928,7 +935,7 @@ for planIx = 1:num_plans
             qiTarget{scenIt,iX}=qi_robust{scenIt}(ixTarget(iX)).([run_config.dose_pulling1_criteria(iX)]);
         end
         minQiTarget{iX} = min(cell2mat(qiTarget(:,iX)),[],1);
-        meanQiTarget{iX} = sum(cell2mat(qiTarget(:,iX)).*multScen.scenProb);
+        meanQiTarget{iX} = sum(cell2mat(qiTarget(:,iX)).*vProb_robust);
         results.dosePulling.meanQiTarget{1,iX}=meanQiTarget{iX};
         results.dosePulling.minQiTarget{1,iX}=minQiTarget{iX};
     end
@@ -974,7 +981,7 @@ for planIx = 1:num_plans
                 for scenIt = 1:pln_robust.multScen.totNumScen
                     qiTarget{scenIt,iX}=qi_robust{scenIt}(ixTarget(iX)).([run_config.dose_pulling1_criteria(iX)]);
                 end
-                meanQiTarget{iX}=sum(cell2mat( qiTarget(:,iX) ).*multScen.scenProb);
+                meanQiTarget{iX}=sum(cell2mat( qiTarget(:,iX) ).*vProb_robust);
                 minQiTarget{iX} = min(cell2mat( qiTarget(:,iX) ),[],1);
                 results.dosePulling.meanQiTarget{end+1,iX}=meanQiTarget{iX};
                 results.dosePulling.minQiTarget{end+1,iX}=minQiTarget{iX};
@@ -1108,7 +1115,6 @@ for planIx = 1:num_plans
     [caSampRob, mSampDoseRob, plnSampRob, resultGUIRobNomScen,resultGUIsampledScenRob] = matRad_sampling(ct,stf_robust,cst_robust,pln_robust,resultGUI_robust{planIx}.w,structSel,multScen);
 
     %% Perform sampling analysis
-    phaseProb = ones(1,ct.numOfCtScen)/ct.numOfCtScen;
     robustnessCriteria = run_config.robustnessCriteria;
     GammaCriteria = run_config.GammaCriteria; 
     slice = round(isocenter(3)./ct.resolution.z);
@@ -1138,10 +1144,10 @@ for planIx = 1:num_plans
         plane      = 3;
         slice      = round(isocenter(2)./ct.resolution.y);
         numScen    = 1;
-        matRad_plotSliceWrapper(gca,ct,cst_robust,numScen, resultGUIRobNomScen.([quantityMap '_' int2str(numScen)])*pln_robust.numOfFractions,plane,slice);
+        matRad_plotSliceWrapper(gca,ct,cst_robust,numScen, resultGUIRobNomScen.([quantityOpt '_' int2str(numScen)])*pln_robust.numOfFractions,plane,slice);
         b             = uicontrol('Parent',f,'Style','slider','Position',[50,5,419,23],...
             'value',numScen, 'min',1, 'max',ct.numOfCtScen,'SliderStep', [1/(ct.numOfCtScen-1) , 1/(ct.numOfCtScen-1)]);
-        b.Callback    = @(es,ed)  matRad_plotSliceWrapper(gca,ct,cst_robust,round(es.Value),resultGUIRobNomScen.([quantityMap '_' int2str(round(es.Value))])*pln_robust.numOfFractions,plane,slice);
+        b.Callback    = @(es,ed)  matRad_plotSliceWrapper(gca,ct,cst_robust,round(es.Value),resultGUIRobNomScen.([quantityOpt '_' int2str(round(es.Value))])*pln_robust.numOfFractions,plane,slice);
     end
     clear  numScen plane slice ans f b;
     
@@ -1151,10 +1157,10 @@ for planIx = 1:num_plans
         plane      = 3;
         slice      = round(isocenter(2)./ct.resolution.y);
         numScen    = 1;
-        matRad_plotSliceWrapper(gca,ct,cst_robust,numScen, resultGUIsampledScenRob.(quantityMap){numScen}*pln_robust.numOfFractions,plane,slice);
+        matRad_plotSliceWrapper(gca,ct,cst_robust,numScen, resultGUIsampledScenRob.(quantityOpt){numScen}*pln_robust.numOfFractions,plane,slice);
         b             = uicontrol('Parent',f,'Style','slider','Position',[50,5,419,23],...
             'value',numScen, 'min',1, 'max',ct.numOfCtScen,'SliderStep', [1/(ct.numOfCtScen-1) , 1/(ct.numOfCtScen-1)]);
-        b.Callback    = @(es,ed)  matRad_plotSliceWrapper(gca,ct,cst_robust,1,resultGUIsampledScenRob.(quantityMap){round(es.Value)}*pln_robust.numOfFractions,plane,slice);
+        b.Callback    = @(es,ed)  matRad_plotSliceWrapper(gca,ct,cst_robust,round(es.Value),resultGUIsampledScenRob.(quantityOpt){round(es.Value)}*pln_robust.numOfFractions,plane,slice);
     end
     clear  numScen plane slice ans f b;
     
