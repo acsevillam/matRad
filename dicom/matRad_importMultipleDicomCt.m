@@ -98,22 +98,32 @@ if(all(cellfun(@(cst) isequal([cst{:,1:3}],[tmp_cst{1}{:,1:3}]), tmp_cst))...
         && all(cellfun(@(cst) isequal([cst{:,6}],[tmp_cst{1}{:,6}]), tmp_cst)))
     cst=tmp_cst{1};
     [numOfStruct, ~] = size(cst);
-else
-    error('There are scenarios with incompatible structures data \n');
-end
 
-
-% Combining ct and cst info into a multiscenario struct
-for ctPhase = 1:ct.numOfCtScen
+    % Combining ct and cst info into a multiscenario struct
+    for ctPhase = 1:ct.numOfCtScen
+        
+        ct.cubeHU{ctPhase} = tmp_ct{ctPhase}.cubeHU{1};
+        ct.dicomInfo(ctPhase) = tmp_ct{ctPhase}.dicomInfo;
+        ct.dicomMeta(ctPhase) = tmp_ct{ctPhase}.dicomMeta;
     
-    ct.cubeHU{ctPhase} = tmp_ct{ctPhase}.cubeHU{1};
-    ct.dicomInfo(ctPhase) = tmp_ct{ctPhase}.dicomInfo;
-    ct.dicomMeta(ctPhase) = tmp_ct{ctPhase}.dicomMeta;
-
-    for structure = 1:numOfStruct
-        cst{structure,4}{1,ctPhase}=tmp_cst{ctPhase}{structure,4}{1}; 
+        for structure = 1:numOfStruct
+            cst{structure,4}{1,ctPhase}=tmp_cst{ctPhase}{structure,4}{1}; 
+        end
+        
     end
-    
+
+else
+    cst=tmp_cst{1};
+    [numOfStruct, ~] = size(cst);
+
+    % Combining ct and cst info into a multiscenario struct
+    for ctPhase = 1:ct.numOfCtScen
+        
+        ct.cubeHU{ctPhase} = tmp_ct{ctPhase}.cubeHU{1};
+        ct.dicomInfo(ctPhase) = tmp_ct{ctPhase}.dicomInfo;
+        ct.dicomMeta(ctPhase) = tmp_ct{ctPhase}.dicomMeta;     
+    end
+    warning('There are scenarios with incompatible structures data \n');
 end
 
 end

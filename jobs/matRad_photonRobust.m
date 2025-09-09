@@ -48,7 +48,7 @@ s.matlab.general.matfile.SaveFormat.TemporaryValue = 'v7.3';
 
 validRadiationModes = {'photons','protons'};
 validDescriptions = {'prostate','breast'};
-validPatientIDs = {'3482','3648','3782','3790','3840','3477','3749','3832','3833','3929','4136','4155','4203','4357','4390','4428','4494','4531','4585','4681','1758'};
+validPatientIDs = {'3482','3648','3782','3790','3840','1758_mct','3477','3749','3832','3833','3929','4136','4155','4203','4357','4390','4428','4494','4531','4585','4585_mct','4681'};
 validAcquisitionTypes = {'mat','dicom'};
 validPlanObjectives = {'1','2','3','4','5','6'};
 validDosePulling1Targets = {'CTV','PTV'};
@@ -291,6 +291,11 @@ cst = matRad_renameStructures(cst,run_config);
 %% Calculate deformation vector field
 if (ct.numOfCtScen>1)
     metadata.nItera = 100;
+    metadata.dvfType = 'push';
+    register = matRad_ElasticImageRegistration(ct,cst,1,metadata);
+    if(ct.numOfCtScen>numel(cst{1,4}))
+        [ct,cst] = register.propContours();
+    end
     metadata.dvfType = 'pull';
     register = matRad_ElasticImageRegistration(ct,cst,1,metadata);
     [ct] = register.calcDVF();
