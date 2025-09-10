@@ -750,7 +750,7 @@ switch run_config.robustness
         IDCTime_robust = toc(now2);
         time2=sprintf('IDCTime_robust: %.2f\n',IDCTime_robust); disp(time2);
         results.performance.IDCTime_robust=IDCTime_robust;
-        whos dij_interval;
+
 end
 
 
