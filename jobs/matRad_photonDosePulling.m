@@ -40,7 +40,7 @@ s.matlab.general.matfile.SaveFormat.TemporaryValue = 'v7.3';
 
 validRadiationModes = {'photons','protons'};
 validDescriptions = {'prostate','breast'};
-validPatientIDs = {'3482','3648','3782','3790','3840','3477','3749','3832','3833','3929','4136','4155','4203','4357','4390','4428','4494','4531','4585','4681','1758'};
+validPatientIDs = {'3482','3648','3782','3790','3840','1758_mct','3477','3749','3832','3833','3929','4136','4155','4203','4357','4390','4428','4494','4531','4585','4585_mct','4681','1758'};
 validAcquisitionTypes = {'mat','dicom'};
 validPlanObjectives = {'1','2','3','4','5','6'};
 validDosePullingTargets = {'CTV','PTV'};
@@ -51,6 +51,7 @@ validRobustness = {'none'};
 validScenModes = {'nomScen','wcScen','impScen5','impScen7','impScen_permuted5','impScen_permuted7','impScen_permuted_truncated5','impScen_permuted_truncated7','random','random_truncated'};
 
 defaultPatientID = '3482';
+defaultDoseResolution = [5 5 5]; % mm
 defaultAcquisitionType = 'dicom';
 defaultPlanObjective = '4';
 defaultDosePulling = false;
@@ -74,6 +75,7 @@ parser = inputParser;
 addRequired(parser,'radiationMode',@(x) any(validatestring(x,validRadiationModes)));
 addRequired(parser,'description',@(x) any(validatestring(x,validDescriptions)));
 addParameter(parser,'caseID',defaultPatientID,@(x) any(validatestring(x,validPatientIDs)));
+addParameter(parser,'doseResolution',defaultDoseResolution,@(x) numel(x) == 3 && isnumeric(x) && all(x > 0));
 addParameter(parser,'AcquisitionType',defaultAcquisitionType,@(x) any(validatestring(x,validAcquisitionTypes)));
 addParameter(parser,'plan_objectives',defaultPlanObjective,@(x) any(validatestring(x,validPlanObjectives)));
 addParameter(parser,'dose_pulling',defaultDosePulling,@islogical);
@@ -99,6 +101,7 @@ parse(parser,radiationMode,description,varargin{:});
 run_config.radiationMode = parser.Results.radiationMode;
 run_config.description = parser.Results.description;
 run_config.caseID = parser.Results.caseID;
+run_config.doseResolution = parser.Results.doseResolution;
 run_config.AcquisitionType = parser.Results.AcquisitionType;
 run_config.plan_objectives = parser.Results.plan_objectives;
 run_config.dose_pulling = parser.Results.dose_pulling;
@@ -119,7 +122,6 @@ run_config.rootPath = parser.Results.rootPath;
 output_folder = ['output' filesep run_config.radiationMode filesep run_config.description filesep run_config.caseID filesep run_config.robustness filesep run_config.plan_target filesep run_config.plan_beams filesep run_config.plan_objectives filesep num2str(run_config.shiftSD(1)) 'x' num2str(run_config.shiftSD(2)) 'x' num2str(run_config.shiftSD(3)) filesep run_config.scen_mode filesep datestr(datetime,'yyyy-mm-dd HH-MM-SS')];
 
 run_config.resolution = [3 3 3];
-run_config.doseResolution = [3 3 3];
 run_config.GammaCriteria = [3 3];
 run_config.robustnessCriteria = [5 5];
 run_config.sampling_size = 50;
@@ -555,7 +557,7 @@ disp(results.robustnessAnalysis_nominal);
 %% Save outputs
 save([folderPath filesep 'resultGUI.mat'],'resultGUI');
 save([folderPath filesep 'plan.mat'],'ct','cst','pln','stf','run_config');
-save([folderPath filesep 'sampling.mat'],'caSamp', 'mSampDose', 'plnSamp', 'resultGUInomScen','cstStat','resultGUISamp','meta','dvh');
+save([folderPath filesep 'sampling.mat'],'caSamp', 'mSampDose', 'plnSamp', 'resultGUInomScen','cstStat','resultGUISamp','meta','qi');
 save([folderPath filesep 'results.mat'],'results');
 
 %%
