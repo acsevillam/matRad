@@ -55,6 +55,8 @@ if ~isfield(metadata,'useDoseGrid')
 end
 
 % Initializing ct and cst struct for each scenario 
+tmp_ct_original = cell(1,ct.numOfCtScen);
+tmp_cst_original = cell(1,ct.numOfCtScen);
 tmp_ct = cell(1,ct.numOfCtScen);
 tmp_cst = cell(1,ct.numOfCtScen);
 
@@ -64,8 +66,26 @@ for ctPhase = 1:ct.numOfCtScen
     files.ct = unique(fileList(strcmp(fileList(:,2), 'CT') & strcmp(fileList(:,3), patient_listbox{ctPhase})));
     files.rtss = unique(fileList(strcmp(fileList(:,2), 'RTSTRUCT') & strcmp(fileList(:,3), patient_listbox{ctPhase})));
     % Importing the Dicom info into cst and cst struct
-    [tmp_ct{ctPhase},tmp_cst{ctPhase},~,~,~]=matRad_importDicom(files, true);
+    [tmp_ct_original{ctPhase},tmp_cst_original{ctPhase},~,~,~]=matRad_importDicom(files, true);
     
+end
+
+% Intentar recortar a intersección si los ejes no coinciden
+try
+    [tmp_ct, commonGrid, cropIdx] = matRad_cropCtToOverlap(tmp_ct_original, 1e-5);
+catch ME
+    error('No se pudo recortar el ct a la intersección: %s', ME.message);
+end
+
+% Intentar recortar a intersección si los ejes no coinciden
+try
+    % (Opcional) si quieres mantener máscaras compatibles tras el recorte:
+    % tmp_cst = {cst por escenario}. En tu código tienes cell con cst por escenario.
+    % Si estás copiando máscaras a un cst común, primero recorta cada cst por escenario:
+    tmp_cst = matRad_cropCstToOverlap(tmp_cst_original, cropIdx, tmp_ct_original, tmp_ct);
+
+catch ME
+    error('No se pudo recortar el cst a la intersección: %s', ME.message);
 end
 
 % Checking dimentions and structures for all scenarios

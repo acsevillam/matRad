@@ -48,7 +48,7 @@ s.matlab.general.matfile.SaveFormat.TemporaryValue = 'v7.3';
 
 validRadiationModes = {'photons','protons'};
 validDescriptions = {'prostate','breast'};
-validPatientIDs = {'3482','3648','3782','3790','3840','1758_mct','3477','3749','3832','3833','3929','4136','4155','4203','4357','4390','4428','4494','4531','4585','4585_mct','4681'};
+validPatientIDs = {'1_mct','2_mct','3482','3648','3782','3790','3840','1758_mct','3477','3749','3832','3833','3929','4136','4136_mct','4155','4203','4357','4390','4428','4494','4531','4585','4585_mct','4681'};
 validAcquisitionTypes = {'mat','dicom'};
 validPlanObjectives = {'1','2','3','4','5','6'};
 validDosePulling1Targets = {'CTV','PTV'};

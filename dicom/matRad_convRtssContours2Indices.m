@@ -42,10 +42,65 @@ for i = 1:size(structure.item,2)
         if numel(dicomCtSlicePos) > 1 || isempty(dicomCtSlicePos)
             error('Contour defined over multiple planes!');
         end
-    
-        round2 = @(a,b) round(a*10^b)/10^b;
-        dicomCtSliceThickness = ct.dicomInfo.SliceThickness(round2(ct.dicomInfo.SlicePositions,1)==round2(dicomCtSlicePos,1));
-        
+
+        % Vector de posiciones z del CT
+        zCT = ct.dicomInfo.SlicePositions(:);
+        [zCT, sortIdx] = sort(zCT,'ascend');
+
+        % ¿Hay SliceThickness por corte?
+        hasPerSliceST = isfield(ct.dicomInfo,'SliceThickness') && ...
+                        numel(ct.dicomInfo.SliceThickness) == numel(zCT);
+
+        if hasPerSliceST
+            stVec = ct.dicomInfo.SliceThickness(:);
+            stVec = stVec(sortIdx);
+        end
+
+        % Espaciado medio entre cortes (dzMed), si se puede calcular
+        dzMed = NaN;
+        if numel(zCT) >= 2
+            dz = abs(diff(zCT));
+            dz = dz(dz > eps);
+            if ~isempty(dz)
+                dzMed = median(dz);
+            end
+        end
+
+        % Corte más cercano a la z del contorno
+        [dzMin, idxNear] = min(abs(zCT - dicomCtSlicePos));
+
+        % Tolerancia: mínimo 0.5 mm; si hay dzMed, usa 20% de dzMed
+        tol = 0.5;
+        if ~isnan(dzMed) && dzMed > 0
+            tol = max(0.5, 0.2 * dzMed);
+        end
+
+        if isempty(idxNear) || dzMin > tol
+            error('Slice at z=%0.3f mm not found within tolerance (min Δ=%.3f > tol=%.3f).', ...
+                   dicomCtSlicePos, dzMin, tol);
+        end
+
+        % Grosor del corte a usar
+        if hasPerSliceST
+            dicomCtSliceThickness = stVec(idxNear);
+        else
+            % Estimar grosor con vecinos si es posible; si no, usar dzMed
+            if numel(zCT) >= 3 && idxNear > 1 && idxNear < numel(zCT)
+                dicomCtSliceThickness = 0.5 * (zCT(idxNear+1) - zCT(idxNear-1));
+            elseif numel(zCT) >= 2
+                if idxNear == 1
+                    dicomCtSliceThickness = (zCT(2) - zCT(1));
+                else
+                    dicomCtSliceThickness = (zCT(end) - zCT(end-1));
+                end
+            elseif ~isnan(dzMed)
+                dicomCtSliceThickness = dzMed;
+            else
+                dicomCtSliceThickness = []; % sin forma de estimar
+            end
+            dicomCtSliceThickness = abs(dicomCtSliceThickness);
+        end
+
         %Sanity check
         msg = checkSliceThickness(dicomCtSliceThickness);
         if ~isempty(msg)

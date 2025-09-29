@@ -7,21 +7,21 @@ switch description
 
         for  it = size(cst,1):-1:1
             switch cst{it,2}
-                case 'Skin'
+                case {'Skin','BODY'}
                     cst{it,2}='BODY';
-                case 'PTV'
+                case {'PTV','PTV 60'}
                     cst{it,2}='PTV';
-                case 'PROSTATA'
+                case {'PROSTATA','CTV'}
                     cst{it,2}='CTV';
-                case 'RECTO'
+                case {'RECTO'}
                     cst{it,2}='RECTUM';
-                case 'VEJIGA'
+                case {'VEJIGA'}
                     cst{it,2}='BLADDER';
-                case 'BULBO'
+                case {'BULBO','BULBO PENEANO'}
                     cst{it,2}='BULB';
-                case 'CFI'
+                case {'CFI','CAB FEM IZQ'}
                     cst{it,2}='LEFT REMORAL HEAD';
-                case 'CFD'
+                case {'CFD','CAB FEM DER'}
                     cst{it,2}='RIGHT REMORAL HEAD';
                 otherwise
                     fprintf(' %s is an empty structure. \n',cst{it,2});

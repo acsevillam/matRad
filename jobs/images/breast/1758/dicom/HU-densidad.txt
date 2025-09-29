@@ -1,0 +1,20 @@
+Look up table para el Accuray Radixact X7
+Clínica El Rosario
+Tomógrafo: 4010065_850MU
+Tipo de tomografía: MVCT
+Medido por: Gonzalo Cabal, PhD
+Fecha de medición: 27/04/2020
+
+HU	Mass density (g/cm3)
+
+-Inf	0.001
+-1000	0.001
+-691	0.28
+-504	0.48
+0	1
+83	1.144
+259	1.332
+432	1.559
+655	1.823
+2400	4.42
+Inf	4.42

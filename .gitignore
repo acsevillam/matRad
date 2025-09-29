@@ -1,1 +1,38 @@
-MCsquare/bin/Materials/
+# === BACKEND ===
+shared/temp_storage/*
+!shared/temp_storage/.keep
+__pycache__/
+*.pyc
+*.log
+database/init/
+\~\$*
+
+# === DOCKER ===
+*.log
+docker-compose.override.yml
+.docker/
+.dockerignore
+
+# === SISTEMA (macOS, Linux, Windows) ===
+.DS_Store
+.AppleDouble
+.LSOverride
+__MACOSX/
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+*.swp
+*.swo
+*.bak
+*.tmp
+*.log
+
+# === VSCODE ===
+.vscode/
+
+# === GIT ===
+*.orig
+

@@ -129,7 +129,8 @@ function output_folder = buildOutputFolder(metadata)
             % Nominal plan or PTV-based plan with simpler folder structure
             output_folder = fullfile('output', metadata.radiationMode, metadata.description, ...
                 metadata.caseID, metadata.robustness, metadata.plan_target, ...
-                metadata.plan_beams, metadata.plan_objectives);
+                metadata.plan_beams, metadata.plan_objectives, metadata.shiftSD,...
+                metadata.scen_mode);
         otherwise
             error('Unsupported robustness type: %s', metadata.robustness);
     end
