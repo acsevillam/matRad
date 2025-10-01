@@ -1,0 +1,13 @@
+# matRad HU lookup table for Megavoltage images
+# 
+# First column:    Hounsfield values (typically -1000...+3000)
+# Second column:   Relative electron densities(photons) or stopping power (particles)
+-1000   0.001
+-708.0  0.28
+-502.0  0.48
+-12.0   1
+80.0    1.144
+244.0   1.332
+415.0   1.559
+626.0   1.823
+2400    4.42

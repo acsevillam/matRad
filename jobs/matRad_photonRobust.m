@@ -48,8 +48,9 @@ s.matlab.general.matfile.SaveFormat.TemporaryValue = 'v7.3';
 
 validRadiationModes = {'photons','protons'};
 validDescriptions = {'prostate','breast'};
-validPatientIDs = {'1_mct','2_mct','3482','3648','3782','3790','3840','1758_mct','3477','3749','3832','3833','3929','4136','4136_mct','4155','4203','4357','4390','4428','4494','4531','4585','4585_mct','4681'};
+validPatientIDs = {'1_mct','2_mct','3482','3648','3782','3790','3840','1758_mct','3477','3749','3832','3833','3929','4136','4136_mct','4155','4155_mct','4203','4203_mct','4357','4357_mct','4390','4428','4494','4531','4585','4585_mct','4681'};
 validAcquisitionTypes = {'mat','dicom'};
+validHlutFileName = {'matRad_default.hlut','matRad_MV_Tomotherapy.hlut'};
 validPlanObjectives = {'1','2','3','4','5','6'};
 validDosePulling1Targets = {'CTV','PTV'};
 validDosePulling1Criteria = {'COV_95','COV_98','COV_99','COV1'};
@@ -63,6 +64,7 @@ validScenModes = {'nomScen','wcScen','impScen5','impScen7','impScen_permuted5','
 defaultPatientID = '3482';
 defaultDoseResolution = [5 5 5]; % mm
 defaultAcquisitionType = 'dicom';
+defaultHlutFileName = 'matRad_default.hlut';
 defaultPlanObjective = '4';
 defaultDosePulling1 = false;
 defaultDosePulling1Target = 'CTV';
@@ -102,6 +104,7 @@ addRequired(parser,'description',@(x) any(validatestring(x,validDescriptions)));
 addParameter(parser,'caseID',defaultPatientID,@(x) any(validatestring(x,validPatientIDs)));
 addParameter(parser,'doseResolution',defaultDoseResolution,@(x) numel(x) == 3 && isnumeric(x) && all(x > 0));
 addParameter(parser,'AcquisitionType',defaultAcquisitionType,@(x) any(validatestring(x,validAcquisitionTypes)));
+addParameter(parser,'hlutFileName',defaultHlutFileName,@(x) any(validatestring(x,validHlutFileName)));
 addParameter(parser,'plan_objectives',defaultPlanObjective,@(x) any(validatestring(x,validPlanObjectives)));
 addParameter(parser,'dose_pulling1',defaultDosePulling1,@islogical);
 addParameter(parser,'dose_pulling1_target',defaultDosePulling1Target,@(x) numel(x) >= 1 && all(ismember(x,validDosePulling1Targets)));
@@ -150,6 +153,7 @@ run_config.description = parser.Results.description;
 run_config.caseID = parser.Results.caseID;
 run_config.doseResolution = parser.Results.doseResolution;
 run_config.AcquisitionType = parser.Results.AcquisitionType;
+run_config.hlutFileName = parser.Results.hlutFileName;
 run_config.plan_objectives = parser.Results.plan_objectives;
 run_config.dose_pulling1 = parser.Results.dose_pulling1;
 run_config.dose_pulling1_target = parser.Results.dose_pulling1_target;
@@ -493,6 +497,10 @@ end
 pln.propDoseCalc.doseGrid.resolution.x = run_config.doseResolution(1); % [mm]
 pln.propDoseCalc.doseGrid.resolution.y = run_config.doseResolution(2); % [mm]
 pln.propDoseCalc.doseGrid.resolution.z = run_config.doseResolution(3); % [mm]
+% set HU-to-electron density lookup table
+if(isfield(run_config,'hlutFileName'))
+    pln.hlutFileName=run_config.hlutFileName;
+end
 
 %% Enable sequencing and disable direct aperture optimization (DAO) for now.
 % A DAO optimization is shown in a seperate example.

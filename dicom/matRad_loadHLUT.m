@@ -40,13 +40,15 @@ end
 try
     
     hlutFileName = '';
-    particle     = pln.radiationMode;
-    manufacturer = ct.dicomInfo.Manufacturer;
-    model        = ct.dicomInfo.ManufacturerModelName;
-    convKernel   = ct.dicomInfo.ConvolutionKernel;
-    
-    hlutFileName = strcat(manufacturer, '-', model, '-ConvolutionKernel-',...
-        convKernel, '_', particle, '.hlut');
+    if(~isfield(pln,'hlutFileName'))
+        particle     = pln.radiationMode;
+        manufacturer = ct.dicomInfo.Manufacturer;
+        model        = ct.dicomInfo.ManufacturerModelName;
+        hlutFileName = strcat(manufacturer, '-', model, '-ConvolutionKernel-',...
+            convKernel, '_', particle, '.hlut');
+    else
+        hlutFileName = pln.hlutFileName;
+    end
     
     % check whether fileNames used '-' or '_' instead of blanks
     hlutFileCell{1} = hlutFileName;
