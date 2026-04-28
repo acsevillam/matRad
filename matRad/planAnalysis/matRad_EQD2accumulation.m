@@ -140,10 +140,11 @@ title('Added EQD_2 divided by added RBExD');
 xlabel('relative Dose [%]');
 
 %% Qualitiy indicators
-fieldNamesResult = fieldnames(result);
+doseResultFields = {'totalDose','EQD2_1','EQD2_2','totalEQD2'};
 
-for resultGUInumber = 1 : numel(fieldNamesResult)
-    qualityIndicators.(fieldNamesResult{resultGUInumber}) = matRad_calcQualityIndicators(cst2,pln2,result.(fieldNamesResult{resultGUInumber}));
+for resultGUInumber = 1 : numel(doseResultFields)
+    qualityIndicators.(doseResultFields{resultGUInumber}) = matRad_calcQualityIndicators( ...
+        cst2,pln2,result.(doseResultFields{resultGUInumber}) ./ pln2.numOfFractions,[],[]);
 end
 
 

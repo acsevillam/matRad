@@ -1,4 +1,4 @@
-function [caSampRes, mSampDose, pln, resultGUInomScen]  = matRad_sampling(ct,stf,cst,pln,w,structSel,multScen)
+function [caSampRes, mSampDose, pln, resultGUInomScen]  = matRad_sampling(ct,stf,cst,pln,w,structSel,multScen,varargin)
 % matRad_randomSampling enables sampling multiple treatment scenarios
 %
 % call
@@ -34,10 +34,15 @@ function [caSampRes, mSampDose, pln, resultGUInomScen]  = matRad_sampling(ct,stf
 
 matRad_cfg = MatRad_Config.instance();
 
+p = inputParser;
+p.addParameter('dvhDoseWindow',[],@(x) isempty(x) || (isnumeric(x) && numel(x) >= 2));
+p.addParameter('dvhDoseGrid',[],@(x) isempty(x) || (isnumeric(x) && isvector(x)));
+p.parse(varargin{:});
+
 % save nonSampling pln for nominal scenario calculation and add dummy fields
 plnNominal = pln;
 % create nominal scenario
-plnNominal.multScen = matRad_multScen(ct,'nomScen');
+plnNominal.multScen = matRad_NominalScenario(ct);
 
 % check for different ct scenarios
 ctSamp = ct;
@@ -99,19 +104,22 @@ end
 
 %% calculate nominal scenario
 nomScenTimer     = tic;
-resultGUInomScen = matRad_calcDoseDirect(ct,stf,plnNominal,cst,w);
+resultGUInomScen = matRad_calcDoseForward(ct,cst,stf,plnNominal,w);
 nomScenTime      = toc(nomScenTimer);
 matRad_cfg.dispInfo('Finished nominal Scenario Calculation. Computation time: %f h \n',round(nomScenTime / 3600));
 
 refVol = [2 5 50 95 98];
-refGy = linspace(0,max(resultGUInomScen.(pln.bioParam.quantityVis)(:)),6);
+doseCubeNominal = resultGUInomScen.(pln.bioParam.quantityVis);
+refGy = linspace(0,max(doseCubeNominal(:)),6);
+dvhPoints = resolveDvhDoseGrid(doseCubeNominal,p.Results.dvhDoseWindow, ...
+    p.Results.dvhDoseGrid);
 
-resultGUInomScen.dvh = matRad_calcDVH(cst,resultGUInomScen.(pln.bioParam.quantityVis),'cum');
-dvhPoints            = resultGUInomScen.dvh(1).doseGrid;
-nomQi                = matRad_calcQualityIndicators(cst,pln,resultGUInomScen.(pln.bioParam.quantityVis),refGy,refVol);
+resultGUInomScen.dvh = matRad_calcDVH(cst,doseCubeNominal,'cum',dvhPoints);
+nomQi                = matRad_calcQualityIndicators(cst,pln,doseCubeNominal,refGy,refVol);
 
 resultGUInomScen.qi  = nomQi;
 resultGUInomScen.cst = cst;
+resultGUInomScen.analysisDoseMode = 'perFraction';
 
 %% perform parallel sampling
 if FlagParallToolBoxLicensed
@@ -159,8 +167,9 @@ if FlagParallToolBoxLicensed
         caSampRes(i).absRangeShift = plnSamp.multScen.absRangeShift;
         caSampRes(i).isoShift      = plnSamp.multScen.isoShift;
 
-        caSampRes(i).dvh = matRad_calcDVH(cst,resultSamp.(pln.bioParam.quantityVis),'cum',dvhPoints);
-        caSampRes(i).qi  = matRad_calcQualityIndicators(cst,pln,resultSamp.(pln.bioParam.quantityVis),refGy,refVol);
+        doseCubeSample = resultSamp.(pln.bioParam.quantityVis);
+        caSampRes(i).dvh = matRad_calcDVH(cst,doseCubeSample,'cum',dvhPoints);
+        caSampRes(i).qi  = matRad_calcQualityIndicators(cst,pln,doseCubeSample,refGy,refVol);
 
         if FlagParforProgressDisp & logLevel > 2
             parfor_progress;
@@ -188,7 +197,7 @@ else
         plnSamp          = pln;
         plnSamp.multScen = pln.multScen.extractSingleScenario(i);
 
-        resultSamp                 = matRad_calcDoseDirect(ct,stf,plnSamp,cst,w);
+        resultSamp                 = matRad_calcDoseForward(ct,cst,stf,plnSamp,w);
         sampledDose                = resultSamp.(pln.bioParam.quantityVis)(subIx);
         mSampDose(:,i)             = single(reshape(sampledDose,[],1));
         caSampRes(i).bioParam      = pln.bioParam;
@@ -196,8 +205,9 @@ else
         caSampRes(i).absRangeShift = plnSamp.multScen.absRangeShift;
         caSampRes(i).isoShift      = plnSamp.multScen.isoShift;
 
-        caSampRes(i).dvh = matRad_calcDVH(cst,resultSamp.(pln.bioParam.quantityVis),'cum',dvhPoints);
-        caSampRes(i).qi  = matRad_calcQualityIndicators(cst,pln,resultSamp.(pln.bioParam.quantityVis),refGy,refVol);
+        doseCubeSample = resultSamp.(pln.bioParam.quantityVis);
+        caSampRes(i).dvh = matRad_calcDVH(cst,doseCubeSample,'cum',dvhPoints);
+        caSampRes(i).qi  = matRad_calcQualityIndicators(cst,pln,doseCubeSample,refGy,refVol);
 
         % Show progress
         if matRad_cfg.logLevel > 2
@@ -209,4 +219,31 @@ end
 %% add subindices
 pln.subIx        = subIx;
 
+end
+
+function dvhDoseGrid = resolveDvhDoseGrid(doseCube,dvhDoseWindow,dvhDoseGrid)
+if ~isempty(dvhDoseGrid)
+    dvhDoseGrid = dvhDoseGrid(:)';
+    if numel(dvhDoseGrid) < 2 || any(~isfinite(dvhDoseGrid)) || ...
+            any(diff(dvhDoseGrid) <= 0)
+        matRad_cfg = MatRad_Config.instance();
+        matRad_cfg.dispError('dvhDoseGrid must be a finite increasing vector.');
+    end
+    return;
+end
+
+if ~isempty(dvhDoseWindow)
+    doseWindow = dvhDoseWindow(:)';
+    if numel(doseWindow) >= 2 && all(isfinite(doseWindow(1:2))) && ...
+            doseWindow(2) > doseWindow(1)
+        dvhDoseGrid = linspace(min(0,doseWindow(1)),doseWindow(2),1000);
+        return;
+    end
+end
+
+maxDose = max(doseCube(:));
+if ~isfinite(maxDose) || maxDose <= 0
+    maxDose = 1;
+end
+dvhDoseGrid = linspace(0,maxDose*1.05,1000);
 end

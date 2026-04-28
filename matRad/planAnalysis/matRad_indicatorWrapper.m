@@ -9,8 +9,8 @@ function [dvh,qi] = matRad_indicatorWrapper(cst,pln,resultGUI,refGy,refVol)
 %   cst:                  matRad cst struct
 %   pln:                  matRad pln struct
 %   resultGUI:            matRad resultGUI struct
-%   refGy: (optional)     array of dose values used for V_XGy calculation
-%                         default is [40 50 60]
+%   refGy: (optional)     per-fraction dose values used for V_XGy
+%                         calculation. Defaults are derived from doseCube.
 %   refVol:(optional)     array of volumes (0-100) used for D_X calculation
 %                         default is [2 5 95 98]
 %                         NOTE: Call either both or none!
@@ -44,13 +44,13 @@ matRad_cfg.dispDeprecationWarning('The matRad_indicatorWrapper function will be 
 % Initialize an empty cell array for optional arguments to translate the into key-value pairs
 args = {};
 % Check if 'refVol' variable exists and add it to the arguments if it does
-if exist('refVol', 'var') 
-    args{end+1,end+2} = {'refVol',refVol};
+if exist('refVol', 'var') && ~isempty(refVol)
+    args = [args {'refVol',refVol}];
 end
 
 % Check if 'refGy' variable exists and add it to the arguments if it does
-if exist('refGy', 'var')
-    args{end+1,end+2} = {'refGy',refGy};
+if exist('refGy', 'var') && ~isempty(refGy)
+    args = [args {'refGy',refGy}];
 end
 
 % Initialize empty structures for ct and stf, required for matRad_planAnalysis
@@ -65,6 +65,5 @@ dvh = resultGUI.dvh;
 qi = resultGUI.qi;
 
 end
-
 
 
