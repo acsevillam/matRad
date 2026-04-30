@@ -143,7 +143,7 @@ classdef matRad_OptimizationWidget < matRad_Widget
             classNames = matRad_getObjectivesAndConstraints();
 
             %Get robustness version
-            robustObj = {'none','STOCH','VWWC','VWWC_INV','COWC','OWC','PROB'};
+            robustObj = {'none','STOCH','VWWC','VWWC_INV','COWC','c-COWC','OWC','PROB','INTERVAL2','INTERVAL3'};
             
             numOfObjectives = 0;
             for i = 1:size(cst,1)

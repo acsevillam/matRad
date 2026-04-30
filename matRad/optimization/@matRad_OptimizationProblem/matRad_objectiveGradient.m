@@ -47,6 +47,7 @@ d = optiProb.BP.GetResult();
 useScen  = optiProb.BP.scenarios;
 scenProb = optiProb.BP.scenarioProb;
 useNominalCtScen = optiProb.BP.nominalCtScenarios;
+optiProb.validateIntervalConfiguration(cst,w);
 
 % retrieve matching 4D scenarios
 fullScen      = cell(ndims(d),1);
@@ -58,15 +59,19 @@ doseGradient(useScen) = {zeros(dij.doseGrid.numOfVoxels,1)};
 
 %For probabilistic optimization
 vOmega = 0;
+directWeightGradient = zeros(dij.totalNumOfBixels,1);
 
 %For COWC
 f_COWC = zeros(size(dij.physicalDose));
+
+%For c-COWC Cheap-Minimax
+f_CCOWC = zeros(numel(useScen),1);
 
 % compute objective function for every VOI.
 for  i = 1:size(cst,1)
    
     % Only take OAR or target VOI.
-    if ~isempty(cst{i,4}{1}) && ( isequal(cst{i,3},'OAR') || isequal(cst{i,3},'TARGET') )
+    if ~isempty(cst{i,4}) && ( isequal(cst{i,3},'OAR') || isequal(cst{i,3},'TARGET') )
         
         % loop over the number of constraints and objectives for the current VOI
         for j = 1:numel(cst{i,6})
@@ -218,6 +223,48 @@ for  i = 1:size(cst,1)
                             f_COWC(ixScen) = f_COWC(ixScen) + objective.penalty*objective.computeDoseObjectiveFunction(d_i);
                             delta_COWC{ixScen}(cst{i,4}{ixContour}) = delta_COWC{ixScen}(cst{i,4}{ixContour}) + objective.penalty*objective.computeDoseObjectiveGradient(d_i);
                         end
+
+                    case 'c-COWC' % Cheap-Minimax composite worst case, Sevilla et al. Med Phys 2025
+                        if ~exist('delta_CCOWC','var')
+                            delta_CCOWC = cell(size(doseGradient));
+                            delta_CCOWC(useScen) = {zeros(dij.doseGrid.numOfVoxels,1)};
+                        end
+
+                        for s = 1:numel(useScen)
+                            ixScen = useScen(s);
+                            ixContour = contourScen(s);
+
+                            d_i = d{ixScen}(cst{i,4}{ixContour});
+
+                            f_CCOWC(s) = f_CCOWC(s) + objective.penalty*objective.computeDoseObjectiveFunction(d_i);
+                            delta_CCOWC{ixScen}(cst{i,4}{ixContour}) = ...
+                                delta_CCOWC{ixScen}(cst{i,4}{ixContour}) + ...
+                                objective.penalty*objective.computeDoseObjectiveGradient(d_i);
+                        end
+
+                    case {'INTERVAL2','INTERVAL3'}
+                        [subIx,ixContour] = optiProb.getIntervalStructureVoxelIndices(cst,i);
+
+                        if isequal(cst{i,3},'TARGET')
+                            directWeightGradient = directWeightGradient + ...
+                                objective.computeFluenceObjectiveGradient(w,subIx, ...
+                                optiProb.theta1,optiProb.dij_interval);
+                        elseif strcmp(robustness,'INTERVAL2')
+                            dInterval = optiProb.dij_interval.center(subIx,:)*w;
+                            doseGradientInterval = ...
+                                objective.penalty*objective.computeDoseObjectiveGradient(dInterval);
+                            directWeightGradient = directWeightGradient + ...
+                                optiProb.dij_interval.center(subIx,:)'*doseGradientInterval;
+                        else
+                            [dCenter,dRadius,fluenceGradientCenter,fluenceGradientRadius] = ...
+                                optiProb.getOARDoseInterval(cst,i,ixContour,w);
+                            dInterval = dCenter + optiProb.theta2*dRadius;
+                            doseGradientInterval = ...
+                                objective.penalty*objective.computeDoseObjectiveGradient(dInterval);
+                            directWeightGradient = directWeightGradient + ...
+                                fluenceGradientCenter'*doseGradientInterval + ...
+                                optiProb.theta2*fluenceGradientRadius'*doseGradientInterval;
+                        end
                         
                     case 'OWC' % objective-wise worst case consideres the worst individual objective function value
                         %First check the speficic cache for COWC
@@ -298,7 +345,23 @@ if exist('delta_COWC','var')
     end
 end
 
-weightGradient = zeros(dij.totalNumOfBixels,1);
+if exist('delta_CCOWC','var')
+    scenProb_CCOWC = scenProb(:);
+    if numel(scenProb_CCOWC) ~= numel(useScen)
+        scenProb_CCOWC = scenProb_CCOWC(useScen);
+    end
+
+    [~,fGrad] = optiProb.cheapCOWC(f_CCOWC,scenProb_CCOWC);
+
+    for s = 1:numel(useScen)
+        ixScen = useScen(s);
+        if fGrad(s) ~= 0
+            doseGradient{ixScen} = doseGradient{ixScen} + fGrad(s)*delta_CCOWC{ixScen};
+        end
+    end
+end
+
+weightGradient = directWeightGradient;
 
 optiProb.BP.computeGradient(dij,doseGradient,w);
 g = optiProb.BP.GetGradient();

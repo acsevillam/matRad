@@ -42,6 +42,7 @@ d = optiProb.BP.GetResult();
 useScen  = optiProb.BP.scenarios;
 scenProb = optiProb.BP.scenarioProb;
 useNominalCtScen = optiProb.BP.nominalCtScenarios;
+optiProb.validateIntervalConfiguration(cst,w);
 
 % retrieve matching 4D scenarios
 fullScen = cell(ndims(d),1);
@@ -54,11 +55,15 @@ f = 0;
 % required for COWC opt
 f_COWC = zeros(numel(useScen),1);
 
+% required for c-COWC Cheap-Minimax opt
+f_CCOWC = zeros(numel(useScen),1);
+has_CCOWC = false;
+
 % compute objective function for every VOI.
 for  i = 1:size(cst,1)
     
     % Only take OAR or target VOI.
-    if ~isempty(cst{i,4}{1}) && ( isequal(cst{i,3},'OAR') || isequal(cst{i,3},'TARGET') )
+    if ~isempty(cst{i,4}) && ( isequal(cst{i,3},'OAR') || isequal(cst{i,3},'TARGET') )
         
         % loop over the number of constraints for the current VOI
         for j = 1:numel(cst{i,6})
@@ -167,6 +172,34 @@ for  i = 1:size(cst,1)
                             f_COWC(s) = f_COWC(s) + objective.penalty*objective.computeDoseObjectiveFunction(d_i);
                         end
 
+                    case 'c-COWC'  % Cheap-Minimax composite worst case, Sevilla et al. Med Phys 2025
+
+                        has_CCOWC = true;
+
+                        for s = 1:numel(useScen)
+                            ixScen = useScen(s);
+                            ixContour = contourScen(s);
+
+                            d_i = d{ixScen}(cst{i,4}{ixContour});
+
+                            f_CCOWC(s) = f_CCOWC(s) + objective.penalty*objective.computeDoseObjectiveFunction(d_i);
+                        end
+
+                    case {'INTERVAL2','INTERVAL3'}
+                        [subIx,ixContour] = optiProb.getIntervalStructureVoxelIndices(cst,i);
+
+                        if isequal(cst{i,3},'TARGET')
+                            f = f + objective.computeDoseObjectiveFunction(w,subIx, ...
+                                optiProb.theta1,optiProb.dij_interval);
+                        elseif strcmp(robustness,'INTERVAL2')
+                            d_i = optiProb.dij_interval.center(subIx,:)*w;
+                            f = f + objective.penalty*objective.computeDoseObjectiveFunction(d_i);
+                        else
+                            [dCenter,dRadius] = optiProb.getOARDoseInterval(cst,i,ixContour,w);
+                            f = f + objective.penalty*objective.computeDoseObjectiveFunction( ...
+                                dCenter + optiProb.theta2*dRadius);
+                        end
+
                     case 'OWC'   % objective-wise worst case considers the worst individual objective function value
 
                         f_OWC = zeros(numel(useScen),1);
@@ -220,3 +253,12 @@ if fMax > 0
 end
 %Sum up max of composite worst case part
 f = f + fMax;
+
+if has_CCOWC
+    scenProb_CCOWC = scenProb(:);
+    if numel(scenProb_CCOWC) ~= numel(useScen)
+        scenProb_CCOWC = scenProb_CCOWC(useScen);
+    end
+
+    f = f + optiProb.cheapCOWC(f_CCOWC,scenProb_CCOWC);
+end

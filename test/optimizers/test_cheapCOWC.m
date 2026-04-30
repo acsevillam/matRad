@@ -1,0 +1,102 @@
+function test_suite = test_cheapCOWC
+
+test_functions=localfunctions();
+
+initTestSuite;
+
+function test_cheap_cowc_available_and_gradest_on_path
+
+    objective = DoseObjectives.matRad_SquaredDeviation(1,0);
+    objective.robustness = 'c-COWC';
+
+    assertEqual(objective.robustness,'c-COWC');
+    assertEqual(exist('gradest','file'),2);
+    assertEqual(exist('derivest','file'),2);
+
+function test_cheap_cowc_default_ranks_select_worst_scenario
+
+    [optiProb,dij,cst,w] = buildCheapCOWC2Problem([1 2 3],[0.2 0.3 0.5],1,1);
+
+    f = optiProb.matRad_objectiveFunction(w,dij,cst);
+    g = optiProb.matRad_objectiveGradient(w,dij,cst);
+
+    assertElementsAlmostEqual(f,9,'absolute',1e-8);
+    assertElementsAlmostEqual(g,18,'absolute',1e-5);
+
+function test_cheap_cowc_rank_window_uses_probability_weighted_average
+
+    [optiProb,dij,cst,w] = buildCheapCOWC2Problem([1 2 3],[0.2 0.3 0.5],2,3);
+
+    f = optiProb.matRad_objectiveFunction(w,dij,cst);
+    g = optiProb.matRad_objectiveGradient(w,dij,cst);
+
+    assertElementsAlmostEqual(f,2.8,'absolute',1e-8);
+    assertElementsAlmostEqual(g,5.6,'absolute',1e-5);
+
+function test_cheap_cowc_rejects_invalid_rank_window
+
+    [optiProb,dij,cst,w] = buildCheapCOWC2Problem([1 2 3],[0.2 0.3 0.5],2,4);
+
+    assertExceptionThrown(@() optiProb.matRad_objectiveFunction(w,dij,cst),'matRad:Error');
+
+function test_cheap_cowc_accepts_full_probability_vector_for_subset_scenarios
+
+    [optiProb,dij,cst,w] = buildCheapCOWC2Problem([0 2 0 3],[0.1 0.2 0.3 0.4],2,2);
+    optiProb.BP.scenarios = [2 4];
+
+    f = optiProb.matRad_objectiveFunction(w,dij,cst);
+    g = optiProb.matRad_objectiveGradient(w,dij,cst);
+
+    assertElementsAlmostEqual(f,4,'absolute',1e-8);
+    assertElementsAlmostEqual(g,8,'absolute',1e-5);
+
+function test_classic_cowc_keeps_worst_case_behavior
+
+    [optiProb,dij,cst,w] = buildCOWCProblem([1 2 3],[0.2 0.3 0.5]);
+    optiProb.useMaxApprox = 'none';
+
+    f = optiProb.matRad_objectiveFunction(w,dij,cst);
+    g = optiProb.matRad_objectiveGradient(w,dij,cst);
+
+    assertElementsAlmostEqual(f,9,'absolute',1e-8);
+    assertElementsAlmostEqual(g,18,'absolute',1e-8);
+
+function [optiProb,dij,cst,w] = buildCheapCOWC2Problem(doseValues,scenarioProb,p1,p2)
+
+    [optiProb,dij,cst,w] = buildOptimizationProblem(doseValues,scenarioProb,'c-COWC');
+    optiProb.p1 = p1;
+    optiProb.p2 = p2;
+
+function [optiProb,dij,cst,w] = buildCOWCProblem(doseValues,scenarioProb)
+
+    [optiProb,dij,cst,w] = buildOptimizationProblem(doseValues,scenarioProb,'COWC');
+
+function [optiProb,dij,cst,w] = buildOptimizationProblem(doseValues,scenarioProb,robustness)
+
+    numScenarios = numel(doseValues);
+
+    backProjection = matRad_DoseProjection();
+    backProjection.scenarios = 1:numScenarios;
+    backProjection.scenarioProb = scenarioProb(:);
+    backProjection.nominalCtScenarios = 1;
+
+    optiProb = matRad_OptimizationProblem(backProjection);
+
+    dij.physicalDose = cell(1,numScenarios);
+    for i = 1:numScenarios
+        dij.physicalDose{i} = doseValues(i);
+    end
+    dij.doseGrid.numOfVoxels = 1;
+    dij.totalNumOfBixels = 1;
+
+    objective = DoseObjectives.matRad_SquaredDeviation(1,0);
+    objective.robustness = robustness;
+
+    cst = cell(1,6);
+    cst{1,3} = 'TARGET';
+    cst{1,4} = {1};
+    cst{1,5}.alphaX = [];
+    cst{1,5}.betaX = [];
+    cst{1,6} = {objective};
+
+    w = 1;

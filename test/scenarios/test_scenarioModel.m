@@ -55,6 +55,10 @@ function test_extractSingleScenario_accepts_sparse_ct_scenario_probabilities
 
     assertEqual(scenario.ctScenProb,[2 1]);
     assertEqual(scenario.ctScenIx,2);
+    assertEqual(scenario.sub2scenIx(1,1,1),2);
+    assertEqual(scenario.sub2scenIx(1,1,1,'position'),2);
+    assertEqual(scenario.sub2scenIx(2,1,1,'id'),2);
+    assertExceptionThrown(@() scenario.sub2scenIx(2,1,1,'position'),'matRad:Error');
 
 function instanceTest_listAllScenarios(model)
     model.listAllScenarios();

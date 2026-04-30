@@ -159,14 +159,16 @@ resultGUI = matRad_planAnalysis(resultGUI,ct,cst,stf,pln);
 structSel = {}; % structSel = {'PTV','OAR1'};
 robustnessCriteria = [5 5];
 samplingAnalysisArgs = {'slice',slice,'robustnessCriteria',robustnessCriteria};
-[caSamp, mSampDose, plnSamp, resultGUInomScen]          = matRad_sampling(ct,stf,cst,pln,resultGUI.w,structSel);
+dvhDoseWindow = doseWindow;
+dvhSamplingArgs = {'dvhDoseWindow',dvhDoseWindow};
+[caSamp, mSampDose, plnSamp, resultGUInomScen]          = matRad_sampling(ct,stf,cst,pln,resultGUI.w,structSel,[],dvhSamplingArgs{:});
 [cstStat, resultGUISamp, meta, gammaFig, robustnessFig1] = ...
     matRad_samplingAnalysis(ct,cst,plnSamp,caSamp,mSampDose,resultGUInomScen,samplingAnalysisArgs{:});
 
 figure(gammaFig),title('Gamma index (nominal vs expected) - conventional');
 figure(robustnessFig1),title('Delta index - conventional');
 
-[caSampRob, mSampDoseRob, plnSampRob, resultGUInomScen] = matRad_sampling(ct,stf,cst,pln,resultGUIrobust.w,structSel);
+[caSampRob, mSampDoseRob, plnSampRob, resultGUInomScen] = matRad_sampling(ct,stf,cst,pln,resultGUIrobust.w,structSel,[],dvhSamplingArgs{:});
 [cstStatRob, resultGUISampRob, metaRob, gammaFigRob, robustnessFigRob1] = ...
     matRad_samplingAnalysis(ct,cst,plnSampRob,caSampRob,mSampDoseRob,resultGUInomScen,samplingAnalysisArgs{:});
 
@@ -175,16 +177,26 @@ figure(robustnessFigRob1),title('Delta index - robust');
 
 figure,title('DVH trustband based on sampling - conventional')
 matRad_showDVHFromSampling(caSamp,[],cst,plnSamp, ...
-    1:plnSamp.multScen.totNumScen,doseWindow,'trustband',1,1, ...
+    1:plnSamp.multScen.totNumScen,dvhDoseWindow,'trustband',1,1, ...
     'scenWeights',meta.scenWeights);
+ylim([0 105]);
 
 figure,title('DVH trustband based on sampling - robust')
 matRad_showDVHFromSampling(caSampRob,[],cst,plnSampRob, ...
-    1:plnSampRob.multScen.totNumScen,doseWindow,'trustband',1,1, ...
+    1:plnSampRob.multScen.totNumScen,dvhDoseWindow,'trustband',1,1, ...
     'scenWeights',metaRob.scenWeights);
+ylim([0 105]);
+
+stdDoseValues = [resultGUISamp.stdCube(:); resultGUISampRob.stdCube(:)];
+stdDoseValues = stdDoseValues(isfinite(stdDoseValues));
+if isempty(stdDoseValues) || max(stdDoseValues) <= 0
+    stdDoseWindow = [0 1];
+else
+    stdDoseWindow = [0 max(stdDoseValues)];
+end
 
 figure,title('std dose cube based on sampling - conventional')
-matRad_plotSliceWrapper(gca,ct,cst,1,resultGUISamp.stdCube,plane,slice,[],[],colorcube,[],[0 max(resultGUISamp.stdCube(:))]);
+matRad_plotSliceWrapper(gca,ct,cst,1,resultGUISamp.stdCube,plane,slice,[],[],colorcube,[],stdDoseWindow);
 
 figure,title('std dose cube based on sampling - robust')
-matRad_plotSliceWrapper(gca,ct,cst,1,resultGUISampRob.stdCube,plane,slice,[],[],colorcube,[],[0 max(resultGUISampRob.stdCube(:))]);
+matRad_plotSliceWrapper(gca,ct,cst,1,resultGUISampRob.stdCube,plane,slice,[],[],colorcube,[],stdDoseWindow);

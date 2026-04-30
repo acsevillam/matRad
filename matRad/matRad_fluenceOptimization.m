@@ -294,9 +294,39 @@ backProjection.nominalCtScenarios = linIxDIJ_nominalCT;
 
 optiProb = matRad_OptimizationProblem(backProjection);
 optiProb.quantityOpt = pln.bioParam.quantityOpt;
-if isfield(pln,'propOpt') && isfield(pln.propOpt,'useLogSumExpForRobOpt')
-    optiProb.useLogSumExpForRobOpt = pln.propOpt.useLogSumExpForRobOpt;
+if isfield(pln,'propOpt')
+    if isfield(pln.propOpt,'useLogSumExpForRobOpt')
+        if pln.propOpt.useLogSumExpForRobOpt
+            optiProb.useMaxApprox = 'logsumexp';
+        else
+            optiProb.useMaxApprox = 'none';
+        end
+    end
+
+    if isfield(pln.propOpt,'p1')
+        optiProb.p1 = pln.propOpt.p1;
+    end
+
+    if isfield(pln.propOpt,'p2')
+        optiProb.p2 = pln.propOpt.p2;
+    end
+
+    if isfield(pln.propOpt,'theta1')
+        optiProb.theta1 = pln.propOpt.theta1;
+    end
+
+    if isfield(pln.propOpt,'theta2')
+        optiProb.theta2 = pln.propOpt.theta2;
+    end
+
+    if isfield(pln.propOpt,'dij_interval')
+        optiProb.dij_interval = pln.propOpt.dij_interval;
+    end
+
+    optiProb.validateCheapCOWCParameters(numel(ixForOpt));
 end
+
+optiProb.validateIntervalConfiguration(cst,wInit);
 
 %Get Bounds
 if ~isfield(pln.propOpt,'boundMU')
@@ -355,9 +385,9 @@ resultGUI.info = info;
 
 %Robust quantities
 if pln.multScen.totNumScen > 1
+    activeScenIx = find(pln.multScen.scenMask);
     for i = 1:pln.multScen.totNumScen
-        scenSubIx = pln.multScen.linearMask(i,:);
-        resultGUItmp = matRad_calcCubes(wOpt,dij,pln.multScen.sub2scenIx(scenSubIx(1),scenSubIx(2),scenSubIx(3)));
+        resultGUItmp = matRad_calcCubes(wOpt,dij,activeScenIx(i));
         resultGUI = matRad_appendResultGUI(resultGUI,resultGUItmp,false,sprintf('scen%d',i));
     end
 end
