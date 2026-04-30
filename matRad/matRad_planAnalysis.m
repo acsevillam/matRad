@@ -11,7 +11,7 @@ function resultGUI = matRad_planAnalysis(resultGUI,ct,cst,stf,pln,varargin)
 %   pln:                    matRad pln struct with plan information
 %   name / value pairs:     Optional parameters for analysis customization
 %   quantity: (optional)    resultGUI dose quantity to analyse
-%   displayDoseMode:(optional) 'perFraction' or 'total' for figures/tables
+%   evaluationMode:(optional) 'perFraction' or 'total' for figures/tables
 %   doseWindow: (optional)  dose axis window for DVH display
 %   refGy: (optional)       Per-fraction dose values for V_XGy calculation
 %   refVol:(optional)       Volume percentages for D_X calculation (default: [2 5 95 98])
@@ -19,13 +19,13 @@ function resultGUI = matRad_planAnalysis(resultGUI,ct,cst,stf,pln,varargin)
 % output
 %   resultGUI:              Updated resultGUI with analysis data
 
-% Copyright 2024 the matRad development team. 
-% 
-% This file is part of the matRad project. It is subject to the license 
-% terms in the LICENSE file found in the top-level directory of this 
-% distribution and at https://github.com/e0404/matRad/LICENSE.md. No part 
-% of the matRad project, including this file, may be copied, modified, 
-% propagated, or distributed except according to the terms contained in the 
+% Copyright 2024 the matRad development team.
+%
+% This file is part of the matRad project. It is subject to the license
+% terms in the LICENSE file found in the top-level directory of this
+% distribution and at https://github.com/e0404/matRad/LICENSE.md. No part
+% of the matRad project, including this file, may be copied, modified,
+% propagated, or distributed except according to the terms contained in the
 % LICENSE file.
 %
 % %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -46,7 +46,7 @@ p.addParameter('refVol',[2 5 95 98],@isnumeric); % Reference volume percentages 
 p.addParameter('showDVH',true,@islogical); % Flag to show or hide the DVH plot
 p.addParameter('showQI',true,@islogical); % Flag to show or hide the Quality Indicators plot
 p.addParameter('quantity','',@(x) ischar(x) || isstring(x)); % Dose quantity to analyze
-p.addParameter('displayDoseMode','perFraction',@(x) ischar(x) || isstring(x)); % Display dose mode
+p.addParameter('evaluationMode','perFraction',@(x) ischar(x) || isstring(x)); % Figure/table evaluation mode
 p.addParameter('doseWindow',[],@(x) isempty(x) || (isnumeric(x) && numel(x) == 2)); % DVH dose axis window
 
 % Parse input arguments to extract values
@@ -63,13 +63,13 @@ showDVH = p.Results.showDVH;
 showQI = p.Results.showQI;
 quantity = p.Results.quantity;
 doseWindow = p.Results.doseWindow;
-displayDoseMode = p.Results.displayDoseMode;
+evaluationMode = p.Results.evaluationMode;
 
 if isstring(quantity)
     quantity = char(quantity);
 end
 
-[displayDoseScale,displayDoseMode] = matRad_getDisplayDoseScale(pln,displayDoseMode);
+[~,evaluationMode,evaluationScale] = matRad_convertToEvaluationMode([],pln,evaluationMode);
 
 if ~isempty(doseWindow)
     doseWindow = doseWindow(:)';
@@ -99,20 +99,19 @@ doseCube = resultGUI.(visQ);
 resultGUI.dvh = matRad_calcDVH(cst,doseCube,'cum'); % Calculate cumulative DVH
 resultGUI.qi  = matRad_calcQualityIndicators(cst,pln,doseCube,refGy,refVol); % Calculate quality indicators
 resultGUI.analysisQuantity = visQ;
-resultGUI.analysisDoseMode = 'perFraction';
-resultGUI.displayDoseMode = displayDoseMode;
-resultGUI.displayDoseScale = displayDoseScale;
-resultGUI.displayDvh = scaleDvhForDisplay(resultGUI.dvh,displayDoseScale);
-resultGUI.displayQi = scaleQiForDisplay(resultGUI.qi,displayDoseScale);
+resultGUI.evaluationModeBase = 'perFraction';
+resultGUI.evaluationMode = evaluationMode;
+resultGUI.evaluationScale = evaluationScale;
+resultGUI.displayDvh = convertDvhForEvaluation(resultGUI.dvh,pln,evaluationMode);
+resultGUI.displayQi = convertQiForEvaluation(resultGUI.qi,pln,evaluationMode);
 
 dvhScen = {};
 if isfield(pln,'multScen') && pln.multScen.totNumScen > 1
     for i = 1:pln.multScen.totNumScen
         scenFieldName = sprintf('%s_scen%d',visQ,i);
         if isfield(resultGUI,scenFieldName)
-            dvhScen{i} = scaleDvhForDisplay( ...
-                matRad_calcDVH(cst,resultGUI.(scenFieldName),'cum'), ...
-                displayDoseScale); % Calculate cumulative scenario DVH
+            dvhScen{i} = convertDvhForEvaluation( ...
+                matRad_calcDVH(cst,resultGUI.(scenFieldName),'cum'),pln,evaluationMode); % Calculate cumulative scenario DVH
         end
     end
 end
@@ -162,20 +161,21 @@ end
 
 end
 
-function dvh = scaleDvhForDisplay(dvh,scale)
-if scale == 1 || isempty(dvh)
+function dvh = convertDvhForEvaluation(dvh,pln,evaluationMode)
+if isempty(dvh)
     return;
 end
 
 for i = 1:numel(dvh)
     if isfield(dvh(i),'doseGrid') && ~isempty(dvh(i).doseGrid)
-        dvh(i).doseGrid = dvh(i).doseGrid * scale;
+        dvh(i).doseGrid = matRad_convertToEvaluationMode( ...
+            dvh(i).doseGrid,pln,evaluationMode);
     end
 end
 end
 
-function qi = scaleQiForDisplay(qi,scale)
-if scale == 1 || isempty(qi)
+function qi = convertQiForEvaluation(qi,pln,evaluationMode)
+if isempty(qi)
     return;
 end
 
@@ -184,7 +184,8 @@ for i = 1:numel(qi)
     for j = 1:numel(doseFields)
         fieldName = doseFields{j};
         if isfield(qi(i),fieldName) && isnumeric(qi(i).(fieldName))
-            qi(i).(fieldName) = qi(i).(fieldName) * scale;
+            qi(i).(fieldName) = matRad_convertToEvaluationMode( ...
+                qi(i).(fieldName),pln,evaluationMode);
         end
     end
 
@@ -192,8 +193,10 @@ for i = 1:numel(qi)
     for j = 1:numel(fields)
         fieldName = fields{j};
         if strncmp(fieldName,'D_',2) && isnumeric(qi(i).(fieldName))
-            qi(i).(fieldName) = qi(i).(fieldName) * scale;
+            qi(i).(fieldName) = matRad_convertToEvaluationMode( ...
+                qi(i).(fieldName),pln,evaluationMode);
         end
     end
+
 end
 end

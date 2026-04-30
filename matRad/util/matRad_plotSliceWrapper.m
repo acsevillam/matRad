@@ -4,23 +4,20 @@ function [hCMap,hDose,hCt,hContour,hIsoDose] = matRad_plotSliceWrapper(axesHandl
 % including contours and isolines.
 %
 % call
-% [hCMap,hDose,hCt,hContour,hIsoDose] = matRad_plotSliceWrapper(axesHandle,ct,cst,cubeIdx,dose,plane,slice)
-% [hCMap,hDose,hCt,hContour,hIsoDose] = matRad_plotSliceWrapper(axesHandle,ct,cst,cubeIdx,dose,plane,slice,thresh)
-% [hCMap,hDose,hCt,hContour,hIsoDose] = matRad_plotSliceWrapper(axesHandle,ct,cst,cubeIdx,dose,plane,slice,alpha)
-% [hCMap,hDose,hCt,hContour,hIsoDose] = matRad_plotSliceWrapper(axesHandle,ct,cst,cubeIdx,dose,plane,slice,contourColorMap)
-% [hCMap,hDose,hCt,hContour,hIsoDose] = matRad_plotSliceWrapper(axesHandle,ct,cst,cubeIdx,dose,plane,slice,doseColorMap)
-% [hCMap,hDose,hCt,hContour,hIsoDose] = matRad_plotSliceWrapper(axesHandle,ct,cst,cubeIdx,dose,plane,slice,doseWindow)
-% [hCMap,hDose,hCt,hContour,hIsoDose] = matRad_plotSliceWrapper(axesHandle,ct,cst,cubeIdx,dose,plane,slice,doseIsoLevels)
-%               ...
-% [hCMap,hDose,hCt,hContour,hIsoDose] = matRad_plotSliceWrapper(axesHandle,ct,cst,cubeIdx,dose,plane,slice,thresh,alpha,contourColorMap,...
-%                                                                          doseColorMap,doseWindow,doseIsoLevels,voiSelection,colorBarLabel,boolPlotLegend,...)
+%   [hCMap,hDose,hCt,hContour,hIsoDose] = matRad_plotSliceWrapper(axesHandle,ct,cst,cubeIdx,dose,plane,slice)
+%   [hCMap,hDose,hCt,hContour,hIsoDose] = matRad_plotSliceWrapper(axesHandle,ct,cst,cubeIdx,dose,plane,slice,thresh,alpha,contourColorMap,...
+%                                                                            doseColorMap,doseWindow,doseIsoLevels,voiSelection,colorBarLabel,boolPlotLegend,...)
+%
+%   Optional positional arguments must be supplied in order. Use [] to keep
+%   defaults for earlier optional arguments.
 %
 % input (required)
 %   axesHandle      handle to axes the slice should be displayed in
 %   ct              matRad ct struct
 %   cst             matRad cst struct
 %   cubeIdx         Index of the desired cube in the ct struct
-%   dose            dose cube
+%   dose            dose cube. Can be [] to plot CT and contours without
+%                   dose overlay, isodose lines, dose colormap, or colorbar.
 %   plane           plane view (coronal=1,sagittal=2,axial=3)
 %   slice           slice in the selected plane of the 3D cube
 %
@@ -35,30 +32,30 @@ function [hCMap,hDose,hCt,hContour,hIsoDose] = matRad_plotSliceWrapper(axesHandl
 %                   that should be plotted. Can be set to [] to plot
 %                   all non-ignored contours.
 %   colorBarLabel   string defining the yLabel of the colorBar
-%   boolPlotLegend  boolean if legend should be plottet or not
+%   boolPlotLegend  boolean if contour legend should be plotted or not
 %   varargin        additional input parameters that are passed on to
 %                   individual plotting functions (e.g. 'LineWidth',1.5)
-%   
 %
 % output
-%   hCMap       handle to the colormap
-%   hDose       handle to the dose plot
+%   hCMap       handle to the dose colorbar; [] if dose is empty
+%   hDose       handle to the dose plot; [] if dose is empty
 %   hCt         handle to the ct plot
 %   hContour    handle to the contour plot
-%   hIsoDose    handle to iso dose contours
+%   hIsoDose    handle to iso dose contours; [] if dose or doseIsoLevels is
+%               empty
 %
 % References
 %   -
 %
 % %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
-% Copyright 2015 the matRad development team. 
-% 
-% This file is part of the matRad project. It is subject to the license 
-% terms in the LICENSE file found in the top-level directory of this 
-% distribution and at https://github.com/e0404/matRad/LICENSE.md. No part 
-% of the matRad project, including this file, may be copied, modified, 
-% propagated, or distributed except according to the terms contained in the 
+% Copyright 2015 the matRad development team.
+%
+% This file is part of the matRad project. It is subject to the license
+% terms in the LICENSE file found in the top-level directory of this
+% distribution and at https://github.com/e0404/matRad/LICENSE.md. No part
+% of the matRad project, including this file, may be copied, modified,
+% propagated, or distributed except according to the terms contained in the
 % LICENSE file.
 %
 % %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -99,24 +96,28 @@ if ~exist('cst','var') || isempty(cst)
    cst = [];
 end
 
+hCMap = [];
+hDose = [];
+hIsoDose = [];
+
 set(axesHandle,'YDir','Reverse');
 % plot ct slice
-hCt = matRad_plotCtSlice(axesHandle,ct.cubeHU,cubeIdx,plane,slice); 
+hCt = matRad_plotCtSlice(axesHandle,ct.cubeHU,cubeIdx,plane,slice);
 hold on;
 
 % plot dose
-if ~isempty(doseWindow) && doseWindow(2) - doseWindow(1) <= 0
-    doseWindow = [0 2];
-end
+if ~isempty(dose)
+    if ~isempty(doseWindow) && doseWindow(2) - doseWindow(1) <= 0
+        doseWindow = [0 2];
+    end
 
-[hDose,doseColorMap,doseWindow] = matRad_plotDoseSlice(axesHandle,dose,plane,slice,thresh,alpha,doseColorMap,doseWindow);
+    [hDose,doseColorMap,doseWindow] = matRad_plotDoseSlice(axesHandle,dose,plane,slice,thresh,alpha,doseColorMap,doseWindow);
 
-% plot iso dose lines
-if ~isempty(doseIsoLevels)
-    hIsoDose = matRad_plotIsoDoseLines(axesHandle,dose,[],doseIsoLevels,false,plane,slice,doseColorMap,doseWindow,varargin{:});
-    hold on;
-else
-    hIsoDose = [];
+    % plot iso dose lines
+    if ~isempty(doseIsoLevels)
+        hIsoDose = matRad_plotIsoDoseLines(axesHandle,dose,[],doseIsoLevels,false,plane,slice,doseColorMap,doseWindow,varargin{:});
+        hold on;
+    end
 end
 
 %plot VOI contours
@@ -144,30 +145,31 @@ end
 
 axis(axesHandle,'tight');
 set(axesHandle,'xtick',[],'ytick',[]);
-colormap(axesHandle,doseColorMap);
 
 matRad_plotAxisLabels(axesHandle,ct,plane,slice,[])
 
 % set axis ratio
 
 ratios = [1/ct.resolution.x 1/ct.resolution.y 1/ct.resolution.z];
-   
+
 set(axesHandle,'DataAspectRatioMode','manual');
-if plane == 1 
-      res = [ratios(3) ratios(2)]./max([ratios(3) ratios(2)]);  
+if plane == 1
+      res = [ratios(3) ratios(2)]./max([ratios(3) ratios(2)]);
       set(axesHandle,'DataAspectRatio',[res 1])
 elseif plane == 2 % sagittal plane
-      res = [ratios(3) ratios(1)]./max([ratios(3) ratios(1)]);  
-      set(axesHandle,'DataAspectRatio',[res 1]) 
+      res = [ratios(3) ratios(1)]./max([ratios(3) ratios(1)]);
+      set(axesHandle,'DataAspectRatio',[res 1])
 elseif  plane == 3 % Axial plane
-      res = [ratios(2) ratios(1)]./max([ratios(2) ratios(1)]);  
+      res = [ratios(2) ratios(1)]./max([ratios(2) ratios(1)]);
       set(axesHandle,'DataAspectRatio',[res 1])
 end
 
-hCMap = matRad_plotColorbar(axesHandle,doseColorMap,doseWindow,'Location','EastOutside');
-if ~isempty(colorBarLabel)
-    set(get(hCMap,'YLabel'),'String', colorBarLabel,'FontSize',14);
+if ~isempty(dose)
+    colormap(axesHandle,doseColorMap);
+    hCMap = matRad_plotColorbar(axesHandle,doseColorMap,doseWindow,'Location','EastOutside');
+    if ~isempty(colorBarLabel)
+        set(get(hCMap,'YLabel'),'String', colorBarLabel,'FontSize',14);
+    end
 end
 
 end
-

@@ -1,8 +1,7 @@
 function result = matRad_EQD2accumulation(pln1,ct1,cst1,dose1,prescribedDose1, ...
                                           pln2,ct2,cst2,dose2,prescribedDose2)
-                             
-% matRad function to accumulate and compare dose and EQD2 for two treatment 
-% plans 
+% matRad function to accumulate and compare dose and EQD2 for two treatment
+% plans
 %
 % call
 %   result = matRad_EQD2accumulation(pln1,ct1,cst1,dose1,prescribedDose1, ...
@@ -17,21 +16,21 @@ function result = matRad_EQD2accumulation(pln1,ct1,cst1,dose1,prescribedDose1, .
 %
 % %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
-% Copyright 2019 the matRad development team. 
-% 
-% This file is part of the matRad project. It is subject to the license 
-% terms in the LICENSE file found in the top-level directory of this 
-% distribution and at https://github.com/e0404/matRad/LICENSE.md. No part 
-% of the matRad project, including this file, may be copied, modified, 
-% propagated, or distributed except according to the terms contained in the 
+% Copyright 2019 the matRad development team.
+%
+% This file is part of the matRad project. It is subject to the license
+% terms in the LICENSE file found in the top-level directory of this
+% distribution and at https://github.com/e0404/matRad/LICENSE.md. No part
+% of the matRad project, including this file, may be copied, modified,
+% propagated, or distributed except according to the terms contained in the
 % LICENSE file.
 %
 % %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-                             
-                             
+
+
 % parameters that can be changed to fit to the RT plans, also alpha/beta
 % for the EQD_2 calculation can be changed
- 
+
 checkImageRegis = true;                                % true or false, shows pictures of the particle and photon CT to check if the image registration went wrong (true shows pictures)
 
 alphaBetaRatio = 2;                                     % alpha/beta value
@@ -76,30 +75,30 @@ warpDose1 = imwarp(dose1,Rmoving,geomtform,'OutputView',Rfixed);
 
 % deleting empty structs in reference cst
 cst2(cellfun(@isempty,cst2(:,4)),:) = [];
-      
+
 % adding target structs with the help of the geometrical information
 % from the image registration
 for i = 1 : size(cst1)
-        
+
     if strcmp(cst1{i,3} ,'TARGET')
-    
+
         cube1 = zeros(ct1.cubeDim);
-      
+
         structIndices = cst1{i,4}{1};
         cube1(structIndices) = 1;
         newPhotonCube = imwarp(cube1,Rmoving,geomtform,'OutputView',Rfixed);
-        
+
         % ist das hier zul�ssig? vergr�ssern wir hier durch interpolation
         % bei imwarp nicht die volumina?
         newStructIndices = find(newPhotonCube > 0);
-        
+
         cst2{end+1,1}    = size(cst2) + 1;
         cst2{end  ,2}    = [cst1{i,2} '_Photon'];
         cst2{end  ,3}    = 'TARGET';
         cst2{end  ,4}{1} = newStructIndices;
         cst2{end  ,5}    = cst1{i,5};
         cst2{end  ,6}    = cst1{i,6};
-        
+
     end
 end
 
@@ -116,10 +115,10 @@ result.EQD2ratioInvers = result.totalDose ./ result.totalEQD2;
 
 
 %% DVH calculation
-    
+
 aimedDose = numOfFractions1 * prescribedDose1 + numOfFractions2 * prescribedDose2;
-aimedEQD2 = numOfFractions1 * prescribedDose1 .* ((prescribedDose1 + alphaBetaRatio) / (2 + alphaBetaRatio)) + numOfFractions2 * prescribedDose2 .* ((prescribedDose2 + alphaBetaRatio) / (2 + alphaBetaRatio)); 
-        
+aimedEQD2 = numOfFractions1 * prescribedDose1 .* ((prescribedDose1 + alphaBetaRatio) / (2 + alphaBetaRatio)) + numOfFractions2 * prescribedDose2 .* ((prescribedDose2 + alphaBetaRatio) / (2 + alphaBetaRatio));
+
 dvh_dose = matRad_calcDVH(cst2,result.totalDose ./ aimedDose);
 dvh_EQD2 = matRad_calcDVH(cst2,result.totalEQD2 ./ aimedEQD2);
 dvh_EQD2ratio = matRad_calcDVH(cst2,result.EQD2ratio);
@@ -151,7 +150,7 @@ end
 %% image registration check (shows ct pictures)
 if checkImageRegis == true
     movedCT = imwarp(moving,Rmoving,geomtform,'OutputView',Rfixed);
-   
+
     figure,imshowpair(squeeze( fixed(:,50,:)),squeeze( moving(:,50,:)),'Scaling','joint');
     title('fixed vs moving');
     figure,imshowpair(squeeze( fixed(:,50,:)),squeeze( movedCT(:,50,:)),'scaling','joint');

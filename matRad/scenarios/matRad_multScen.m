@@ -2,7 +2,7 @@ function multScen = matRad_multScen(ct,scenarioModel)
 %  matRad_multScen
 %  This function replaces the deprecated matRad_multScen class. It creates
 %  the respective matRad_ScenarioModel instance for the specific scenario
-%  model chosen with standard parameters. 
+%  model chosen with standard parameters.
 %
 % call
 %   pln.multScen = matRad_multScen(ct,scenarioModel);
@@ -15,7 +15,16 @@ function multScen = matRad_multScen(ct,scenarioModel)
 %                       'nomScen'   create only the nominal scenario
 %                       'wcScen'    create worst case scenarios
 %                       'impScen'   create important/grid scenarios
+%                       'truncatedImpScen'
+%                                   create important/grid scenarios inside
+%                                   the wcSigma uncertainty radius
 %                       'rndScen'   create random scenarios
+%
+% output
+%   multScen:           scenario model instance
+%
+% References
+%   -
 %
 % %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
@@ -40,6 +49,8 @@ switch scenarioModel
         multScen = matRad_WorstCaseScenarios(ct);
     case 'impScen'
         multScen = matRad_ImportanceScenarios(ct);
+    case 'truncatedImpScen'
+        multScen = matRad_TruncatedImportanceScenarios(ct);
     case 'rndScen'
         multScen = matRad_RandomScenarios(ct);
     otherwise
@@ -47,8 +58,6 @@ switch scenarioModel
 end
 
 end
-
-
 
 
 

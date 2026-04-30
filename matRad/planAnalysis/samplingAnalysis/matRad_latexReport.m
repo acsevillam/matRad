@@ -1,8 +1,10 @@
 function success = matRad_latexReport(outputPath, ct, cst, pln, nominalScenario, structureStat, doseStat, sampDose, listOfQI, varargin)
-% matRad uncertainty analysis report generaator function
-% 
+% matRad uncertainty analysis report generator function
+%
 % call
-%   latexReport(ct, cst, pln, nominalScenario, structureStat)
+%   success = matRad_latexReport(outputPath, ct, cst, pln, nominalScenario, ...
+%       structureStat, doseStat, sampDose, listOfQI)
+%   success = matRad_latexReport(..., 'LatexExecutable', latexExecutable)
 %
 % input
 %   outputPath:         where to generate the report
@@ -10,7 +12,7 @@ function success = matRad_latexReport(outputPath, ct, cst, pln, nominalScenario,
 %   cst:                matRad cst struct
 %   pln:                matRad plan meta information struct
 %   nominalScenario:    struct containing dose, qi and dvh of the nominal scenario
-%   structureStat:      structures which were examined (can be empty, 
+%   structureStat:      structures which were examined (can be empty,
 %                       when all structures were examined)
 %   doseStat:           structure containing dose statistics as returned
 %                       from matRad_samplingAnalysis
@@ -18,28 +20,31 @@ function success = matRad_latexReport(outputPath, ct, cst, pln, nominalScenario,
 %                       from matRad_samplingAnalysis
 %   listOfQI:           cellstring containing list of quality indicators to
 %                       be reported
-%   
+%
 %   Optional Name-Value Pairs:
 %   ComputationTime:        state computation time to state in the report
 %   OperatorName:           Name of the Operator generating the report
 %   SufficientStatistics:   true/false (to warn for bad statistics)
 %   PrescribedDose:         Set a prescription value. If not set, will use
 %                           the largest value found in target objectives
-%   
+%   LatexExecutable:        LaTeX executable used to compile the report
+%
 
 % output
-%   (binary)            a pdf report will be generated and saved
+%   success:           logical scalar indicating whether main.pdf was generated
 %
+% References
+%   -
 %
 % %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
-% Copyright 2017 the matRad development team. 
-% 
-% This file is part of the matRad project. It is subject to the license 
-% terms in the LICENSE file found in the top-level directory of this 
-% distribution and at https://github.com/e0404/matRad/LICENSE.md. No part 
-% of the matRad project, including this file, may be copied, modified, 
-% propagated, or distributed except according to the terms contained in the 
+% Copyright 2017-2026 the matRad development team.
+%
+% This file is part of the matRad project. It is subject to the license
+% terms in the LICENSE file found in the top-level directory of this
+% distribution and at https://github.com/e0404/matRad/LICENSE.md. No part
+% of the matRad project, including this file, may be copied, modified,
+% propagated, or distributed except according to the terms contained in the
 % LICENSE file.
 %
 % %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -51,6 +56,7 @@ p.addParameter('ComputationTime',[],@(x) isscalar(x) && isnumeric(x));
 p.addParameter('OperatorName','matRad User',@(x) isstring(x) || ischar(x));
 p.addParameter('SufficientStatistics',true,@(x) isscalar(x));
 p.addParameter('PrescribedDose',[],@(x) isscalar(x) && isnumeric(x));
+p.addParameter('LatexExecutable','',@(x) isempty(x) || ischar(x) || (isstring(x) && isscalar(x)));
 
 p.parse(varargin{:});
 
@@ -58,6 +64,7 @@ computationTime = p.Results.ComputationTime;
 operator = p.Results.OperatorName;
 sufficientStatistics = p.Results.SufficientStatistics;
 dPres = p.Results.PrescribedDose;
+latexExecutable = char(p.Results.LatexExecutable);
 
 dataPath = [outputPath filesep 'data'];
 mkdir(dataPath);
@@ -71,7 +78,7 @@ doseCube = nominalScenario.(pln.bioParam.quantityVis);
 
 fillPrescription = isempty(dPres);
 
-if fillPrescription    
+if fillPrescription
     dPres = 0;
 end
 
@@ -82,7 +89,7 @@ for i = 1:size(cst,1)
     if isempty(cst{i,4}{1}) || (sum(strcmp(cst{i,2}, notVisibleStructs)) >= 1)
         cst{i,5}.Visible = false;
     end
-    
+
     if strcmp(cst{i,3},'TARGET')
         dPres = max([dPres mean(doseCube(cst{i,4}{1}))]);
     end
@@ -99,7 +106,7 @@ if  ~all(ismember(listOfQI, fieldnames(nominalScenario.qi)))
 end
 [~, ~, ixOfQIinNominal] = intersect(listOfQI, fieldnames(nominalScenario.qi), 'stable');
 
-       
+
 %% insert standard patient information
 % issue warning for insufficient number of scenarios
 if ~sufficientStatistics
@@ -183,6 +190,8 @@ line =  [line; '\newcommand{\scenCombType}{', num2str(multScen.scenCombType), '}
 % gamma analysis parameters
 line =  [line; '\newcommand{\gammaDoseAgreement}{', num2str(doseStat.gammaAnalysis.doseAgreement), '}'];
 line =  [line; '\newcommand{\gammaDistAgreement}{', num2str(doseStat.gammaAnalysis.distAgreement), '}'];
+line =  [line; '\newcommand{\gammaPassRate}{', formatMetricValue(doseStat.gammaAnalysis.gammaPassRate), '}'];
+line =  [line; '\newcommand{\gammaStatus}{', getGammaStatus(doseStat), '}'];
 
 if pln.multScen.numOfCtScen <= 1
     line =  [line; '\newcommand{\ctScen}{false}'];
@@ -218,12 +227,12 @@ fclose(fid);
 %% plot isocentre slices (nominal, mean, std)
 
 
-doseWindow  = [0 1.1 * max(doseCube(:))];
-stdWindow   = [0 1.1 * max(doseStat.stdCubeW(:))];
-gammaWindow = [0 1.1 * max(doseStat.gammaAnalysis.gammaCube(:))];
+doseWindow  = [0 1.1 * maxFiniteValue(doseCube,0)];
+stdWindow   = [0 1.1 * maxFiniteValue(doseStat.stdCubeW,0)];
+gammaWindow = [0 1.1 * maxFiniteValue(doseStat.gammaAnalysis.gammaCube,0)];
 
 for plane=1:3
-    switch plane 
+    switch plane
         case 1
             slice = round(pln.propStf.isoCenter(1,2) / ct.resolution.x,0);
         case 2
@@ -234,29 +243,36 @@ for plane=1:3
     colors = colorcube(size(cst,1));
     for cubesToPlot = 1:3
         figure; ax = gca;
-        
-        doseCube = nominalScenario.(pln.bioParam.quantityVis); 
-        
-        if cubesToPlot == 1 
-            
-            if isfield(nominalScenario,'RBExD')              
+
+        doseCube = nominalScenario.(pln.bioParam.quantityVis);
+
+        if cubesToPlot == 1
+
+            if isfield(nominalScenario,'RBExD')
               colorMapLabel = 'RBExDose [Gy(RBE)]';
             else
                 colorMapLabel = 'physical Dose [Gy]';
             end
             fileSuffix = 'nominal';
             matRad_plotSliceWrapper(ax,ct,cst,1,doseCube,plane,slice,[],[],colors,[],[],[],[],colorMapLabel);
-            
+
         elseif cubesToPlot == 2
-            
+
             doseCube = doseStat.gammaAnalysis.gammaCube;
             colorMapLabel = 'gamma index';
             fileSuffix = 'gamma';
-            gammaColormap = matRad_getColormap('gammaIndex');
-            matRad_plotSliceWrapper(ax,ct,cst,1,doseCube,plane,slice,[],[],colors,gammaColormap,[0 2],[],[],colorMapLabel);
-            
+            if isGammaAnalysisAvailable(doseStat)
+                gammaColormap = matRad_getColormap('gammaIndex');
+                gammaWindow = [0 2.01];
+                [doseCube,gammaColormap] = matRad_prepareLimitedIndexPlot(doseCube,gammaWindow,gammaColormap);
+                matRad_plotSliceWrapper(ax,ct,cst,1,doseCube,plane,slice,[],[],colors,gammaColormap,gammaWindow,[],[],colorMapLabel);
+            else
+                axis(ax,'off');
+                text(ax,0.5,0.5,'Gamma index n/a','HorizontalAlignment','center');
+            end
+
         elseif cubesToPlot == 3
-            
+
             if isfield(nominalScenario,'RBExD')
                 colorMapLabel = 'Standard deviation [Gy(RBE)]';
             else
@@ -265,11 +281,12 @@ for plane=1:3
             doseCube = doseStat.stdCubeW;
             fileSuffix = 'stdW';
             matRad_plotSliceWrapper(ax,ct,cst,1,doseCube,plane,slice,[],[],colors,[],[],[],[],colorMapLabel);
-            
+
         end
         drawnow();
-        cleanfigure();          
-        matlab2tikz(fullfile(dataPath,'figures',['isoSlicePlane', num2str(plane), '_', fileSuffix, '.tex']), 'relativeDataPath', ['data' filesep 'figures'], 'showInfo', false, 'width', '\figW');
+        cleanfigure();
+        matlab2tikz(fullfile(dataPath,'figures',['isoSlicePlane', num2str(plane), '_', fileSuffix, '.tex']), ...
+            'relativeDataPath', ['data' filesep 'figures'], 'showInfo', false, 'width', '\figW');
         close
     end
 end
@@ -278,7 +295,7 @@ end
 if exist('matRad_getGaussianOrbitSamples','file') == 2
     confidenceValue = 0.5;
 
-    slice = round(pln.propStf.isoCenter(1,plane) / ct.resolution.z,0);            
+    slice = round(pln.propStf.isoCenter(1,plane) / ct.resolution.z,0);
     framePath = fullfile(dataPath, 'frames');
     if isfield(nominalScenario,'RBExD')
         legendColorbar = 'RBExDose [Gy(RBE)]';
@@ -286,9 +303,27 @@ if exist('matRad_getGaussianOrbitSamples','file') == 2
         legendColorbar = 'physical Dose [Gy]';
     end
     % any(w == 0) is not allowed, due to numerical reasons use insignificant w, for weights which are numerically zero
-    w = pln.multScen.scenProb;
-    w(w == 0) = eps(class(w));
-    matRad_createAnimationForLatexReport(confidenceValue, ct, cst, slice, doseStat.meanCubeW, sampDose, w, pln.subIx, framePath, legendColorbar,'PrescribedDose',dPres);
+    if ~isempty(structureStat) && isfield(structureStat,'w') && ~isempty(structureStat(1).w)
+        scenWeights = structureStat(1).w(:);
+    else
+        hasScenWeight = (isobject(pln.multScen) && isprop(pln.multScen,'scenWeight')) || ...
+            (isstruct(pln.multScen) && isfield(pln.multScen,'scenWeight'));
+        if hasScenWeight && ~isempty(pln.multScen.scenWeight)
+            scenWeights = pln.multScen.scenWeight(:);
+        else
+            scenWeights = pln.multScen.scenProb(:);
+        end
+    end
+    scenWeights(~isfinite(scenWeights) | scenWeights < 0) = 0;
+    if sum(scenWeights) <= 0
+        matRad_cfg.dispError('Scenario weights must contain at least one positive finite value.');
+    end
+    scenWeights = scenWeights./sum(scenWeights);
+    scenWeights(scenWeights == 0) = eps(class(scenWeights));
+    scenWeights = scenWeights./sum(scenWeights);
+    matRad_createAnimationForLatexReport(confidenceValue, ct, cst, slice, ...
+        doseStat.meanCubeW, sampDose, scenWeights, pln.subIx, framePath, ...
+        legendColorbar,'PrescribedDose',dPres);
 
     line = cell(0);
     line =  [line; '\newcommand{\framerate}{24}'];
@@ -311,8 +346,8 @@ hold off;
 for i = 1:size(cst,1)
     if cst{i,5}.Visible == true
         [y, argmin] = cutAtArgmin(nominalScenario.dvh(i).volumePoints);
-        x = nominalScenario.dvh(i).doseGrid(1:argmin);        
-        h(1) = plot(x,y,'LineWidth',2, 'Color', colors(i,:), 'DisplayName', cst{i,2});      
+        x = nominalScenario.dvh(i).doseGrid(1:argmin);
+        h(1) = plot(x,y,'LineWidth',2, 'Color', colors(i,:), 'DisplayName', cst{i,2});
         ylim([0 100]);
         if strncmp(pln.bioParam.quantityVis,'RBExD',5)
             xlabel('Dose RBE x [Gy]');
@@ -390,15 +425,16 @@ end
 for i = 1:size(cst,1)
     if cst{i,5}.Visible == true
         [~, ~, ixOfQIinStruct] = intersect(listOfQI, fieldnames(structureStat(i).qiStat), 'stable');
-        
+
         matRad_plotDVHBand(nominalScenario.dvh(i), structureStat(i), labelDoseDVH);
         cleanfigure();
         filename{i}.DVH = regexprep([cst{i,2},'_DVH.tex'], '\s+', '');
-        matlab2tikz(fullfile(dataPath,'structures',filename{i}.DVH),'showInfo', false, 'width', '\figW', 'height', '\figH', 'extraAxisOptions', 'reverse legend');
+        matlab2tikz(fullfile(dataPath,'structures',filename{i}.DVH),'showInfo', false, ...
+            'width', '\figW', 'height', '\figH', 'extraAxisOptions', 'reverse legend');
         close
-        
+
         % QI
-        fprintf([num2str(i),'\n']);
+        matRad_cfg.dispInfo('Creating QI table for structure %d.\n',i);
         qiTable = fullNomQiTable(i,:);
         qiTable = [qiTable; structureStat(i).qiStat(:,ixOfQIinStruct)];
         qiTable.Properties.RowNames{1} = 'nominal';
@@ -419,7 +455,7 @@ for i = 1:size(cst,1)
         for row = 1:nrows
             fprintf(fid,'%s\n',latex{row,:});
         end
-        fclose(fid);        
+        fclose(fid);
     end
 end
 
@@ -453,32 +489,91 @@ fclose(fid);
 close all
 
 
-if ispc
-    executeLatex = 'lualatex --shell-escape --interaction=nonstopmode main.tex';
-elseif isunix
-    executeLatex = '/Library/TeX/texbin/lualatex --shell-escape --interaction=nonstopmode main.tex';
-end
-
 currPath = pwd;
+cleanupPath = onCleanup(@() cd(currPath));
 cd(outputPath);
 
-response = system(executeLatex);
+success = false;
+[response,executeLatex] = runLatex(latexExecutable);
 if response == 127 % means not found
     matRad_cfg.dispWarning('Could not find tex distribution. Please compile manually.');
-    success = false;
+elseif response ~= 0
+    matRad_cfg.dispWarning('LaTeX compilation failed. Please compile manually.');
 else
-    system(executeLatex); %Execute seccond time
-        
-    if exist('main.pdf','file')
+    response = system(executeLatex); % Execute second time
+
+    if response == 0 && exist('main.pdf','file')
         matRad_cfg.dispInfo('PDF generated.');
         success = true;
     else
-        success = false;
+        matRad_cfg.dispWarning('LaTeX compilation did not produce main.pdf.');
     end
 end
 
-cd(currPath);
+end
 
+
+function [response,executeLatex] = runLatex(latexExecutable)
+useDefaultExecutable = isempty(latexExecutable);
+if useDefaultExecutable
+    latexExecutable = 'lualatex';
+end
+
+executeLatex = buildLatexCommand(latexExecutable);
+response = system(executeLatex);
+
+macTexExecutable = '/Library/TeX/texbin/lualatex';
+if response == 127 && useDefaultExecutable && isunix && exist(macTexExecutable,'file') == 2
+    executeLatex = buildLatexCommand(macTexExecutable);
+    response = system(executeLatex);
+end
+end
+
+
+function command = buildLatexCommand(latexExecutable)
+latexExecutable = char(latexExecutable);
+if any(latexExecutable == ' ') || any(latexExecutable == filesep)
+    latexExecutable = ['"', strrep(latexExecutable,'"','\"'), '"'];
+end
+command = [latexExecutable, ' --shell-escape --interaction=nonstopmode main.tex'];
+end
+
+
+function tf = isGammaAnalysisAvailable(doseStat)
+tf = isfield(doseStat,'gammaAnalysis') && ...
+    isfield(doseStat.gammaAnalysis,'gammaCube') && ...
+    any(isfinite(doseStat.gammaAnalysis.gammaCube(:)));
+if tf && isfield(doseStat.gammaAnalysis,'status')
+    tf = strcmp(doseStat.gammaAnalysis.status,'computedFullCube');
+end
+end
+
+
+function status = getGammaStatus(doseStat)
+if isfield(doseStat,'gammaAnalysis') && isfield(doseStat.gammaAnalysis,'status')
+    status = doseStat.gammaAnalysis.status;
+else
+    status = 'computedFullCube';
+end
+end
+
+
+function textValue = formatMetricValue(value)
+if isempty(value) || ~isnumeric(value) || ~isscalar(value) || ~isfinite(value)
+    textValue = 'n/a';
+else
+    textValue = num2str(value,5);
+end
+end
+
+
+function maxValue = maxFiniteValue(values,defaultValue)
+finiteValues = values(isfinite(values));
+if isempty(finiteValues)
+    maxValue = defaultValue;
+else
+    maxValue = max(finiteValues(:));
+end
 end
 
 
@@ -495,5 +590,5 @@ function text = parseFromDicom(dicomStruct, field, default)
         text = dicomStruct.(field);
     else
         text = default;
-    end    
+    end
 end

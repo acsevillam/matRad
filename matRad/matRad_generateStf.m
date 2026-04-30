@@ -223,7 +223,7 @@ if isExternalTherapy
         % Correct for iso center position. Whit this correction Isocenter is
         % (0,0,0) [mm]
         isoCoords = voxTargetWorldCoords - pln.propStf.isoCenter(i,:);
-        
+
         % Save meta information for treatment plan
         stf(i).gantryAngle   = pln.propStf.gantryAngles(i);
         stf(i).couchAngle    = pln.propStf.couchAngles(i);
@@ -327,11 +327,13 @@ if isExternalTherapy
 
         % loop over all rays to determine meta information for each ray
         stf(i).numOfBixelsPerRay = ones(1,stf(i).numOfRays);
-        
+
         % mm axes with isocenter at  (0,0,0)
         mmCubeIsoCenter =  matRad_world2cubeCoords(stf(i).isoCenter,ct);
         for j = stf(i).numOfRays:-1:1
-            
+
+            rayHitsCt = true;
+            ctEntryPoint = NaN;
             for ShiftScen = 1:pln.multScen.totNumShiftScen
                 % ray tracing necessary to determine depth of the target
                 [alphas,l{ShiftScen},rho{ShiftScen},d12,~] = matRad_siddonRayTracer(mmCubeIsoCenter + pln.multScen.isoShift(ShiftScen,:), ...
@@ -340,8 +342,19 @@ if isExternalTherapy
                     stf(i).ray(j).targetPoint, ...
                     [ct.cube {voiTarget}]);
 
+                if isempty(alphas)
+                    rayHitsCt = false;
+                    continue;
+                end
+
                 %Used for generic range-shifter placement
                 ctEntryPoint = alphas(1) * d12;
+            end
+
+            if ~rayHitsCt
+                stf(i).ray(j)               = [];
+                stf(i).numOfBixelsPerRay(j) = [];
+                continue;
             end
 
             % find appropriate energies for particles
@@ -658,9 +671,9 @@ if isExternalTherapy
             ylabel(hAxBEV,'Y [mm]');
             zlabel(hAxBEV,'Z [mm]');
             title(hAxBEV,'Beam''s eye view');
-            
+
             axis(hAxBEV,limits);
-            
+
 
             % second subplot: visualization in lps coordinate system
             hAxLPS = subplot(1,2,2);
@@ -804,7 +817,7 @@ elseif isBrachyTherapy
 
             % Calculate the area enclosed by the outline
             area = polyarea(outline(:,1), outline(:,2));
-            disp(['Polygon area: ', num2str(area)]);
+            matRad_cfg.dispInfo('Polygon area: %g\n',area);
 
             hold off;
         else

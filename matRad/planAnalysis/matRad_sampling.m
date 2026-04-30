@@ -1,27 +1,55 @@
-function [caSampRes, mSampDose, pln, resultGUInomScen]  = matRad_sampling(ct,stf,cst,pln,w,structSel,multScen,varargin)
-% matRad_randomSampling enables sampling multiple treatment scenarios
+function [caSampRes,mSampDose,pln,resultGUInomScen] = matRad_sampling(ct,stf,cst,pln,w,structSel,multScen,varargin)
+% matRad_sampling enables sampling multiple treatment scenarios
 %
 % call
-%   [cst,pln] = matRad_setPlanUncertainties(ct,cst,pln)
+%   [caSampRes,mSampDose,pln,resultGUInomScen] = matRad_sampling(ct,stf,cst,pln,w,structSel)
+%   [caSampRes,mSampDose,pln,resultGUInomScen] = matRad_sampling(ct,stf,cst,pln,w,structSel,multScen)
+%   [caSampRes,mSampDose,pln,resultGUInomScen] = matRad_sampling(...,'dvhDoseWindow',dvhDoseWindow)
+%   [caSampRes,mSampDose,pln,resultGUInomScen] = matRad_sampling(...,'dvhDoseGrid',dvhDoseGrid)
 %
 % input
 %   ct:         ct cube
 %   stf:        matRad steering information struct
-%   pln:        matRad plan meta information struct
 %   cst:        matRad cst struct
+%   pln:        matRad plan meta information struct
 %   w:          optional (if no weights available in stf): bixel weight
 %               vector
+%   structSel:  (optional) cell array of structure names used to define the
+%               sampled voxel subset. If empty, all structures are used.
+%   multScen:   (optional) matRad scenario model used for sampling. If
+%               empty, a random scenario model is created.
+%
+% input (optional Name-Value pairs)
+%   varargin:       optional Name-Value pairs
+%   dvhDoseWindow:  1x2 dose window used to create the common DVH dose grid
+%   dvhDoseGrid:    explicit finite increasing dose grid used for all DVHs
+%   autoLimitWorkers: automatically reduce the parallel pool size based on
+%               available system memory and estimated memory per worker
+%   workerMemorySafetyFactor: safety factor applied to the worker memory
+%               estimate
+%   memoryReserveFraction: fraction of total system memory kept in reserve
+%               when autoLimitWorkers is enabled
+%   minWorkerMemoryBytes: lower bound for the estimated per-worker memory
+%               footprint before applying workerMemorySafetyFactor
+%
+% note
+%   Multi-CT sampled doses are always mapped to the reference CT scenario
+%   before computing sampling statistics.
+%
 % output
 %   caSampRes:         cell array of sampling results depicting plan parameter
 %   mSampDose:         matrix holding the sampled doses, each row corresponds to
 %                      one dose sample
-%   pln:               matRad pln struct containing sampling information
+%   pln:               matRad pln struct containing sampling information,
+%                      including samplingMemoryEstimate diagnostics
 %   resultGUInomScen:  resultGUI struct of the nominal scenario
 %
+% References
+%   -
 %
 % %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
-% Copyright 2017 the matRad development team.
+% Copyright 2017-2026 the matRad development team.
 %
 % This file is part of the matRad project. It is subject to the license
 % terms in the LICENSE file found in the top-level directory of this
@@ -34,72 +62,119 @@ function [caSampRes, mSampDose, pln, resultGUInomScen]  = matRad_sampling(ct,stf
 
 matRad_cfg = MatRad_Config.instance();
 
+if nargin < 7
+    multScen = [];
+elseif ischar(multScen) || (isa(multScen,'string') && isscalar(multScen))
+    varargin = [{char(multScen)} varargin];
+    multScen = [];
+end
+
+% Dose calculation and parfor serialization allocate memory not captured by whos.
+defaultMinWorkerMemoryBytes = 1024^3;
+
 p = inputParser;
 p.addParameter('dvhDoseWindow',[],@(x) isempty(x) || (isnumeric(x) && numel(x) >= 2));
 p.addParameter('dvhDoseGrid',[],@(x) isempty(x) || (isnumeric(x) && isvector(x)));
+p.addParameter('autoLimitWorkers',true,@(x) (islogical(x) || isnumeric(x)) && isscalar(x));
+p.addParameter('workerMemorySafetyFactor',1.2,@(x) isnumeric(x) && isscalar(x) && isfinite(x) && x >= 1);
+p.addParameter('memoryReserveFraction',0.10,@(x) isnumeric(x) && isscalar(x) && isfinite(x) && x >= 0 && x < 1);
+p.addParameter('minWorkerMemoryBytes',defaultMinWorkerMemoryBytes, ...
+    @(x) isnumeric(x) && isscalar(x) && isfinite(x) && x >= 0);
 p.parse(varargin{:});
+
+if isfield(ct,'refScen') && ~isempty(ct.refScen)
+    refScen = ct.refScen;
+else
+    refScen = 1;
+end
+if ~(isnumeric(refScen) && isscalar(refScen) && isfinite(refScen) && ...
+        round(refScen) == refScen && refScen >= 1)
+    matRad_cfg.dispError('ct.refScen must be a positive integer scalar.');
+end
+if isfield(ct,'numOfCtScen') && refScen > ct.numOfCtScen
+    matRad_cfg.dispError('ct.refScen (%d) exceeds ct.numOfCtScen (%d).', ...
+        refScen,ct.numOfCtScen);
+end
+refScen = double(refScen);
+
+cstEval = cst;
+for i = 1:size(cstEval,1)
+    if numel(cstEval{i,4}) < refScen
+        matRad_cfg.dispError('Structure %s does not contain contours for reference CT scenario %d.', ...
+            cstEval{i,2},refScen);
+    end
+    cstEval{i,4}{1} = cstEval{i,4}{refScen};
+end
 
 % save nonSampling pln for nominal scenario calculation and add dummy fields
 plnNominal = pln;
 % create nominal scenario
 plnNominal.multScen = matRad_NominalScenario(ct);
+plnNominal.multScen.ctScenProb = [refScen 1];
 
 % check for different ct scenarios
-ctSamp = ct;
-if ct.numOfCtScen > 1
-    matRad_cfg.dispWarning('Sampling for different ct scenarios is not implemented \n');
-    ctSamp.numOfCtScen = 1;
+if ct.numOfCtScen > 1 && isempty(multScen)
+    matRad_cfg.dispWarning(['No explicit multi-CT sampling scenario model was provided; ', ...
+        'random sampling will use the reference CT scenario only.\n']);
 end
 
 % either use existing multScen struct or create new one
-if exist('multScen','var') && ~isempty(multScen)
+if ~isempty(multScen)
     pln.multScen = multScen;
 else
-    % create random scenarios for sampling   
-    pln.multScen = matRad_RandomScenarios(ctSamp);
+    % create random scenarios for sampling
+    pln.multScen = matRad_RandomScenarios(ct);
+    pln.multScen.ctScenProb = [refScen 1];
     pln.multScen.nSamples = matRad_cfg.defaults.samplingScenarios;
 end
 
-matRad_cfg.dispInfo('Using %d samples in total \n',pln.multScen.totNumScen);
+numSamples = pln.multScen.totNumScen;
+matRad_cfg.dispInfo('Using %d samples in total \n',numSamples);
 
-V = [];
-% define voxels for sampling
-if ~exist('structSel', 'var') || sum(size(structSel)) == 0
-    V = [cst{:,4}];
-else
-    for i=1:size(cst,1)
-        for j = 1:numel(structSel)
-            if strcmp(structSel{j}, cst{i,2})
-                V = [V cst{i,4}{1}];
-            end
+doseMapping = matRad_resolveSamplingDoseMapping(ct,pln.multScen,refScen);
+if doseMapping.enabled
+    matRad_cfg.dispInfo('matRad: Mapping sampled multi-CT dose cubes to reference CT scenario %d before analysis.\n',refScen);
+end
+
+samplingCtScenIx = pln.multScen.linearMask(:,1);
+if ~exist('structSel','var')
+    structSel = {};
+end
+
+voxelSets = cell(1,size(cstEval,1));
+numVoxelSets = 0;
+for i = 1:size(cstEval,1)
+    if isempty(structSel) || any(strcmp(structSel,cstEval{i,2}))
+        if ~isempty(cstEval{i,4}{1})
+            numVoxelSets = numVoxelSets + 1;
+            voxelSets{numVoxelSets} = cstEval{i,4}{1};
         end
     end
 end
-
-% final voxel subset for sampling
-subIx = unique(vertcat(V{:}));
-
-% disable structures for DVH plotting which are not completely in subIx
-for i = 1:size(cst,1)
-    if ~all(ismember(cst{i,4}{1}, subIx))
-        cst{i,5}.Visible = false;
+if numVoxelSets == 0
+    matRad_cfg.dispError('No voxels selected for sampling.');
+end
+subIx = unique(vertcat(voxelSets{1:numVoxelSets}));
+for i = 1:size(cstEval,1)
+    if ~all(ismember(cstEval{i,4}{1},subIx))
+        cstEval{i,5}.Visible = false;
     end
 end
 
-% define variable for storing scenario doses
-mSampDose   = single(zeros(numel(subIx),pln.multScen.totNumScen,1));
-StorageInfo = whos('mSampDose');
-matRad_cfg.dispInfo('matRad: Realizations variable will need: %f GB \n',StorageInfo.bytes/1e9);
+mSampDose = single(zeros(numel(subIx),numSamples,1));
+caSampRes(1,numSamples) = createEmptySamplingResult();
+storageInfo = whos('mSampDose');
+samplingDoseStorageBytes = storageInfo.bytes;
 
 % check if parallel toolbox is installed and license can be checked out
 try
-    [FlagParallToolBoxLicensed,msg]  = license('checkout','Distrib_Computing_Toolbox');
-    if ~FlagParallToolBoxLicensed
+    [parallelToolboxLicensed,~] = license('checkout','Distrib_Computing_Toolbox');
+    if ~parallelToolboxLicensed
         matRad_cfg.dispWarning('Could not check out parallel computing toolbox. \n');
     end
 
 catch
-    FlagParallToolBoxLicensed  = false;
+    parallelToolboxLicensed = false;
 end
 
 %% calculate nominal scenario
@@ -114,111 +189,168 @@ refGy = linspace(0,max(doseCubeNominal(:)),6);
 dvhPoints = resolveDvhDoseGrid(doseCubeNominal,p.Results.dvhDoseWindow, ...
     p.Results.dvhDoseGrid);
 
-resultGUInomScen.dvh = matRad_calcDVH(cst,doseCubeNominal,'cum',dvhPoints);
-nomQi                = matRad_calcQualityIndicators(cst,pln,doseCubeNominal,refGy,refVol);
+resultGUInomScen.dvh = matRad_calcDVH(cstEval,doseCubeNominal,'cum',dvhPoints);
+nomQi                = matRad_calcQualityIndicators(cstEval,pln,doseCubeNominal,refGy,refVol);
 
 resultGUInomScen.qi  = nomQi;
-resultGUInomScen.cst = cst;
-resultGUInomScen.analysisDoseMode = 'perFraction';
+resultGUInomScen.cst = cstEval;
+resultGUInomScen.evaluationModeBase = 'perFraction';
+
+samplingMemoryContext = struct();
+samplingMemoryContext.ct = ct;
+samplingMemoryContext.stf = stf;
+samplingMemoryContext.cst = cst;
+samplingMemoryContext.cstEval = cstEval;
+samplingMemoryContext.pln = pln;
+samplingMemoryContext.w = w;
+samplingMemoryContext.subIx = subIx;
+samplingMemoryContext.samplingCtScenIx = samplingCtScenIx;
+samplingMemoryContext.dvhPoints = dvhPoints;
+samplingMemoryContext.refGy = refGy;
+samplingMemoryContext.refVol = refVol;
+samplingMemoryContext.resultGUInomScen = resultGUInomScen;
+samplingMemoryContext.doseMapping = doseMapping;
+samplingMemoryContext.refScen = refScen;
+samplingMemoryContext.samplingDoseStorageBytes = samplingDoseStorageBytes;
+samplingMemoryContext.numSamples = numSamples;
+samplingMemoryEstimate = matRad_estimateSamplingMemory(samplingMemoryContext);
 
 %% perform parallel sampling
-if FlagParallToolBoxLicensed
-    % Create parallel pool on cluster
-    p = gcp(); % If no pool, create new one.
-
-    if isempty(p)
-        poolSize = 1;
-    else
-        poolSize = p.NumWorkers;
-    end
-
-    %TODO: find a way to manage matRad_Config on a parallel pool
+if parallelToolboxLicensed
+    % MatRad_Config is process-local; mirror relevant settings on workers.
     logLevel = matRad_cfg.logLevel;
 
-    % rough estimate of total computation time
-    totCompTime = ceil(size(pln.multScen.scenForProb,1) / poolSize) * nomScenTime * 1.35;
-    matRad_cfg.dispInfo(['Approximate Total calculation time: ', num2str(round(totCompTime / 3600)), ...
-        'h. Estimated finish: ', datestr(datetime('now') + seconds(totCompTime)), '\n']);
+    poolSizeLimit = [];
+    memoryEstimate = [];
+    if p.Results.autoLimitWorkers
+        [poolSizeLimit,memoryEstimate] = matRad_estimateMemoryLimitedWorkerCount(samplingMemoryEstimate.rawWorkerBytes, ...
+            'numTasks',numSamples, ...
+            'safetyFactor',p.Results.workerMemorySafetyFactor, ...
+            'reserveFraction',p.Results.memoryReserveFraction, ...
+            'minWorkerMemoryBytes',p.Results.minWorkerMemoryBytes);
+        samplingMemoryEstimate.workerLimit = memoryEstimate;
+    end
+    matRad_logEstimatedSamplingMemory(samplingMemoryEstimate,memoryEstimate,matRad_cfg);
 
-    if exist('parfor_progress', 'file') == 2 & logLevel > 2
-        FlagParforProgressDisp = true;
-        parfor_progress(pln.multScen.totNumScen);  % http://de.mathworks.com/matlabcentral/fileexchange/32101-progress-monitor--progress-bar--that-works-with-parfor
+    % Create or resize parallel pool on cluster
+    pPool = configureSamplingPool(poolSizeLimit,matRad_cfg);
+
+    if isempty(pPool)
+        poolSize = 1;
     else
-        matRad_cfg.dispInfo('matRad: Consider downloading parfor_progress function from the matlab central fileexchange to get feedback from parfor loop.\n');
-        FlagParforProgressDisp = false;
+        poolSize = pPool.NumWorkers;
     end
 
-    
+    % rough estimate of total computation time
+    totCompTime = ceil(numSamples / poolSize) * nomScenTime * 1.35;
+    logEstimatedSamplingTime(totCompTime,matRad_cfg);
 
-    parfor i = 1:pln.multScen.totNumScen
-        %TODO: find a way to manage matRad_Config on a parallel pool more easily
+    progressQueue = [];
+    progressListener = [];
+    nFinishedScenarios = 0;
+    if exist('parallel.pool.DataQueue','class') == 8 && logLevel > 2
+        parforProgressEnabled = true;
+        progressQueue = parallel.pool.DataQueue;
+        matRad_cfg.dispInfo('Sampling progress: 0 scenarios of %d (0%%).\n',numSamples);
+        progressListener = afterEach(progressQueue,@(~) updateSamplingProgress());
+    elseif exist('parfor_progress', 'file') == 2 && logLevel > 2
+        parforProgressEnabled = true;
+        parfor_progress(numSamples);
+    else
+        matRad_cfg.dispInfo('matRad: Consider downloading parfor_progress function from the matlab central fileexchange to get feedback from parfor loop.\n');
+        parforProgressEnabled = false;
+    end
+
+    parfor i = 1:numSamples
         matRad_cfg_worker = MatRad_Config.instance();
         matRad_cfg_worker.logLevel = logLevel;
 
-        % create nominal scenario
-        plnSamp          = pln;
-        plnSamp.multScen = pln.multScen.extractSingleScenario(i);
+        [mSampDose(:,i),caSampRes(i)] = matRad_calculateSamplingScenario( ...
+            ct,stf,cst,pln,w,cstEval,subIx,dvhPoints,refGy,refVol, ...
+            samplingCtScenIx,doseMapping,refScen,i);
 
-        resultSamp                 = matRad_calcDoseForward(ct,cst,stf,plnSamp,w);
-        sampledDose                = resultSamp.(pln.bioParam.quantityVis)(subIx);
-        mSampDose(:,i)             = single(reshape(sampledDose,[],1));
-        caSampRes(i).bioParam      = pln.bioParam;
-        caSampRes(i).relRangeShift = plnSamp.multScen.relRangeShift;
-        caSampRes(i).absRangeShift = plnSamp.multScen.absRangeShift;
-        caSampRes(i).isoShift      = plnSamp.multScen.isoShift;
-
-        doseCubeSample = resultSamp.(pln.bioParam.quantityVis);
-        caSampRes(i).dvh = matRad_calcDVH(cst,doseCubeSample,'cum',dvhPoints);
-        caSampRes(i).qi  = matRad_calcQualityIndicators(cst,pln,doseCubeSample,refGy,refVol);
-
-        if FlagParforProgressDisp & logLevel > 2
-            parfor_progress;
+        if parforProgressEnabled && logLevel > 2
+            if isempty(progressQueue)
+                parfor_progress;
+            else
+                send(progressQueue,i);
+            end
         end
     end
 
-    if FlagParforProgressDisp & logLevel > 2
+    if parforProgressEnabled && logLevel > 2 && isempty(progressQueue)
         parfor_progress(0);
+    end
+    if ~isempty(progressListener)
+        delete(progressListener);
     end
 
 else
-    %% perform seriel sampling
+    %% perform serial sampling
+    matRad_logEstimatedSamplingMemory(samplingMemoryEstimate,[],matRad_cfg);
+
     % rough estimate of total computation time
-    totCompTime = size(pln.multScen.scenForProb,1) * nomScenTime * 1.1;
-    try
-        matRad_cfg.dispInfo(['Approximate Total calculation time: ', num2str(round(totCompTime / 3600)), ...
-            'h. Estimated finish: ', datestr(datetime('now') + seconds(totCompTime)), '\n']);
-    catch
-        matRad_cfg.dispInfo(['Approximate Total calculation time: ', num2str(round(totCompTime / 3600)), '\n']);
-    end
+    totCompTime = numSamples * nomScenTime * 1.1;
+    logEstimatedSamplingTime(totCompTime,matRad_cfg);
 
-    for i = 1:pln.multScen.totNumScen
-
-        % create nominal scenario
-        plnSamp          = pln;
-        plnSamp.multScen = pln.multScen.extractSingleScenario(i);
-
-        resultSamp                 = matRad_calcDoseForward(ct,cst,stf,plnSamp,w);
-        sampledDose                = resultSamp.(pln.bioParam.quantityVis)(subIx);
-        mSampDose(:,i)             = single(reshape(sampledDose,[],1));
-        caSampRes(i).bioParam      = pln.bioParam;
-        caSampRes(i).relRangeShift = plnSamp.multScen.relRangeShift;
-        caSampRes(i).absRangeShift = plnSamp.multScen.absRangeShift;
-        caSampRes(i).isoShift      = plnSamp.multScen.isoShift;
-
-        doseCubeSample = resultSamp.(pln.bioParam.quantityVis);
-        caSampRes(i).dvh = matRad_calcDVH(cst,doseCubeSample,'cum',dvhPoints);
-        caSampRes(i).qi  = matRad_calcQualityIndicators(cst,pln,doseCubeSample,refGy,refVol);
+    for i = 1:numSamples
+        [mSampDose(:,i),caSampRes(i)] = matRad_calculateSamplingScenario( ...
+            ct,stf,cst,pln,w,cstEval,subIx,dvhPoints,refGy,refVol, ...
+            samplingCtScenIx,doseMapping,refScen,i);
 
         % Show progress
         if matRad_cfg.logLevel > 2
-            matRad_progress(i, pln.multScen.totNumScen);
+            matRad_progress(i,numSamples);
         end
     end
 end
 
 %% add subindices
-pln.subIx        = subIx;
+pln.subIx = subIx;
+pln.samplingMemoryEstimate = samplingMemoryEstimate;
 
+    function updateSamplingProgress()
+        nFinishedScenarios = nFinishedScenarios + 1;
+        matRad_cfg.dispInfo('Sampling progress: %d scenarios of %d (%.0f%%).\n', ...
+            nFinishedScenarios,numSamples, ...
+            100 * nFinishedScenarios / numSamples);
+        drawnow('limitrate');
+    end
+
+end
+
+function sampleResult = createEmptySamplingResult()
+sampleResult = struct( ...
+    'bioParam',[], ...
+    'ctScen',[], ...
+    'refScen',[], ...
+    'doseMapping',[], ...
+    'relRangeShift',[], ...
+    'absRangeShift',[], ...
+    'isoShift',[], ...
+    'evaluationModeBase','perFraction', ...
+    'dvh',[], ...
+    'qi',[]);
+end
+
+function logEstimatedSamplingTime(totCompTime,matRad_cfg)
+estimatedFinishText = formatEstimatedFinish(totCompTime);
+if isempty(estimatedFinishText)
+    matRad_cfg.dispInfo(['Approximate Total calculation time: ', ...
+        num2str(round(totCompTime / 3600)), 'h.\n']);
+else
+    matRad_cfg.dispInfo(['Approximate Total calculation time: ', ...
+        num2str(round(totCompTime / 3600)), ...
+        'h. Estimated finish: ', estimatedFinishText, '\n']);
+end
+end
+
+function estimatedFinishText = formatEstimatedFinish(totCompTime)
+try
+    estimatedFinishText = char(datetime('now') + seconds(totCompTime));
+catch
+    estimatedFinishText = '';
+end
 end
 
 function dvhDoseGrid = resolveDvhDoseGrid(doseCube,dvhDoseWindow,dvhDoseGrid)
@@ -246,4 +378,22 @@ if ~isfinite(maxDose) || maxDose <= 0
     maxDose = 1;
 end
 dvhDoseGrid = linspace(0,maxDose*1.05,1000);
+end
+
+function p = configureSamplingPool(poolSizeLimit,matRad_cfg)
+p = gcp('nocreate');
+
+if isempty(p)
+    if isempty(poolSizeLimit)
+        p = gcp();
+    else
+        p = parpool(poolSizeLimit);
+    end
+elseif ~isempty(poolSizeLimit) && p.NumWorkers > poolSizeLimit
+    matRad_cfg.dispWarning(['Reducing parallel pool from ', num2str(p.NumWorkers), ...
+        ' to ', num2str(poolSizeLimit), ...
+        ' worker(s) to keep sampling within the estimated available memory.\n']);
+    delete(p);
+    p = parpool(poolSizeLimit);
+end
 end
