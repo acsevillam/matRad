@@ -39,7 +39,7 @@ function samplingContext = samplingMemoryFixture()
     samplingContext.pln.multScen.extractSingleScenario = @extractSingleScenario;
     samplingContext.w = [1; 2];
     samplingContext.subIx = [1; 3];
-    samplingContext.samplingCtScenIx = [1; 1];
+    samplingContext.samplingCtScenIds = [1; 1];
     samplingContext.dvhPoints = [0 1 2];
     samplingContext.refGy = [0 2];
     samplingContext.refVol = [2 50 98];
@@ -51,6 +51,5 @@ function samplingContext = samplingMemoryFixture()
 
 function scenario = extractSingleScenario(~)
     scenario = struct();
-    scenario.relRangeShift = 0;
-    scenario.absRangeShift = 0;
-    scenario.isoShift = [0 0 0];
+    scenario.getRangeShift = @(~) [0 0];
+    scenario.getSetupShift = @(~) [0 0 0];

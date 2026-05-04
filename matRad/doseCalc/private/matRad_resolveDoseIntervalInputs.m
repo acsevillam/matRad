@@ -1,10 +1,44 @@
-function [ctx,pln_ref] = matRad_resolveDoseIntervalInputs(ct,cst,pln,dij,cfg,intervalMode,matRad_cfg)
-% Resolve validated inputs shared by the interval dose calculators.
+function ctx = matRad_resolveDoseIntervalInputs(ct,cst,pln,dij,cfg,intervalMode,matRad_cfg)
+% matRad_resolveDoseIntervalInputs validates inputs for interval dose calculation
+%
+% call
+%   ctx = matRad_resolveDoseIntervalInputs(ct,cst,pln,dij,cfg,intervalMode,matRad_cfg)
+%
+% input
+%   ct:           matRad ct struct
+%   cst:          matRad cst cell array
+%   pln:          matRad pln struct with pln.multScen as matRad_ScenarioModel
+%   dij:          robust dose influence struct containing the requested
+%                 linear quantity as scenario cell matrices
+%   cfg:          interval configuration struct; dose quantities are in Gy
+%                 or Gy(RBE) according to the selected linear dij field
+%   intervalMode: interval method identifier, either 'INTERVAL2' or 'INTERVAL3'
+%   matRad_cfg:   MatRad_Config instance for diagnostics
+%
+% output
+%   ctx:          validated context struct with quantity metadata, DIJ
+%                 scenario indices, CT scenario ids, normalized scenario
+%                 weights, selected target/OAR rows and CT mapping metadata
+%
+% References
+%   -
+%
+% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+% Copyright 2026 the matRad development team.
+%
+% This file is part of the matRad project. It is subject to the license
+% terms in the LICENSE file found in the top-level directory of this
+% distribution and at https://github.com/e0404/matRad/LICENSE.md. No part
+% of the matRad project, including this file, may be copied, modified,
+% propagated, or distributed except according to the terms contained in the
+% LICENSE file.
+%
+% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 cfg = normalizeConfig(cfg,ct,pln,intervalMode,matRad_cfg);
 quantity = resolveQuantity(dij,pln,cfg,matRad_cfg);
-[scenarioIx,scenarioCtScen,scenarioWeights] = resolveScenarios(pln,dij,quantity.field,matRad_cfg);
-pln_ref = buildReferencePlan(ct,pln,cfg.refScen,matRad_cfg);
+[scenarioDijIx,scenarioCtScenIds,scenarioWeights] = resolveScenarios(pln,dij,quantity.field,matRad_cfg);
 
 cstDoseGrid = resizeCstToDoseGrid(cst,dij);
 targetRows = resolveStructureRows(cstDoseGrid,cfg.targetStructSel,'TARGET',cfg.refScen);
@@ -12,15 +46,15 @@ oarRows = resolveStructureRows(cstDoseGrid,cfg.OARStructSel,'OAR',cfg.refScen);
 
 ctx.cfg = cfg;
 ctx.quantity = quantity;
-ctx.scenarioIx = scenarioIx;
-ctx.scenarioCtScen = scenarioCtScen;
+ctx.scenarioDijIx = scenarioDijIx;
+ctx.scenarioCtScenIds = scenarioCtScenIds;
 ctx.scenarioWeights = scenarioWeights;
 ctx.targetRows = targetRows;
 ctx.oarRows = oarRows;
 ctx.numVoxels = getNumDoseVoxels(dij,quantity.matrixCell,matRad_cfg);
-ctx.numBixels = getNumBixels(dij,quantity.matrixCell,scenarioIx,matRad_cfg);
+ctx.numBixels = getNumBixels(dij,quantity.matrixCell,scenarioDijIx,matRad_cfg);
 ctx.scenarioMaps = matRad_buildDoseIntervalScenarioMappings(ct,dij, ...
-    scenarioCtScen,cfg.refScen,matRad_cfg);
+    scenarioCtScenIds,cfg.refScen,matRad_cfg);
 end
 
 function cfg = normalizeConfig(cfg,ct,pln,intervalMode,matRad_cfg)
@@ -35,7 +69,6 @@ cfg = setDefault(cfg,'QuantityField',[]);
 cfg = setDefault(cfg,'refScen',getDefaultReferenceScenario(ct));
 cfg = setDefault(cfg,'targetStructSel',[]);
 cfg = setDefault(cfg,'OARStructSel',[]);
-cfg = setDefault(cfg,'CalculateReferenceDij',true);
 cfg = setDefault(cfg,'UseParallel',false);
 cfg = setDefault(cfg,'MemoryLimitMB',[]);
 cfg = setDefault(cfg,'BatchSize',[]);
@@ -55,8 +88,6 @@ if isfield(ct,'refScen') && ~isempty(ct.refScen) && ct.refScen ~= cfg.refScen
         cfg.refScen,ct.refScen);
 end
 
-cfg.CalculateReferenceDij = logicalScalar(cfg.CalculateReferenceDij, ...
-    'CalculateReferenceDij',matRad_cfg);
 cfg.UseParallel = logicalScalar(cfg.UseParallel,'UseParallel',matRad_cfg);
 
 if ~isempty(cfg.MemoryLimitMB) && ...
@@ -202,43 +233,40 @@ function tf = hasLinearDijField(dij,fieldName)
 tf = isfield(dij,fieldName) && iscell(dij.(fieldName));
 end
 
-function [scenarioIx,scenarioCtScen,scenarioWeights] = resolveScenarios(pln,dij,quantityField,matRad_cfg)
+function [scenarioDijIx,scenarioCtScenIds,scenarioWeights] = resolveScenarios(pln,dij,quantityField,matRad_cfg)
 if ~isfield(pln,'multScen') || isempty(pln.multScen)
     matRad_cfg.dispError('Dose interval calculation requires pln.multScen.');
 end
 
-if hasFieldOrProp(pln.multScen,'scenMask') && ~isempty(pln.multScen.scenMask)
-    scenarioIx = find(pln.multScen.scenMask(:));
-else
-    scenarioIx = find(~cellfun(@isempty,dij.(quantityField)(:)));
+if ~isa(pln.multScen,'matRad_ScenarioModel')
+    matRad_cfg.dispError('Dose interval calculation requires a matRad_ScenarioModel instance.');
 end
 
-if isempty(scenarioIx)
+scenarioIds = pln.multScen.scenarioIds();
+scenarioDijIx = arrayfun(@(id) pln.multScen.getDijScenarioIndex(id),scenarioIds);
+
+if isempty(scenarioDijIx)
     matRad_cfg.dispError('No active scenarios found for dose interval calculation.');
 end
 
 quantityCells = dij.(quantityField);
-if max(scenarioIx) > numel(quantityCells)
+if max(scenarioDijIx) > numel(quantityCells)
     matRad_cfg.dispError('Scenario indices exceed dij.%s cell array dimensions.',quantityField);
 end
 
-emptyScenario = cellfun(@isempty,quantityCells(scenarioIx));
+emptyScenario = cellfun(@isempty,quantityCells(scenarioDijIx));
 if any(emptyScenario)
     matRad_cfg.dispError('dij.%s contains empty active scenarios.',quantityField);
 end
 
-if hasFieldOrProp(pln.multScen,'scenMask') && ~isempty(pln.multScen.scenMask)
-    [scenarioCtScen,~,~] = ind2sub(size(pln.multScen.scenMask),scenarioIx);
-else
-    scenarioCtScen = scenarioIx(:);
+scenarioCtScenIds = arrayfun(@(id) pln.multScen.getCtScenario(id),scenarioIds);
+
+scenarioWeights = resolveScenarioWeights(pln.multScen,scenarioDijIx,matRad_cfg);
+scenarioDijIx = scenarioDijIx(:);
+scenarioCtScenIds = scenarioCtScenIds(:);
 end
 
-scenarioWeights = resolveScenarioWeights(pln.multScen,scenarioIx,matRad_cfg);
-scenarioIx = scenarioIx(:);
-scenarioCtScen = scenarioCtScen(:);
-end
-
-function scenarioWeights = resolveScenarioWeights(multScen,scenarioIx,matRad_cfg)
+function scenarioWeights = resolveScenarioWeights(multScen,scenarioDijIx,matRad_cfg)
 if hasFieldOrProp(multScen,'scenWeight') && ~isempty(multScen.scenWeight)
     rawWeights = multScen.scenWeight(:);
 elseif hasFieldOrProp(multScen,'scenProb') && ~isempty(multScen.scenProb)
@@ -247,13 +275,10 @@ else
     matRad_cfg.dispError('Scenario model must provide scenWeight or scenProb.');
 end
 
-if numel(rawWeights) == numel(scenarioIx)
-    scenarioWeights = rawWeights;
-elseif hasFieldOrProp(multScen,'scenMask') && numel(rawWeights) == numel(multScen.scenMask)
-    scenarioWeights = rawWeights(scenarioIx);
-else
+if numel(rawWeights) ~= numel(scenarioDijIx)
     matRad_cfg.dispError('Number of scenario weights is inconsistent with active scenarios.');
 end
+scenarioWeights = rawWeights;
 
 scenarioWeights = scenarioWeights(:);
 scenarioWeights(~isfinite(scenarioWeights) | scenarioWeights < 0) = 0;
@@ -266,31 +291,6 @@ end
 function tf = hasFieldOrProp(value,fieldName)
 tf = (isobject(value) && isprop(value,fieldName)) || ...
     (isstruct(value) && isfield(value,fieldName));
-end
-
-function pln_ref = buildReferencePlan(ct,pln,refScen,matRad_cfg)
-pln_ref = pln;
-
-if isfield(pln,'multScen') && hasFieldOrProp(pln.multScen,'linearMask') && ...
-   ~isempty(pln.multScen.linearMask)
-    refScenarioNum = find(pln.multScen.linearMask(:,1) == refScen & ...
-        pln.multScen.linearMask(:,2) == 1 & pln.multScen.linearMask(:,3) == 1,1,'first');
-    if isempty(refScenarioNum)
-        refScenarioNum = find(pln.multScen.linearMask(:,1) == refScen,1,'first');
-    end
-    if ~isempty(refScenarioNum) && isobject(pln.multScen) && ...
-       ismethod(pln.multScen,'extractSingleScenario')
-        pln_ref.multScen = pln.multScen.extractSingleScenario(refScenarioNum);
-        return;
-    end
-end
-
-try
-    pln_ref.multScen = matRad_NominalScenario(ct);
-    pln_ref.multScen.ctScenProb = [refScen 1];
-catch
-    matRad_cfg.dispError('Could not construct a reference scenario model for CT scenario %d.',refScen);
-end
 end
 
 function cst = resizeCstToDoseGrid(cst,dij)
@@ -347,14 +347,14 @@ else
 end
 end
 
-function numBixels = getNumBixels(dij,matrixCell,scenarioIx,matRad_cfg)
+function numBixels = getNumBixels(dij,matrixCell,scenarioDijIx,matRad_cfg)
 if isfield(dij,'totalNumOfBixels') && ~isempty(dij.totalNumOfBixels)
     numBixels = dij.totalNumOfBixels;
 else
-    numBixels = size(matrixCell{scenarioIx(1)},2);
+    numBixels = size(matrixCell{scenarioDijIx(1)},2);
 end
 
-if any(cellfun(@(m) size(m,2) ~= numBixels,matrixCell(scenarioIx)))
+if any(cellfun(@(m) size(m,2) ~= numBixels,matrixCell(scenarioDijIx)))
     matRad_cfg.dispError('All active scenario matrices must have the same number of bixels.');
 end
 end

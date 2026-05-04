@@ -38,8 +38,9 @@ function [caSampRes,mSampDose,pln,resultGUInomScen] = matRad_sampling(ct,stf,cst
 %
 % output
 %   caSampRes:         cell array of sampling results depicting plan parameter
-%   mSampDose:         matrix holding the sampled doses, each row corresponds to
-%                      one dose sample
+%   mSampDose:         matrix holding the sampled doses, each row corresponds
+%                      to one sampled voxel in pln.subIx and each column to
+%                      one sampled scenario
 %   pln:               matRad pln struct containing sampling information,
 %                      including samplingMemoryEstimate diagnostics
 %   resultGUInomScen:  resultGUI struct of the nominal scenario
@@ -136,7 +137,8 @@ if doseMapping.enabled
     matRad_cfg.dispInfo('matRad: Mapping sampled multi-CT dose cubes to reference CT scenario %d before analysis.\n',refScen);
 end
 
-samplingCtScenIx = pln.multScen.linearMask(:,1);
+scenarioIds = pln.multScen.scenarioIds();
+samplingCtScenIds = arrayfun(@(id) pln.multScen.getCtScenario(id),scenarioIds);
 if ~exist('structSel','var')
     structSel = {};
 end
@@ -204,7 +206,7 @@ samplingMemoryContext.cstEval = cstEval;
 samplingMemoryContext.pln = pln;
 samplingMemoryContext.w = w;
 samplingMemoryContext.subIx = subIx;
-samplingMemoryContext.samplingCtScenIx = samplingCtScenIx;
+samplingMemoryContext.samplingCtScenIds = samplingCtScenIds;
 samplingMemoryContext.dvhPoints = dvhPoints;
 samplingMemoryContext.refGy = refGy;
 samplingMemoryContext.refVol = refVol;
@@ -267,7 +269,7 @@ if parallelToolboxLicensed
 
         [mSampDose(:,i),caSampRes(i)] = matRad_calculateSamplingScenario( ...
             ct,stf,cst,pln,w,cstEval,subIx,dvhPoints,refGy,refVol, ...
-            samplingCtScenIx,doseMapping,refScen,i);
+            samplingCtScenIds,doseMapping,refScen,i);
 
         if parforProgressEnabled && logLevel > 2
             if isempty(progressQueue)
@@ -296,7 +298,7 @@ else
     for i = 1:numSamples
         [mSampDose(:,i),caSampRes(i)] = matRad_calculateSamplingScenario( ...
             ct,stf,cst,pln,w,cstEval,subIx,dvhPoints,refGy,refVol, ...
-            samplingCtScenIx,doseMapping,refScen,i);
+            samplingCtScenIds,doseMapping,refScen,i);
 
         % Show progress
         if matRad_cfg.logLevel > 2
@@ -322,7 +324,7 @@ end
 function sampleResult = createEmptySamplingResult()
 sampleResult = struct( ...
     'bioParam',[], ...
-    'ctScen',[], ...
+    'ctScenId',[], ...
     'refScen',[], ...
     'doseMapping',[], ...
     'relRangeShift',[], ...

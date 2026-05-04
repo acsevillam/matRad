@@ -1,4 +1,4 @@
-function [sampledDoseColumn,sampleResult] = matRad_calculateSamplingScenario(ct,stf,cst,pln,w,cstEval,subIx,dvhPoints,refGy,refVol,samplingCtScenIx,doseMapping,refScen,sampleIx)
+function [sampledDoseColumn,sampleResult] = matRad_calculateSamplingScenario(ct,stf,cst,pln,w,cstEval,subIx,dvhPoints,refGy,refVol,samplingCtScenIds,doseMapping,refScen,sampleIx)
 % matRad_calculateSamplingScenario calculates one sampled scenario result
 %
 % call
@@ -15,9 +15,9 @@ function [sampledDoseColumn,sampleResult] = matRad_calculateSamplingScenario(ct,
 %   dvhPoints:        common DVH dose grid
 %   refGy:            reference dose points for quality indicators
 %   refVol:           reference volume points for quality indicators
-%   samplingCtScenIx: CT scenario index of each sample
+%   samplingCtScenIds: CT scenario id of each sample
 %   doseMapping:      sampling dose mapping configuration
-%   refScen:          reference CT scenario index
+%   refScen:          reference CT scenario id
 %   sampleIx:         sample index to calculate
 %
 % output
@@ -46,20 +46,21 @@ plnSamp.multScen = pln.multScen.extractSingleScenario(sampleIx);
 
 resultSamp     = matRad_calcDoseForward(ct,cst,stf,plnSamp,w);
 doseCubeSample = resultSamp.(pln.bioParam.quantityVis);
-sampleCtScen   = samplingCtScenIx(sampleIx);
+sampleCtScenId = samplingCtScenIds(sampleIx);
 
 [doseCubeSample,doseMappingInfo] = mapSampleDoseToReferenceIfNeeded( ...
-    ct,doseCubeSample,sampleCtScen,doseMapping);
+    ct,doseCubeSample,sampleCtScenId,doseMapping);
 
 sampledDoseColumn = single(reshape(doseCubeSample(subIx),[],1));
 sampleResult = createEmptySamplingResult();
 sampleResult.bioParam      = pln.bioParam;
-sampleResult.ctScen        = sampleCtScen;
+sampleResult.ctScenId      = sampleCtScenId;
 sampleResult.refScen       = refScen;
 sampleResult.doseMapping   = doseMappingInfo;
-sampleResult.relRangeShift = plnSamp.multScen.relRangeShift;
-sampleResult.absRangeShift = plnSamp.multScen.absRangeShift;
-sampleResult.isoShift      = plnSamp.multScen.isoShift;
+rangeShift = plnSamp.multScen.getRangeShift(1);
+sampleResult.relRangeShift = rangeShift(2);
+sampleResult.absRangeShift = rangeShift(1);
+sampleResult.isoShift      = plnSamp.multScen.getSetupShift(1);
 sampleResult.evaluationModeBase = 'perFraction';
 sampleResult.dvh           = matRad_calcDVH(cstEval,doseCubeSample,'cum',dvhPoints);
 sampleResult.qi            = matRad_calcQualityIndicators(cstEval,pln,doseCubeSample,refGy,refVol);
@@ -69,7 +70,7 @@ end
 function sampleResult = createEmptySamplingResult()
 sampleResult = struct( ...
     'bioParam',[], ...
-    'ctScen',[], ...
+    'ctScenId',[], ...
     'refScen',[], ...
     'doseMapping',[], ...
     'relRangeShift',[], ...
@@ -80,14 +81,14 @@ sampleResult = struct( ...
     'qi',[]);
 end
 
-function [doseCubeSample,doseMappingInfo] = mapSampleDoseToReferenceIfNeeded(ct,doseCubeSample,ctScen,doseMapping)
+function [doseCubeSample,doseMappingInfo] = mapSampleDoseToReferenceIfNeeded(ct,doseCubeSample,ctScenId,doseMapping)
 if doseMapping.enabled
     [doseCubeSample,doseMappingInfo] = matRad_mapDoseToReferenceScenario( ...
-        ct,doseCubeSample,ctScen,doseMapping.refScen);
+        ct,doseCubeSample,ctScenId,doseMapping.refScen);
 else
     doseMappingInfo = struct();
-    doseMappingInfo.sourceCtScen = ctScen;
-    doseMappingInfo.referenceCtScen = doseMapping.refScen;
+    doseMappingInfo.sourceCtScenId = ctScenId;
+    doseMappingInfo.referenceCtScenId = doseMapping.refScen;
     doseMappingInfo.method = doseMapping.method;
     doseMappingInfo.mapped = false;
 end

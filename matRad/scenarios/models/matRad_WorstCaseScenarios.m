@@ -42,9 +42,7 @@ classdef matRad_WorstCaseScenarios < matRad_GriddedScenariosAbstract
             
             this@matRad_GriddedScenariosAbstract(superclassArgs{:});
 
-            %TODO: We could do this automatically in the superclass
-            %Octave 5 has a bug there and throws an error
-            this.updateScenarios();
+            this.initializeScenarioModel();
         end
         
         function scenarios = updateScenarios(this)

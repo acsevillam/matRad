@@ -109,7 +109,7 @@ pln.propOpt.runSequencing = 0;
 pln.bioParam = matRad_bioModel(pln.radiationMode,quantityOpt,modelName);
 
 % retrieve nominal scenario for dose calculation and optimziation
-pln.multScen = matRad_multScen(ct,'nomScen'); 
+pln.multScen = matRad_createScenarioModel(ct,'nomScen');
 
 % dose calculation settings
 pln.propDoseCalc.doseGrid.resolution.x = 3; % [mm]
@@ -152,4 +152,3 @@ matRad_plotSliceWrapper(gca,ct,cst,1,resultGUI.physicalDose,plane,slice,[],[],co
 dcmExport = matRad_DicomExporter();
 dcmExport.dicomDir = [matRad_cfg.primaryUserFolder filesep 'dicomExport'];
 dcmExport.matRad_exportDicom();
-

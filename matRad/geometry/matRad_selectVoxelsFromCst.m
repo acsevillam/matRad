@@ -44,8 +44,8 @@ function [includeMask] = matRad_selectVoxelsFromCst(cstOnDoseGrid, doseGrid, sel
     includeMask(:) = {false(prod(doseGrid.dimensions),1)};
         
     if isequal(selectionMode , 'all')
-        for ctScenIdx=1:size(includeMask,2)
-            includeMask{ctScenIdx}(:) = true;
+        for ctScenIx=1:size(includeMask,2)
+            includeMask{ctScenIx}(:) = true;
         end
     else
 

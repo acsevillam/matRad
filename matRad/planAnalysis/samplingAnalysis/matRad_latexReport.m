@@ -173,19 +173,20 @@ line = cell(0);
 
 % raw input
 multScen = pln.multScen;
+scenarioReportParameters = matRad_getSamplingReportScenarioParameters(multScen);
 % shift parameters
-line =  [line; '\newcommand{\numOfShiftScen}{', num2str(multScen.numOfShiftScen), '}'];
-line =  [line; '\newcommand{\shiftSize}{', num2str(max(multScen.isoShift)), '}'];
-line =  [line; '\newcommand{\shiftGenType}{', num2str(multScen.shiftGenType), '}'];
-line =  [line; '\newcommand{\shiftCombType}{', num2str(multScen.shiftCombType), '}'];
+line =  [line; '\newcommand{\numOfShiftScen}{', num2str(scenarioReportParameters.numOfShiftScen), '}'];
+line =  [line; '\newcommand{\shiftSize}{', num2str(scenarioReportParameters.shiftSize), '}'];
+line =  [line; '\newcommand{\shiftGenType}{', scenarioReportParameters.shiftGenType, '}'];
+line =  [line; '\newcommand{\shiftCombType}{', scenarioReportParameters.shiftCombType, '}'];
 
 % range parameters
-line =  [line; '\newcommand{\numOfRangeShiftScen}{', num2str(multScen.numOfRangeShiftScen), '}'];
-line =  [line; '\newcommand{\maxAbsRangeShift}{', num2str(max(multScen.absRangeShift)), '}'];
-line =  [line; '\newcommand{\maxRelRangeShift}{', num2str(max(multScen.relRangeShift)), '}'];
-line =  [line; '\newcommand{\rangeCombType}{', num2str(multScen.rangeCombType), '}'];
-line =  [line; '\newcommand{\rangeGenType}{', num2str(multScen.rangeGenType), '}'];
-line =  [line; '\newcommand{\scenCombType}{', num2str(multScen.scenCombType), '}'];
+line =  [line; '\newcommand{\numOfRangeShiftScen}{', num2str(scenarioReportParameters.numOfRangeShiftScen), '}'];
+line =  [line; '\newcommand{\maxAbsRangeShift}{', num2str(scenarioReportParameters.maxAbsRangeShift), '}'];
+line =  [line; '\newcommand{\maxRelRangeShift}{', num2str(scenarioReportParameters.maxRelRangeShift), '}'];
+line =  [line; '\newcommand{\rangeCombType}{', scenarioReportParameters.rangeCombType, '}'];
+line =  [line; '\newcommand{\rangeGenType}{', scenarioReportParameters.rangeGenType, '}'];
+line =  [line; '\newcommand{\scenCombType}{', scenarioReportParameters.scenCombType, '}'];
 
 % gamma analysis parameters
 line =  [line; '\newcommand{\gammaDoseAgreement}{', num2str(doseStat.gammaAnalysis.doseAgreement), '}'];
@@ -193,27 +194,13 @@ line =  [line; '\newcommand{\gammaDistAgreement}{', num2str(doseStat.gammaAnalys
 line =  [line; '\newcommand{\gammaPassRate}{', formatMetricValue(doseStat.gammaAnalysis.gammaPassRate), '}'];
 line =  [line; '\newcommand{\gammaStatus}{', getGammaStatus(doseStat), '}'];
 
-if pln.multScen.numOfCtScen <= 1
-    line =  [line; '\newcommand{\ctScen}{false}'];
-else
-    line =  [line; '\newcommand{\ctScen}{true}'];
-end
+line =  [line; '\newcommand{\ctScen}{', scenarioReportParameters.ctScen, '}'];
+line =  [line; '\newcommand{\rangeScen}{', scenarioReportParameters.rangeScen, '}'];
+line =  [line; '\newcommand{\shiftScen}{', scenarioReportParameters.shiftScen, '}'];
 
-if pln.multScen.numOfRangeShiftScen <= 1
-    line =  [line; '\newcommand{\rangeScen}{false}'];
-else
-    line =  [line; '\newcommand{\rangeScen}{true}'];
-end
-
-if pln.multScen.numOfShiftScen <= 1
-    line =  [line; '\newcommand{\shiftScen}{false}'];
-else
-    line =  [line; '\newcommand{\shiftScen}{true}'];
-end
-
-line =  [line; '\newcommand{\shiftSD}{', num2str(pln.multScen.shiftSD), '}'];
-line =  [line; '\newcommand{\rangeAbsSD}{', num2str(pln.multScen.rangeAbsSD), '}'];
-line =  [line; '\newcommand{\rangeRelSD}{', num2str(pln.multScen.rangeRelSD), '}'];
+line =  [line; '\newcommand{\shiftSD}{', num2str(scenarioReportParameters.shiftSD), '}'];
+line =  [line; '\newcommand{\rangeAbsSD}{', num2str(scenarioReportParameters.rangeAbsSD), '}'];
+line =  [line; '\newcommand{\rangeRelSD}{', num2str(scenarioReportParameters.rangeRelSD), '}'];
 
 fid = fopen(fullfile(dataPath,'uncertaintyParameters.tex'),'w');
 for i = 1:numel(line)

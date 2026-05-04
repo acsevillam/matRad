@@ -7,19 +7,23 @@ function samples = matRad_getGaussianOrbitSamples(mu,SIGMA,nFrames,varargin)
 %   samples = matRad_getGaussianOrbitSamples(___,Name,Value)
 %
 % input
-%   mu           mean vector
-%   SIGMA        covariance matrix
-%   nFrames 	 number of sample frames
-%   xr           (optional) if scalar, a radius for the sample. if vector, a starting coordiante
+%   mu:                 mean vector
+%   SIGMA:              covariance matrix
+%   nFrames:            number of sample frames
+%   xr:                 (optional) if scalar, a radius for the sample. If
+%                       vector, a starting coordinate
+%   varargin:           optional name-value pairs
 %     
-%   Optional Name-Value-Pairs:
-%   Method:             can be either 'chol' (default, fast) or 'eig' 
+% input (optional Name-Value pairs)
+%   Method:             can be either 'chol' (default, fast) or 'eig'
 %                       (more stable but slow)
-%   MaximumTriesChol:   number of maxim tries to make matrix PSD for
+%   MaximumTriesChol:   number of maximum tries to make matrix PSD for
 %                       cholesky decomposition. Default is 10
 %
 %
 % output
+%   samples:            sampled orbit with one dimension per row and one
+%                       frame per column
 %
 % References
 %   [1] http://mlss.tuebingen.mpg.de/2013/Hennig_2013_Animating_Samples_from_Gaussian_Distributions.pdf
@@ -27,7 +31,7 @@ function samples = matRad_getGaussianOrbitSamples(mu,SIGMA,nFrames,varargin)
 %
 % %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
-% Copyright 2017 the matRad development team. 
+% Copyright 2017-2026 the matRad development team.
 % 
 % This file is part of the matRad project. It is subject to the license 
 % terms in the LICENSE file found in the top-level directory of this 
@@ -47,14 +51,15 @@ p.addRequired('mu',@(x) isvector(x) && isnumeric(x));
 p.addRequired('SIGMA',@(x) size(x,1) == size(x,2) && isnumeric(x));
 p.addRequired('nFrames',@(x) isscalar(x) && isnumeric(x));
 p.addOptional('xr',[],@(x) isnumeric(x) && isvector(x));
-p.addParameter('Method','chol',@(x) validatestring(x,{'chol'},{'eig'}));
+p.addParameter('Method','chol',@isValidMethod);
 p.addParameter('MaximumTriesChol',10,@(x) isscalar(x) && isnumeric(x));
 
 p.parse(mu,SIGMA,nFrames,varargin{:});
 
-method = p.Results.Method;
+method = validatestring(p.Results.Method,{'chol','eig'});
 maxTries = p.Results.MaximumTriesChol;
 xr = p.Results.xr;
+mu = mu(:);
 
 %Get samples for standard Gaussian
 if isempty(xr)
@@ -105,20 +110,26 @@ end
 
 if strcmp(method,'eig')
     matRad_cfg.dispInfo('Creating smooth samples via eigen decomposition...\n');
+    SIGMA = (SIGMA + SIGMA')/2;
     try %Try evaluation on GPU
         SIGMAgpu = gpuArray(SIGMA);
         [V,D] = eig(SIGMAgpu);
-        Q = gather(real(sqrt(complex(D)))*V);
+        Q = gather(V * real(sqrt(complex(D))));
     catch
         [V,D] = eig(SIGMA);
-        Q = real(sqrt(complex(D)))*V;
+        Q = V * real(sqrt(complex(D)));
     end
-    samples = arrayfun(@(f) mu + Q' * samples(:,f),1:nFrames,'UniformOutput',false);
+    samples = arrayfun(@(f) mu + Q * samples(:,f),1:nFrames,'UniformOutput',false);
     
     samples = cell2mat(samples);
     samples = real(samples);
 end
 
+end
+
+function tf = isValidMethod(method)
+validatestring(method,{'chol','eig'});
+tf = true;
 end
 
 

@@ -36,14 +36,13 @@ function radDepthVcoarse = matRad_interpRadDepth(ct,V,Vcoarse,vXgrid,vYgrid,vZgr
 matRad_cfg = MatRad_Config.instance();
 matRad_cfg.dispDeprecationWarning('This function is obsolete and will be removed in a future release');
 
-for ctScen = 1:ct.numOfCtScen
+for ctScenId = 1:ct.numOfCtScen
    radDepthCube             = NaN*ones(ct.cubeDim);
-   radDepthCube(V(~isnan(radDepthV{1}))) = radDepthV{ctScen}(~isnan(radDepthV{1}));
+   radDepthCube(V(~isnan(radDepthV{1}))) = radDepthV{ctScenId}(~isnan(radDepthV{1}));
 
    % interpolate cube - cube is now stored in Y X Z 
    coarseRadDepthCube          = matRad_interp3(ct.x,ct.y',ct.z,radDepthCube,vXgrid,vYgrid',vZgrid);
-   radDepthVcoarse{ctScen}  = coarseRadDepthCube(Vcoarse);
+   radDepthVcoarse{ctScenId}  = coarseRadDepthCube(Vcoarse);
 end
 
 end
-

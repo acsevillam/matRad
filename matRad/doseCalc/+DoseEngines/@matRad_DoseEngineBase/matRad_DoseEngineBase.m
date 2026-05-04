@@ -226,9 +226,10 @@ classdef (Abstract) matRad_DoseEngineBase < handle
             
             resultGUI = [];
             
-            activeScenIx = find(this.multScen.scenMask);
-            for i = 1:this.multScen.totNumScen
-                resultGUItmp = matRad_calcCubes(ones(dij.numOfBeams,1),dij,activeScenIx(i));
+            scenarioIds = this.multScen.scenarioIds();
+            for i = 1:numel(scenarioIds)
+                resultGUItmp = matRad_calcCubes(ones(dij.numOfBeams,1),dij, ...
+                    this.multScen.getDijScenarioIndex(scenarioIds(i)));
                 if i == 1
                     resultGUI = resultGUItmp;
                 end
@@ -242,6 +243,25 @@ classdef (Abstract) matRad_DoseEngineBase < handle
             this.calcDoseDirect = false;
             dij = this.calcDose(ct,cst,stf);
         end
+
+        function applicators = supportedScenarioApplicators(~)
+            applicators = {'ct','setup','range'};
+        end
+
+        function assertSupportedScenarioDimensions(this)
+            if ~isa(this.multScen,'matRad_ScenarioModel')
+                return;
+            end
+            matRad_cfg = MatRad_Config.instance();
+            supportedApplicators = this.supportedScenarioApplicators();
+            activeApplicators = this.multScen.scenarioDimensionActive;
+            unsupportedApplicators = setdiff(activeApplicators,supportedApplicators);
+            if ~isempty(unsupportedApplicators)
+                matRad_cfg.dispError('Dose engine "%s" does not support active scenario dimension "%s".', ...
+                    this.name,unsupportedApplicators{1});
+            end
+        end
+
         function setDefaults(this)
             % future code for property validation on creation here
             matRad_cfg = MatRad_Config.instance();

@@ -14,6 +14,61 @@ function test_partial_sampling_skips_whole_ct_gamma
     assertTrue(all(isnan(doseStat.gammaAnalysis.gammaCube(:))));
     assertElementsAlmostEqual(doseStat.sampleCoverageFraction,2/5);
 
+function test_samplingReportScenarioParametersUseScenarioModelApi
+    ct = struct('numOfCtScen',2);
+    multScen = matRad_WorstCaseScenarios(ct);
+    multScen.scenarioDimensionActive = {'ct','setup','range'};
+    multScen.shiftSD = [1 2 3];
+    multScen.rangeAbsSD = 4;
+    multScen.rangeRelSD = 5;
+
+    reportParameters = matRad_getSamplingReportScenarioParameters(multScen);
+
+    assertEqual(reportParameters.numOfShiftScen,multScen.totNumShiftScen);
+    assertEqual(reportParameters.numOfRangeShiftScen,multScen.totNumRangeScen);
+    assertEqual(reportParameters.ctScen,'true');
+    assertEqual(reportParameters.shiftScen,'true');
+    assertEqual(reportParameters.rangeScen,'true');
+    assertEqual(reportParameters.shiftCombType,multScen.combinations);
+
+function test_calcStudyUsesPatientMatFilePathAndLocalTemplate
+    calcStudyPath = which('matRad_calcStudy');
+    calcStudySource = fileread(calcStudyPath);
+    templatePath = fullfile(fileparts(calcStudyPath),'main_template.tex');
+
+    assertEqual(nargin('matRad_calcStudy'),-2);
+    assertTrue(exist(templatePath,'file') == 2);
+    assertTrue(~isempty(strfind(calcStudySource,'load(matPatientPath')));
+    assertTrue(~isempty(strfind(calcStudySource,'fileparts(mfilename(''fullpath''))')));
+    assertTrue(isempty(strfind(calcStudySource,'exist(''matPatientPath'',''file'')')));
+    assertTrue(isempty(strfind(calcStudySource,'tools'',''samplingAnalysis')));
+
+function test_gaussianOrbitSamplesEigMethodPreservesCovarianceOrientation
+    mu = [1; -2; 0.5];
+    SIGMA = [3 1 0.4; 1 2 0.2; 0.4 0.2 1];
+    radius = 1.7;
+    nFrames = 12;
+
+    samples = matRad_getGaussianOrbitSamples(mu,SIGMA,nFrames,radius,'Method','eig');
+
+    centeredSamples = bsxfun(@minus,samples,mu);
+    mahalanobisDistance = sum(centeredSamples .* (SIGMA \ centeredSamples),1);
+    assertEqual(size(samples),[numel(mu) nFrames]);
+    assertElementsAlmostEqual(mahalanobisDistance,radius^2*ones(1,nFrames),'absolute',1e-10);
+
+function test_setupStudyTemplateUsesScenarioModelApi
+    templatePath = which('matRad_setupStudyTemplate');
+    templateSource = fileread(templatePath);
+    forbiddenTerms = {'numOfShiftScen','numOfRangeShiftScen','shiftGenType', ...
+        'scenCombType','matRad_createValidInstance','setup.x','range.absolute'};
+
+    for i = 1:numel(forbiddenTerms)
+        assertTrue(isempty(strfind(templateSource,forbiddenTerms{i})));
+    end
+
+    assertTrue(~isempty(strfind(templateSource,'scenarioDimensionActive = {''ct'',''setup'',''range''}')));
+    assertTrue(~isempty(strfind(templateSource,'matRad_calcStudy(multScen')));
+
 function [ct,cst,pln,caSampRes,mSampDose,resultGUInomScen] = samplingFixture()
     ct = struct();
     ct.cubeDim = [5 1 1];

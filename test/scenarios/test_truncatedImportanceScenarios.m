@@ -50,15 +50,18 @@ function test_truncatedImportanceScenarioRemovesCombinedCorners
     assertEqual(tmp,scenario.linearMask);
 
 function test_truncatedImportanceScenarioFactory
-    model = matRad_multScen([],'truncatedImpScen');
+    model = matRad_createScenarioModel([],'truncatedImpScen');
     assertTrue(isa(model,'matRad_TruncatedImportanceScenarios'));
     assertEqual(model.name,'truncatedImpScen');
 
 function assertAllInsideTruncationRadius(scenario)
     scenValues = scenario.scenForProb(:,2:6);
-    scenScale = [scenario.shiftSD scenario.rangeAbsSD scenario.rangeRelSD./100];
-    scenScale(scenScale == 0) = eps;
-    normalizedRadius = sqrt(sum(bsxfun(@rdivide,scenValues,scenScale).^2,2));
+    activeIx = [scenario.scenarioComponents.active];
+    normalizedRadius = zeros(size(scenValues,1),1);
+    if any(activeIx)
+        scenScale = [scenario.scenarioComponents(activeIx).scale];
+        normalizedRadius = sqrt(sum(bsxfun(@rdivide,scenValues(:,activeIx),scenScale).^2,2));
+    end
     tolerance = 100*eps(max(1,scenario.wcSigma));
 
     assertTrue(all(normalizedRadius <= scenario.wcSigma + tolerance));

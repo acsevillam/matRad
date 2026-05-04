@@ -73,7 +73,7 @@ pln.propSeq.runSequencing = 0;
 pln.bioParam = matRad_bioModel(pln.radiationMode,quantityOpt,modelName);
 
 % retrieve scenarios for dose calculation and optimziation
-pln.multScen = matRad_multScen(ct,'nomScen'); % optimize on the nominal scenario                                            
+pln.multScen = matRad_createScenarioModel(ct,'nomScen'); % optimize on the nominal scenario
 
 % dose calculation settings
 pln.propDoseCalc.doseGrid.resolution.x = 3; % [mm]
@@ -175,4 +175,3 @@ title('absolute difference')
 %%
 % Plot both doses with absolute difference and gamma analysis
 [gammaCube,gammaPassRate,hfigure]=matRad_compareDose(resultGUI_effect.RBExD, resultGUI_tissue.RBExD, ct, cst,[1 1 1],'on');
-

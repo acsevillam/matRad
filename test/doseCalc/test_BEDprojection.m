@@ -63,6 +63,39 @@ expectedResult = 2.8;
 assertElementsAlmostEqual(wGrad,expectedResult,'absolute',1e-4);
 
 
+function test_BED_computeSingleScenarioGradientUsesCtScenarioIndex
+% robust DIJ scenario index must map back to the corresponding CT scenario
+a = sparse(zeros(9,1));
+a(5) = 2;
+dij.physicalDose = cell(2,2);
+dij.physicalDose{3} = a;
+a(5) = 1;
+dij.mAlphaDose = cell(2,2);
+dij.mAlphaDose{3} = a;
+a(5) = sqrt(0.05)*2;
+dij.mSqrtBetaDose = cell(2,2);
+dij.mSqrtBetaDose{3} = a;
+dij.ax{1} = 0.5*ones(numel(a),1);
+dij.ax{2} = 0.25*ones(numel(a),1);
+dij.bx{1} = 0.05*ones(numel(a),1);
+dij.bx{2} = 0.025*ones(numel(a),1);
+dij.doseGrid.numOfVoxels = 9;
+dij.ixDose{1} = 5;
+dij.ixDose{2} = 5;
+w = 1;
+scen = 3;
+obj = matRad_BEDProjection;
+a = zeros(dij.doseGrid.numOfVoxels,1);
+a(dij.ixDose{1}) = 1;
+doseGrad{scen} = a;
+
+wGrad = projectSingleScenarioGradient(obj,dij,doseGrad,scen,w);
+
+expectedResult = 2.8;
+
+assertElementsAlmostEqual(wGrad,expectedResult,'absolute',1e-4);
+
+
 function test_BED_setBiologicalDosePrescription
 opti = DoseObjectives.matRad_SquaredOverdosing(1,2);
 alphaX = 0.5;

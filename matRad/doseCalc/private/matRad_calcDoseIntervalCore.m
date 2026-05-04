@@ -1,15 +1,50 @@
-function [dij_ref,pln_ref,dij,pln,dij_interval] = matRad_calcDoseIntervalCore(ct,cst,stf,pln,dij,cfg,intervalMode)
-% Shared implementation for matRad_calcDoseInterval2 and matRad_calcDoseInterval3.
+function [pln_interval,dij_intervalContext] = matRad_calcDoseIntervalCore(ct,cst,stf,pln,dij,cfg,intervalMode)
+% matRad_calcDoseIntervalCore shared implementation for dose interval methods
+%
+% call
+%   [pln_interval,dij_intervalContext] = matRad_calcDoseIntervalCore(ct,cst,stf,pln,dij,cfg,intervalMode)
+%
+% input
+%   ct:           matRad ct struct; multi-CT inputs require pull DVFs when
+%                 non-reference CT scenarios are mapped to cfg.refScen
+%   cst:          matRad cst cell array
+%   stf:          matRad steering information struct
+%   pln:          matRad pln struct with a matRad_ScenarioModel in pln.multScen
+%   dij:          robust dose influence struct; scenario cells are addressed
+%                 by DIJ linear scenario indices from pln.multScen
+%   cfg:          dose interval configuration struct
+%   intervalMode: interval method identifier, either 'INTERVAL2' or 'INTERVAL3'
+%
+% output
+%   pln_interval:        plan struct containing propOpt.dij_interval
+%   dij_intervalContext: lightweight single-scenario dij context for
+%                        interval fluence optimization
+%
+% References
+%   -
+%
+% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+% Copyright 2026 the matRad development team.
+%
+% This file is part of the matRad project. It is subject to the license
+% terms in the LICENSE file found in the top-level directory of this
+% distribution and at https://github.com/e0404/matRad/LICENSE.md. No part
+% of the matRad project, including this file, may be copied, modified,
+% propagated, or distributed except according to the terms contained in the
+% LICENSE file.
+%
+% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 matRad_cfg = MatRad_Config.instance();
 timer = tic;
 
-[ctx,pln_ref] = matRad_resolveDoseIntervalInputs(ct,cst,pln,dij,cfg, ...
+ctx = matRad_resolveDoseIntervalInputs(ct,cst,pln,dij,cfg, ...
     intervalMode,matRad_cfg);
 cfg = ctx.cfg;
 quantity = ctx.quantity;
-scenarioIx = ctx.scenarioIx;
-scenarioCtScen = ctx.scenarioCtScen;
+scenarioDijIx = ctx.scenarioDijIx;
+scenarioCtScenIds = ctx.scenarioCtScenIds;
 scenarioWeights = ctx.scenarioWeights;
 targetRows = ctx.targetRows;
 oarRows = ctx.oarRows;
@@ -19,7 +54,7 @@ scenarioMaps = ctx.scenarioMaps;
 
 matRad_cfg.dispInfo(['matRad: Calculating %s dose interval for quantity ', ...
     '''%s'' using dij.%s and %d scenarios.\n'],intervalMode, ...
-    quantity.name,quantity.field,numel(scenarioIx));
+    quantity.name,quantity.field,numel(scenarioDijIx));
 matRad_cfg.dispInfo(['matRad: Dose interval reference CT scenario %d, ', ...
     '%d target voxels, %d OAR voxels, %d bixels.\n'],cfg.refScen, ...
     numel(targetRows),numel(oarRows),numBixels);
@@ -28,50 +63,97 @@ if quantity.scale ~= 1
         quantity.scale);
 end
 
-if cfg.CalculateReferenceDij
-    matRad_cfg.dispInfo('matRad: Calculating reference-scenario dij for interval data...\n');
-    dij_ref = matRad_calcDoseInfluence(ct,cst,stf,pln_ref);
-    matRad_cfg.dispInfo('matRad: Reference-scenario dij calculation finished.\n');
-else
-    matRad_cfg.dispInfo('matRad: Skipping reference-scenario dij calculation.\n');
-    dij_ref = [];
-end
-
 dij_interval = initializeIntervalStruct(numVoxels,numBixels,targetRows,oarRows, ...
-    quantity,cfg,scenarioIx,scenarioCtScen,scenarioWeights,intervalMode);
+    quantity,cfg,scenarioDijIx,scenarioCtScenIds,scenarioWeights,intervalMode);
 
 if ~isempty(targetRows)
-    dij_interval = accumulateTargetInterval(dij_interval,quantity,scenarioIx, ...
+    dij_interval = accumulateTargetInterval(dij_interval,quantity,scenarioDijIx, ...
         scenarioWeights,scenarioMaps,targetRows,cfg,numBixels,matRad_cfg);
 else
     matRad_cfg.dispInfo('matRad: No target voxels selected for interval target term.\n');
 end
 
 if ~isempty(oarRows)
-    dij_interval = accumulateOARCenter(dij_interval,quantity,scenarioIx, ...
+    dij_interval = accumulateOARCenter(dij_interval,quantity,scenarioDijIx, ...
         scenarioWeights,scenarioMaps,oarRows,cfg,numBixels,matRad_cfg);
 else
     matRad_cfg.dispInfo('matRad: No OAR voxels selected for interval OAR term.\n');
 end
 
 if strcmp(intervalMode,'INTERVAL3') && ~isempty(oarRows)
-    guardOARSvdMemory(numel(scenarioIx),numBixels,cfg,matRad_cfg);
-    dij_interval = accumulateOARSvd(dij_interval,quantity,scenarioIx, ...
+    guardOARSvdMemory(numel(scenarioDijIx),numBixels,cfg,matRad_cfg);
+    dij_interval = accumulateOARSvd(dij_interval,quantity,scenarioDijIx, ...
         scenarioWeights,scenarioMaps,oarRows,cfg,numBixels,matRad_cfg);
 end
 
-if ~isfield(pln,'propOpt') || ~isstruct(pln.propOpt)
-    pln.propOpt = struct();
+pln_interval = pln;
+if ~isfield(pln_interval,'propOpt') || ~isstruct(pln_interval.propOpt)
+    pln_interval.propOpt = struct();
 end
-pln.propOpt.dij_interval = dij_interval;
+pln_interval.propOpt.dij_interval = dij_interval;
+dij_intervalContext = buildIntervalDijContext(dij,dij_interval,quantity,cfg);
+pln_interval.multScen = dij_intervalContext.scenarioModel;
 
 matRad_cfg.dispInfo('matRad: Finished %s dose interval calculation in %.2f s.\n', ...
     intervalMode,toc(timer));
 
 end
 
+function dij_intervalContext = buildIntervalDijContext(dij,dij_interval,quantity,cfg)
+metadataFields = {'doseGrid','ctGrid','totalNumOfBixels','numOfBeams', ...
+    'beamNum','rayNum','bixelNum','numParticlesPerMU','minMU','maxMU', ...
+    'RBE','RBE_models','ax','bx','doseWeightingThreshold','machine','meta'};
+dij_intervalContext = struct();
+for f = 1:numel(metadataFields)
+    fieldName = metadataFields{f};
+    if isfield(dij,fieldName)
+        dij_intervalContext.(fieldName) = dij.(fieldName);
+    end
+end
+
+numBixels = size(dij_interval.center,2);
+dij_intervalContext.totalNumOfBixels = numBixels;
+if ~isfield(dij_intervalContext,'beamNum') || ...
+        numel(dij_intervalContext.beamNum) ~= numBixels
+    dij_intervalContext.beamNum = ones(numBixels,1);
+else
+    dij_intervalContext.beamNum = dij_intervalContext.beamNum(:);
+end
+if ~isfield(dij_intervalContext,'numOfBeams') || ...
+        isempty(dij_intervalContext.numOfBeams)
+    dij_intervalContext.numOfBeams = max(dij_intervalContext.beamNum);
+end
+
+dij_intervalContext.physicalDose = cell(1,1,1);
+dij_intervalContext.physicalDose{1} = dij_interval.center;
+if ~strcmp(quantity.field,'physicalDose')
+    dij_intervalContext.(quantity.field) = cell(1,1,1);
+    dij_intervalContext.(quantity.field){1} = dij_interval.center;
+end
+dij_intervalContext.numOfScenarios = 1;
+dij_intervalContext.scenarioModel = buildIntervalOptimizationScenarioModel( ...
+    cfg.refScen);
+dij_intervalContext.intervalQuantity = quantity.name;
+dij_intervalContext.intervalQuantityField = quantity.field;
+end
+
+function scenarioModel = buildIntervalOptimizationScenarioModel(refScen)
+components = matRad_createScenarioComponents([0 0 0],0,0,{'ct'});
+scenarioValues = zeros(1,numel(components));
+ctScenIds = refScen;
+scenProb = 1;
+scenWeight = 1;
+scenForProb = [ctScenIds scenarioValues];
+linearMask = [1 1 1];
+scenMask = true(1,1,1);
+
+scenarioModel = matRad_NominalScenario();
+scenarioModel.setScenarioRealizations(components,scenarioValues,ctScenIds, ...
+    scenProb,scenWeight,scenForProb,linearMask,scenMask);
+end
+
 function dij_interval = initializeIntervalStruct(numVoxels,numBixels,targetRows,oarRows, ...
-    quantity,cfg,scenarioIx,scenarioCtScen,scenarioWeights,intervalMode)
+    quantity,cfg,scenarioDijIx,scenarioCtScenIds,scenarioWeights,intervalMode)
 dij_interval = struct();
 dij_interval.center = sparse(numVoxels,numBixels);
 dij_interval.radius = sparse(numBixels,numBixels);
@@ -82,8 +164,8 @@ dij_interval.quantityField = quantity.field;
 dij_interval.quantityScale = quantity.scale;
 dij_interval.optimizationQuantity = quantity.optimizationQuantity;
 dij_interval.refScen = cfg.refScen;
-dij_interval.scenarioIndices = scenarioIx(:);
-dij_interval.scenarioCtScen = scenarioCtScen(:);
+dij_interval.scenarioDijIx = scenarioDijIx(:);
+dij_interval.scenarioCtScenIds = scenarioCtScenIds(:);
 dij_interval.scenarioWeights = scenarioWeights(:);
 dij_interval.intervalMode = intervalMode;
 
@@ -95,9 +177,9 @@ if strcmp(intervalMode,'INTERVAL3')
 end
 end
 
-function dij_interval = accumulateTargetInterval(dij_interval,quantity,scenarioIx, ...
+function dij_interval = accumulateTargetInterval(dij_interval,quantity,scenarioDijIx, ...
     scenarioWeights,scenarioMaps,targetRows,cfg,numBixels,matRad_cfg)
-batchSize = resolveBatchSize(numel(targetRows),numel(scenarioIx),numBixels,cfg);
+batchSize = resolveBatchSize(numel(targetRows),numel(scenarioDijIx),numBixels,cfg);
 batches = makeBatches(targetRows,batchSize);
 matRad_cfg.dispInfo(['matRad: Accumulating target interval center/radius ', ...
     'for %d voxels in %d batches of up to %d voxels.\n'], ...
@@ -111,10 +193,10 @@ for b = 1:numel(batches)
     centerBlock = sparse(numel(rows),numBixels);
     radiusBlock = sparse(numBixels,numBixels);
 
-    for s = 1:numel(scenarioIx)
+    for s = 1:numel(scenarioDijIx)
         logScenarioProgress(matRad_cfg,cfg,'Target interval',b,numel(batches), ...
-            s,numel(scenarioIx),scenarioIx(s),scenarioWeights(s));
-        scenarioRows = matRad_getDoseIntervalScenarioRows(quantity,scenarioIx(s), ...
+            s,numel(scenarioDijIx),scenarioDijIx(s),scenarioWeights(s));
+        scenarioRows = matRad_getDoseIntervalScenarioRows(quantity,scenarioDijIx(s), ...
             scenarioMaps{s},rows,matRad_cfg);
         centerBlock = centerBlock + scenarioWeights(s) .* scenarioRows;
         radiusBlock = radiusBlock + scenarioRows' * (scenarioWeights(s) .* scenarioRows);
@@ -127,9 +209,9 @@ end
 matRad_cfg.dispInfo('matRad: Target interval accumulation finished.\n');
 end
 
-function dij_interval = accumulateOARCenter(dij_interval,quantity,scenarioIx, ...
+function dij_interval = accumulateOARCenter(dij_interval,quantity,scenarioDijIx, ...
     scenarioWeights,scenarioMaps,oarRows,cfg,numBixels,matRad_cfg)
-batchSize = resolveBatchSize(numel(oarRows),numel(scenarioIx),numBixels,cfg);
+batchSize = resolveBatchSize(numel(oarRows),numel(scenarioDijIx),numBixels,cfg);
 batches = makeBatches(oarRows,batchSize);
 matRad_cfg.dispInfo(['matRad: Accumulating OAR interval center for %d voxels ', ...
     'in %d batches of up to %d voxels.\n'], ...
@@ -141,10 +223,10 @@ for b = 1:numel(batches)
     logBatchProgress(matRad_cfg,cfg,'OAR center',b,numel(batches));
     logBatchStart(matRad_cfg,cfg,'OAR center',b,numel(batches),numel(rows));
     centerBlock = sparse(numel(rows),numBixels);
-    for s = 1:numel(scenarioIx)
+    for s = 1:numel(scenarioDijIx)
         logScenarioProgress(matRad_cfg,cfg,'OAR center',b,numel(batches), ...
-            s,numel(scenarioIx),scenarioIx(s),scenarioWeights(s));
-        scenarioRows = matRad_getDoseIntervalScenarioRows(quantity,scenarioIx(s), ...
+            s,numel(scenarioDijIx),scenarioDijIx(s),scenarioWeights(s));
+        scenarioRows = matRad_getDoseIntervalScenarioRows(quantity,scenarioDijIx(s), ...
             scenarioMaps{s},rows,matRad_cfg);
         centerBlock = centerBlock + scenarioWeights(s) .* scenarioRows;
     end
@@ -154,9 +236,9 @@ end
 matRad_cfg.dispInfo('matRad: OAR interval center accumulation finished.\n');
 end
 
-function dij_interval = accumulateOARSvd(dij_interval,quantity,scenarioIx, ...
+function dij_interval = accumulateOARSvd(dij_interval,quantity,scenarioDijIx, ...
     scenarioWeights,scenarioMaps,oarRows,cfg,numBixels,matRad_cfg)
-batchSize = resolveBatchSize(numel(oarRows),numel(scenarioIx),numBixels,cfg);
+batchSize = resolveBatchSize(numel(oarRows),numel(scenarioDijIx),numBixels,cfg);
 batches = makeBatches(oarRows,batchSize);
 matRad_cfg.dispInfo(['matRad: Accumulating INTERVAL3 OAR covariance/SVD for ', ...
     '%d voxels in %d batches of up to %d voxels.\n'], ...
@@ -167,11 +249,11 @@ for b = 1:numel(batches)
     rows = batches{b};
     logBatchProgress(matRad_cfg,cfg,'OAR covariance/SVD',b,numel(batches));
     logBatchStart(matRad_cfg,cfg,'OAR covariance/SVD',b,numel(batches),numel(rows));
-    scenarioRows = cell(numel(scenarioIx),1);
-    for s = 1:numel(scenarioIx)
+    scenarioRows = cell(numel(scenarioDijIx),1);
+    for s = 1:numel(scenarioDijIx)
         logScenarioProgress(matRad_cfg,cfg,'OAR covariance/SVD',b,numel(batches), ...
-            s,numel(scenarioIx),scenarioIx(s),scenarioWeights(s));
-        scenarioRows{s} = matRad_getDoseIntervalScenarioRows(quantity,scenarioIx(s), ...
+            s,numel(scenarioDijIx),scenarioDijIx(s),scenarioWeights(s));
+        scenarioRows{s} = matRad_getDoseIntervalScenarioRows(quantity,scenarioDijIx(s), ...
             scenarioMaps{s},rows,matRad_cfg);
     end
 
@@ -179,8 +261,8 @@ for b = 1:numel(batches)
     for localIx = 1:numel(rows)
         logVoxelProgress(matRad_cfg,cfg,'OAR covariance/SVD',b,numel(batches), ...
             localIx,numel(rows));
-        scenarioMatrixRows = cell(numel(scenarioIx),1);
-        for s = 1:numel(scenarioIx)
+        scenarioMatrixRows = cell(numel(scenarioDijIx),1);
+        for s = 1:numel(scenarioDijIx)
             scenarioMatrixRows{s} = scenarioRows{s}(localIx,:);
         end
         scenarioMatrix = vertcat(scenarioMatrixRows{:});
@@ -231,11 +313,11 @@ end
 end
 
 function logScenarioProgress(matRad_cfg,cfg,stageName,batchIx,numBatches, ...
-    scenarioNum,numScenarios,scenarioIx,scenarioWeight)
+    scenarioRowIx,numScenarios,scenarioDijIx,scenarioWeight)
 if isDetailedProgress(cfg)
     matRad_cfg.dispInfo(['matRad: %s batch %d/%d scenario %d/%d ', ...
         '(linear scenario %d, weight %.6g).\n'],stageName,batchIx, ...
-        numBatches,scenarioNum,numScenarios,scenarioIx,scenarioWeight);
+        numBatches,scenarioRowIx,numScenarios,scenarioDijIx,scenarioWeight);
 end
 end
 
@@ -361,6 +443,7 @@ singularValues = singularValues(positiveIx);
 if strcmp(cfg.KMode,'dynamic')
     totalEnergy = sum(singularValues.^2);
     k = find(cumsum(singularValues.^2)./totalEnergy >= cfg.RetentionThreshold,1,'first');
+    k = min(k,kMax);
 else
     k = min(kMax,numel(singularValues));
 end

@@ -63,6 +63,8 @@ end
 if ~isfield(pln,'multScen')
     matRad_cfg.dispWarning('No scenario model specified! Using nominal Scenario model!');
     pln.multScen = matRad_NominalScenario(ct);
+elseif ~isa(pln.multScen,'matRad_ScenarioModel')
+    pln.multScen = matRad_createScenarioModel(ct,pln.multScen);
 end
 
 if isExternalTherapy
@@ -74,6 +76,8 @@ if isExternalTherapy
     if numel(pln.propStf.gantryAngles) ~= numel(pln.propStf.couchAngles)
         matRad_cfg.dispError('Inconsistent number of gantry and couch angles.');
     end
+
+    pln.multScen.numOfBeams = numel(pln.propStf.gantryAngles);
 
     if ~isnumeric(pln.propStf.bixelWidth) || pln.propStf.bixelWidth < 0 || ~isfinite(pln.propStf.bixelWidth)
         matRad_cfg.dispError('bixel width (spot distance) needs to be a real number [mm] larger than zero.');
@@ -176,12 +180,15 @@ voiTarget(V) = 1;
 %Margin info
 if addmarginBool
     %Assumption for range uncertainty
-    assumeRangeMargin = pln.multScen.maxAbsRangeShift + pln.multScen.maxRelRangeShift + pbMargin;
+    rangeApplicator = matRad_RangeShiftApplicator();
+    setupApplicator = matRad_SetupShiftApplicator();
+    assumeRangeMargin = rangeApplicator.getMargin(pln.multScen) + pbMargin;
+    setupMargin = setupApplicator.getMargin(pln.multScen,assumeRangeMargin);
 
     % add margin -  account for voxel resolution, the maximum shift scenario and the current bixel width.
-    margin.x  = max([ct.resolution.x max(abs(pln.multScen.isoShift(:,1)) + assumeRangeMargin)]);
-    margin.y  = max([ct.resolution.y max(abs(pln.multScen.isoShift(:,2)) + assumeRangeMargin)]);
-    margin.z  = max([ct.resolution.z max(abs(pln.multScen.isoShift(:,3)) + assumeRangeMargin)]);
+    margin.x  = max([ct.resolution.x setupMargin(1)]);
+    margin.y  = max([ct.resolution.y setupMargin(2)]);
+    margin.z  = max([ct.resolution.z setupMargin(3)]);
 
     voiTarget = matRad_addMargin(voiTarget,cst,ct.resolution,margin,true);
     V         = find(voiTarget>0);
@@ -206,8 +213,8 @@ V = unique(vertcat(V{:}));
 % ignore densities outside of contours
 eraseCtDensMask = ones(prod(ct.cubeDim),1);
 eraseCtDensMask(V) = 0;
-for i = 1:ct.numOfCtScen
-    ct.cube{i}(eraseCtDensMask == 1) = 0;
+for ctScenId = 1:ct.numOfCtScen
+    ct.cube{ctScenId}(eraseCtDensMask == 1) = 0;
 end
 
 if isExternalTherapy
@@ -233,23 +240,23 @@ if isExternalTherapy
         stf(i).SAD           = SAD;
         stf(i).isoCenter     = pln.propStf.isoCenter(i,:);
 
+        beamScenarioRows = getBeamScenarioRows(pln.multScen,pln.propStf,i);
+        beamGeometryRows = getUniqueBeamGeometryRows(beamScenarioRows);
+
         % Get the (active) rotation matrix. We perform a passive/system
         % rotation with row vector coordinates, which would introduce two
         % inversions / transpositions of the matrix, thus no changes to the
         % rotation matrix are necessary
         rotMat_system_T = matRad_getRotationMatrix(pln.propStf.gantryAngles(i),pln.propStf.couchAngles(i));
+        rotMat_vectors_T = transpose(rotMat_system_T);
 
         rot_coords = isoCoords*rotMat_system_T;
 
-        % project x and z coordinates to isocenter
-        coordsAtIsoCenterPlane(:,1) = (rot_coords(:,1)*SAD)./(SAD + rot_coords(:,2));
-        coordsAtIsoCenterPlane(:,2) = (rot_coords(:,3)*SAD)./(SAD + rot_coords(:,2));
-
-        % Take unique rows values for beamlets positions. Calculate position of
-        % central ray for every bixel
-        rayPos = unique(pln.propStf.bixelWidth*round([           coordsAtIsoCenterPlane(:,1) ...
-            zeros(size(coordsAtIsoCenterPlane,1),1) ...
-            coordsAtIsoCenterPlane(:,2)]/pln.propStf.bixelWidth),'rows');
+        % Take unique rows values for beamlet positions across all active
+        % angular scenario geometries. This keeps a single BEV ray set while
+        % covering target projections for robust gantry/couch perturbations.
+        rayPos = getScenarioRayPositions(isoCoords,beamGeometryRows, ...
+            pln.propStf.bixelWidth,SAD);
 
         % pad ray position array if resolution of target voxel grid not sufficient
         maxCtResolution = max([ct.resolution.x ct.resolution.y ct.resolution.z]);
@@ -301,11 +308,6 @@ if isExternalTherapy
         % source position in bev
         stf(i).sourcePoint_bev = [0 -SAD 0];
 
-        % get (active) rotation matrix
-        % transpose matrix because we are working with row vectors
-        rotMat_vectors_T = transpose(matRad_getRotationMatrix(pln.propStf.gantryAngles(i),pln.propStf.couchAngles(i)));
-
-
         stf(i).sourcePoint = stf(i).sourcePoint_bev*rotMat_vectors_T;
 
         % Save ray and target position in lps system.
@@ -330,25 +332,47 @@ if isExternalTherapy
 
         % mm axes with isocenter at  (0,0,0)
         mmCubeIsoCenter =  matRad_world2cubeCoords(stf(i).isoCenter,ct);
+        if isIonTherapy
+            rangeApplicator = matRad_RangeShiftApplicator();
+        end
+
         for j = stf(i).numOfRays:-1:1
 
-            rayHitsCt = true;
-            ctEntryPoint = NaN;
-            for ShiftScen = 1:pln.multScen.totNumShiftScen
+            rayHitsCt = false;
+            ctEntryPoint = Inf;
+            targetDepthIntervals = [];
+
+            for scenarioIx = 1:numel(beamScenarioRows)
+                scenarioRow = beamScenarioRows(scenarioIx);
+                scenarioSourcePoint = stf(i).sourcePoint_bev * scenarioRow.rotMatVectorsT;
+                scenarioTargetPoint = stf(i).ray(j).targetPoint_bev * scenarioRow.rotMatVectorsT;
+
                 % ray tracing necessary to determine depth of the target
-                [alphas,l{ShiftScen},rho{ShiftScen},d12,~] = matRad_siddonRayTracer(mmCubeIsoCenter + pln.multScen.isoShift(ShiftScen,:), ...
+                [alphas,lScen,rhoScen,d12,~] = matRad_siddonRayTracer(mmCubeIsoCenter + scenarioRow.setupShift, ...
                     ct.resolution, ...
-                    stf(i).sourcePoint, ...
-                    stf(i).ray(j).targetPoint, ...
+                    scenarioSourcePoint, ...
+                    scenarioTargetPoint, ...
                     [ct.cube {voiTarget}]);
 
                 if isempty(alphas)
-                    rayHitsCt = false;
                     continue;
                 end
 
+                rayHitsCt = true;
+
                 %Used for generic range-shifter placement
-                ctEntryPoint = alphas(1) * d12;
+                ctEntryPoint = min(ctEntryPoint,alphas(1) * d12);
+
+                if isIonTherapy && any(rhoScen{end})
+                    % compute radiological depths
+                    % http://www.ncbi.nlm.nih.gov/pubmed/4000088, eq 14
+                    radDepths = cumsum(lScen .* rhoScen{scenarioRow.ctScenId});
+                    radDepths = rangeApplicator.applyToCumulativeDepths( ...
+                        pln.multScen,scenarioRow.scenarioId,radDepths, ...
+                        rhoScen{scenarioRow.ctScenId});
+                    targetDepthIntervals = [targetDepthIntervals; ...
+                        getTargetDepthIntervals(radDepths,rhoScen{end})];
+                end
             end
 
             if ~rayHitsCt
@@ -361,56 +385,10 @@ if isExternalTherapy
             if isIonTherapy
 
                 % target hit
-                rhoVOITarget = [];
-                for shiftScen = 1:pln.multScen.totNumShiftScen
-                    rhoVOITarget = [rhoVOITarget, rho{shiftScen}{end}];
-                end
-
-                if any(rhoVOITarget)
-                    Counter = 0;
-
-                    %Here we iterate through scenarios to check the required
-                    %energies w.r.t lateral position.
-                    %TODO: iterate over the linear scenario mask instead?
-                    for CtScen = 1:pln.multScen.numOfCtScen
-                        for ShiftScen = 1:pln.multScen.totNumShiftScen
-                            for RangeShiftScen = 1:pln.multScen.totNumRangeScen
-                                if pln.multScen.scenMask(CtScen,ShiftScen,RangeShiftScen)
-                                    Counter = Counter+1;
-
-                                    % compute radiological depths
-                                    % http://www.ncbi.nlm.nih.gov/pubmed/4000088, eq 14
-                                    radDepths = cumsum(l{ShiftScen} .* rho{ShiftScen}{CtScen});
-
-                                    if pln.multScen.relRangeShift(RangeShiftScen) ~= 0 || pln.multScen.absRangeShift(RangeShiftScen) ~= 0
-                                        radDepths = radDepths +...                                                        % original cube
-                                            rho{ShiftScen}{CtScen}*pln.multScen.relRangeShift(RangeShiftScen) +... % rel range shift
-                                            pln.multScen.absRangeShift(RangeShiftScen);                           % absolute range shift
-                                        radDepths(radDepths < 0) = 0;
-                                    end
-
-                                    % find target entry & exit
-                                    diff_voi    = [diff([rho{ShiftScen}{end}])];
-                                    entryIx = find(diff_voi == 1);
-                                    exitIx = find(diff_voi == -1);
-
-                                    %We approximate the interface using the
-                                    %rad depth between the last voxel before
-                                    %and the first voxel after the interface
-                                    %This captures the case that the first
-                                    %relevant voxel is a target voxel
-                                    targetEntry(Counter,1:length(entryIx)) = (radDepths(entryIx) + radDepths(entryIx+1)) ./ 2;
-                                    targetExit(Counter,1:length(exitIx)) = (radDepths(exitIx) + radDepths(exitIx+1)) ./ 2;
-                                end
-                            end
-                        end
-                    end
-
-                    targetEntry(targetEntry == 0) = NaN;
-                    targetExit(targetExit == 0)   = NaN;
-
-                    targetEntry = min(targetEntry);
-                    targetExit  = max(targetExit);
+                if ~isempty(targetDepthIntervals)
+                    targetDepthIntervals = mergeTargetDepthIntervals(targetDepthIntervals);
+                    targetEntry = targetDepthIntervals(:,1)';
+                    targetExit  = targetDepthIntervals(:,2)';
 
                     %check that each energy appears only once in stf
                     if(numel(targetEntry)>1)
@@ -846,5 +824,139 @@ elseif isBrachyTherapy
     end
 end
 
+
+end
+
+function scenarioRows = getBeamScenarioRows(multScen,propStf,beamIx)
+
+scenarioIds = multScen.scenarioIds();
+scenarioRows = struct('scenarioId',{},'ctScenId',{},'setupShift',{}, ...
+    'gantryAngle',{},'couchAngle',{},'rotMatSystemT',{},'rotMatVectorsT',{});
+
+for scenarioIx = 1:numel(scenarioIds)
+    scenarioId = scenarioIds(scenarioIx);
+    gantryOffsets = multScen.getGantryAngleOffset(scenarioId);
+    couchOffsets = multScen.getCouchAngleOffset(scenarioId);
+
+    gantryAngle = propStf.gantryAngles(beamIx) + getBeamAngleOffset(gantryOffsets,beamIx);
+    couchAngle = propStf.couchAngles(beamIx) + getBeamAngleOffset(couchOffsets,beamIx);
+    rotMatSystemT = matRad_getRotationMatrix(gantryAngle,couchAngle);
+
+    scenarioRows(scenarioIx).scenarioId = scenarioId;
+    scenarioRows(scenarioIx).ctScenId = multScen.getCtScenario(scenarioId);
+    scenarioRows(scenarioIx).setupShift = multScen.getSetupShift(scenarioId);
+    scenarioRows(scenarioIx).gantryAngle = gantryAngle;
+    scenarioRows(scenarioIx).couchAngle = couchAngle;
+    scenarioRows(scenarioIx).rotMatSystemT = rotMatSystemT;
+    scenarioRows(scenarioIx).rotMatVectorsT = transpose(rotMatSystemT);
+end
+
+end
+
+function angleOffset = getBeamAngleOffset(angleOffsets,beamIx)
+
+if isempty(angleOffsets) || beamIx > numel(angleOffsets)
+    angleOffset = 0;
+else
+    angleOffset = angleOffsets(beamIx);
+end
+
+end
+
+function uniqueRows = getUniqueBeamGeometryRows(scenarioRows)
+
+uniqueRows = scenarioRows([]);
+geometryKeys = zeros(0,2);
+geometryTolerance = 1e-10;
+
+for scenarioIx = 1:numel(scenarioRows)
+    geometryKey = round([scenarioRows(scenarioIx).gantryAngle scenarioRows(scenarioIx).couchAngle] ./ ...
+        geometryTolerance) .* geometryTolerance;
+
+    if isempty(geometryKeys) || ~any(all(abs(geometryKeys - geometryKey) <= geometryTolerance,2))
+        uniqueRows(end+1) = scenarioRows(scenarioIx);
+        geometryKeys(end+1,:) = geometryKey;
+    end
+end
+
+end
+
+function rayPos = getScenarioRayPositions(isoCoords,scenarioRows,bixelWidth,SAD)
+
+rayPos = zeros(0,3);
+
+for scenarioIx = 1:numel(scenarioRows)
+    rotCoords = isoCoords * scenarioRows(scenarioIx).rotMatSystemT;
+
+    % project x and z coordinates to isocenter
+    coordsAtIsoCenterPlane(:,1) = (rotCoords(:,1) * SAD) ./ (SAD + rotCoords(:,2));
+    coordsAtIsoCenterPlane(:,2) = (rotCoords(:,3) * SAD) ./ (SAD + rotCoords(:,2));
+
+    rayPos = [rayPos; unique(bixelWidth * round([ ...
+        coordsAtIsoCenterPlane(:,1) ...
+        zeros(size(coordsAtIsoCenterPlane,1),1) ...
+        coordsAtIsoCenterPlane(:,2)] / bixelWidth),'rows')];
+
+    coordsAtIsoCenterPlane = [];
+end
+
+rayPos = unique(rayPos,'rows');
+
+end
+
+function targetDepthIntervals = getTargetDepthIntervals(radDepths,targetMask)
+
+targetDepthIntervals = zeros(0,2);
+radDepths = radDepths(:);
+targetMask = targetMask(:) ~= 0;
+
+if isempty(radDepths) || ~any(targetMask)
+    return;
+end
+
+targetTransitions = diff(double(targetMask));
+entryIx = find(targetTransitions == 1);
+exitIx = find(targetTransitions == -1);
+
+targetEntry = (radDepths(entryIx) + radDepths(entryIx + 1)) ./ 2;
+targetExit = (radDepths(exitIx) + radDepths(exitIx + 1)) ./ 2;
+
+if targetMask(1)
+    targetEntry = [0; targetEntry];
+end
+
+if targetMask(end)
+    targetExit = [targetExit; radDepths(end)];
+end
+
+if numel(targetEntry) ~= numel(targetExit)
+    matRad_cfg = MatRad_Config.instance();
+    matRad_cfg.dispError('Inconsistency during ray tracing. Please check correct assignment and overlap priorities of structure types OAR & TARGET.');
+end
+
+targetDepthIntervals = [targetEntry targetExit];
+targetDepthIntervals = targetDepthIntervals(all(isfinite(targetDepthIntervals),2) & ...
+    targetDepthIntervals(:,2) >= targetDepthIntervals(:,1),:);
+
+end
+
+function mergedIntervals = mergeTargetDepthIntervals(targetDepthIntervals)
+
+targetDepthIntervals = targetDepthIntervals(all(isfinite(targetDepthIntervals),2),:);
+if isempty(targetDepthIntervals)
+    mergedIntervals = targetDepthIntervals;
+    return;
+end
+
+targetDepthIntervals = sortrows(targetDepthIntervals,1);
+mergedIntervals = targetDepthIntervals(1,:);
+
+for intervalIx = 2:size(targetDepthIntervals,1)
+    if targetDepthIntervals(intervalIx,1) <= mergedIntervals(end,2) + 1e-12
+        mergedIntervals(end,2) = max(mergedIntervals(end,2),targetDepthIntervals(intervalIx,2));
+    else
+        mergedIntervals(end+1,:) = targetDepthIntervals(intervalIx,:);
+    end
+end
 
 end

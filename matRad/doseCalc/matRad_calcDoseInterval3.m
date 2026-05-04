@@ -1,9 +1,9 @@
-function [dij_ref,pln_ref,dij,pln,dij_interval] = matRad_calcDoseInterval3(ct,cst,stf,pln,dij,cfg)
+function [pln_interval,dij_intervalContext] = matRad_calcDoseInterval3(ct,cst,stf,pln,dij,cfg)
 % matRad_calcDoseInterval3 calculates interval dose influence data with OAR radii
 %
 % call
-%   [dij_ref,pln_ref,dij,pln,dij_interval] = matRad_calcDoseInterval3(ct,cst,stf,pln,dij)
-%   [dij_ref,pln_ref,dij,pln,dij_interval] = matRad_calcDoseInterval3(ct,cst,stf,pln,dij,cfg)
+%   [pln_interval,dij_intervalContext] = matRad_calcDoseInterval3(ct,cst,stf,pln,dij)
+%   [pln_interval,dij_intervalContext] = matRad_calcDoseInterval3(ct,cst,stf,pln,dij,cfg)
 %
 % input
 %   ct:     matRad ct struct
@@ -17,7 +17,6 @@ function [dij_ref,pln_ref,dij,pln,dij_interval] = matRad_calcDoseInterval3(ct,cs
 %           refScen: reference CT scenario (default: ct.refScen, otherwise 1)
 %           targetStructSel: target structure selection (default: all TARGETs)
 %           OARStructSel: OAR structure selection (default: all OARs)
-%           CalculateReferenceDij: calculate dij_ref (default: true)
 %           UseParallel: reserved flag, validated but currently not used;
 %               calculation runs serially and no parallel pool is created
 %               or used (default: false)
@@ -29,11 +28,10 @@ function [dij_ref,pln_ref,dij,pln,dij_interval] = matRad_calcDoseInterval3(ct,cs
 %           RetentionThreshold: dynamic retained singular-value energy in (0,1] (default: 1)
 %
 % output
-%   dij_ref:       reference-scenario dose influence struct
-%   pln_ref:       plan struct restricted to the reference CT scenario
-%   dij:           unchanged robust dose influence struct
-%   pln:           plan struct with pln.propOpt.dij_interval set
-%   dij_interval:  interval center, target radius, and OAR SVD data
+%   pln_interval:         plan struct; pln_interval.propOpt.dij_interval
+%                         contains the full interval data
+%   dij_intervalContext:  lightweight dij context passed to
+%                         matRad_fluenceOptimization
 %
 % References
 %   -
@@ -55,7 +53,7 @@ if nargin < 6
     cfg = struct();
 end
 
-[dij_ref,pln_ref,dij,pln,dij_interval] = ...
+[pln_interval,dij_intervalContext] = ...
     matRad_calcDoseIntervalCore(ct,cst,stf,pln,dij,cfg,'INTERVAL3');
 
 end

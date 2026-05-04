@@ -7,7 +7,8 @@ initTestSuite;
 function test_interval2_physical_dose_center_and_radius
     [ct,cst,pln,dij,cfg] = singleCtFixture();
 
-    [~,~,~,plnOut,dijInterval] = matRad_calcDoseInterval2(ct,cst,[],pln,dij,cfg);
+    [plnOut,dijIntervalContext] = calcInterval2(ct,cst,[],pln,dij,cfg);
+    dijInterval = plnOut.propOpt.dij_interval;
 
     assertElementsAlmostEqual(full(dijInterval.center(1:4,:)), ...
         [2.5 0; 0 3.5; 1.75 1; 0 4],'absolute',1e-12);
@@ -17,6 +18,17 @@ function test_interval2_physical_dose_center_and_radius
     assertEqual(dijInterval.refScen,1);
     assertElementsAlmostEqual(dijInterval.scenarioWeights,[0.25;0.75],'absolute',1e-12);
     assertTrue(isfield(plnOut.propOpt,'dij_interval'));
+    assertEqual(dijIntervalContext.totalNumOfBixels,2);
+    assertEqual(dijIntervalContext.numOfScenarios,1);
+    assertEqual(dijIntervalContext.beamNum,ones(2,1));
+    assertTrue(isa(dijIntervalContext.scenarioModel,'matRad_NominalScenario'));
+    assertEqual(dijIntervalContext.scenarioModel.numScenarios(),1);
+    assertEqual(dijIntervalContext.scenarioModel.getDijScenarioIndex(1),1);
+    assertEqual(dijIntervalContext.scenarioModel.getCtScenario(1),1);
+    assertEqual(plnOut.multScen.numScenarios(),1);
+    assertEqual(plnOut.multScen.getDijScenarioIndex(1),1);
+    assertElementsAlmostEqual(full(dijIntervalContext.physicalDose{1}), ...
+        full(dijInterval.center),'absolute',1e-12);
 
 function test_interval2_explicit_linear_quantity
     [ct,cst,pln,dij,cfg] = singleCtFixture();
@@ -25,7 +37,8 @@ function test_interval2_explicit_linear_quantity
     dij.mAlphaDose{2} = 2*dij.physicalDose{2};
     cfg.Quantity = 'mAlphaDose';
 
-    [~,~,~,~,dijInterval] = matRad_calcDoseInterval2(ct,cst,[],pln,dij,cfg);
+    [plnOut,~] = calcInterval2(ct,cst,[],pln,dij,cfg);
+    dijInterval = plnOut.propOpt.dij_interval;
 
     assertElementsAlmostEqual(full(dijInterval.center(1:2,:)), ...
         2*[2.5 0; 0 3.5],'absolute',1e-12);
@@ -37,7 +50,8 @@ function test_interval2_const_rbe_scales_quantity
     dij.RBE = 1.1;
     cfg.Quantity = 'RBExD';
 
-    [~,~,~,~,dijInterval] = matRad_calcDoseInterval2(ct,cst,[],pln,dij,cfg);
+    [plnOut,~] = calcInterval2(ct,cst,[],pln,dij,cfg);
+    dijInterval = plnOut.propOpt.dij_interval;
 
     assertElementsAlmostEqual(full(dijInterval.center(1:2,:)), ...
         1.1*[2.5 0; 0 3.5],'absolute',1e-12);
@@ -62,10 +76,12 @@ function test_interval_rejects_invalid_progress_level
 function test_interval2_batch_size_does_not_change_result
     [ct,cst,pln,dij,cfg] = singleCtFixture();
     cfg.BatchSize = 1;
-    [~,~,~,~,dijIntervalBatch] = matRad_calcDoseInterval2(ct,cst,[],pln,dij,cfg);
+    [plnBatch,~] = calcInterval2(ct,cst,[],pln,dij,cfg);
+    dijIntervalBatch = plnBatch.propOpt.dij_interval;
 
     cfg.BatchSize = 99;
-    [~,~,~,~,dijIntervalFull] = matRad_calcDoseInterval2(ct,cst,[],pln,dij,cfg);
+    [plnFull,~] = calcInterval2(ct,cst,[],pln,dij,cfg);
+    dijIntervalFull = plnFull.propOpt.dij_interval;
 
     assertElementsAlmostEqual(full(dijIntervalBatch.center), ...
         full(dijIntervalFull.center),'absolute',1e-12);
@@ -77,7 +93,8 @@ function test_interval3_oar_covariance_svd
     cfg.KMode = 'static';
     cfg.KMax = 2;
 
-    [~,~,~,~,dijInterval] = matRad_calcDoseInterval3(ct,cst,[],pln,dij,cfg);
+    [plnOut,~] = calcInterval3(ct,cst,[],pln,dij,cfg);
+    dijInterval = plnOut.propOpt.dij_interval;
 
     covRow3 = full(dijInterval.U{1}*dijInterval.S{1}*dijInterval.V{1}');
     covRow4 = full(dijInterval.U{2}*dijInterval.S{2}*dijInterval.V{2}');
@@ -85,14 +102,37 @@ function test_interval3_oar_covariance_svd
     assertElementsAlmostEqual(covRow4,[0 0; 0 3],'absolute',1e-10);
     assertEqual(dijInterval.OARSubIx,[3;4]);
 
+function test_interval3_dynamic_svd_respects_kmax
+    [ct,cst,pln,dij,cfg] = singleCtFixture();
+    scenarioValues = zeros(3,5);
+    pln.multScen = fixtureScenarioModel(ct,[1;1;1],scenarioValues, ...
+        [1 1 1; 1 2 1; 1 3 1],true(1,3,1),ones(3,1)/3);
+    dij.physicalDose = cell(1,3,1);
+    dij.physicalDose{1} = sparse([1 0; 0 2; 1 0; 0 1]);
+    dij.physicalDose{2} = sparse([1 0; 0 2; 0 1; 0 1]);
+    dij.physicalDose{3} = sparse([1 0; 0 2; 2 2; 0 1]);
+    cfg.KMode = 'dynamic';
+    cfg.KMax = 1;
+    cfg.RetentionThreshold = 1.0;
+
+    [plnOut,~] = calcInterval3(ct,cst,[],pln,dij,cfg);
+    dijInterval = plnOut.propOpt.dij_interval;
+
+    assertEqual(dijInterval.k(1),1);
+    assertEqual(size(dijInterval.U{1},2),1);
+    assertEqual(size(dijInterval.S{1}),[1 1]);
+    assertEqual(size(dijInterval.V{1},2),1);
+
 function test_interval3_oar_svd_accepts_sufficient_memory_limit
     [ct,cst,pln,dij,cfg] = singleCtFixture();
     cfg.KMode = 'static';
     cfg.KMax = 2;
-    [~,~,~,~,dijIntervalDefault] = matRad_calcDoseInterval3(ct,cst,[],pln,dij,cfg);
+    [plnDefault,~] = calcInterval3(ct,cst,[],pln,dij,cfg);
+    dijIntervalDefault = plnDefault.propOpt.dij_interval;
 
     cfg.MemoryLimitMB = 1;
-    [~,~,~,~,dijIntervalLimited] = matRad_calcDoseInterval3(ct,cst,[],pln,dij,cfg);
+    [plnLimited,~] = calcInterval3(ct,cst,[],pln,dij,cfg);
+    dijIntervalLimited = plnLimited.propOpt.dij_interval;
 
     assertElementsAlmostEqual(full(dijIntervalLimited.center), ...
         full(dijIntervalDefault.center),'absolute',1e-12);
@@ -110,7 +150,8 @@ function test_interval2_low_memory_limit_does_not_apply_oar_svd_guard
     [ct,cst,pln,dij,cfg] = singleCtFixture();
     cfg.MemoryLimitMB = 1e-6;
 
-    [~,~,~,~,dijInterval] = matRad_calcDoseInterval2(ct,cst,[],pln,dij,cfg);
+    [plnOut,~] = calcInterval2(ct,cst,[],pln,dij,cfg);
+    dijInterval = plnOut.propOpt.dij_interval;
 
     assertElementsAlmostEqual(full(dijInterval.center(1:4,:)), ...
         [2.5 0; 0 3.5; 1.75 1; 0 4],'absolute',1e-12);
@@ -121,10 +162,12 @@ function test_interval3_batch_size_does_not_change_result_when_memory_allows
     cfg.KMax = 2;
     cfg.MemoryLimitMB = 1;
     cfg.BatchSize = 1;
-    [~,~,~,~,dijIntervalBatch] = matRad_calcDoseInterval3(ct,cst,[],pln,dij,cfg);
+    [plnBatch,~] = calcInterval3(ct,cst,[],pln,dij,cfg);
+    dijIntervalBatch = plnBatch.propOpt.dij_interval;
 
     cfg.BatchSize = 99;
-    [~,~,~,~,dijIntervalFull] = matRad_calcDoseInterval3(ct,cst,[],pln,dij,cfg);
+    [plnFull,~] = calcInterval3(ct,cst,[],pln,dij,cfg);
+    dijIntervalFull = plnFull.propOpt.dij_interval;
 
     assertElementsAlmostEqual(full(dijIntervalBatch.center), ...
         full(dijIntervalFull.center),'absolute',1e-12);
@@ -137,7 +180,8 @@ function test_interval3_zero_oar_covariance_is_valid_zero_rank
     cfg.OARStructSel = 'OAR';
     cfg.targetStructSel = 'PTV';
 
-    [~,~,~,~,dijInterval] = matRad_calcDoseInterval3(ct,cst,[],pln,dij,cfg);
+    [plnOut,~] = calcInterval3(ct,cst,[],pln,dij,cfg);
+    dijInterval = plnOut.propOpt.dij_interval;
 
     assertEqual(dijInterval.k(1),0);
     assertEqual(size(dijInterval.U{1}),[2 0]);
@@ -147,20 +191,26 @@ function test_interval3_zero_oar_covariance_is_valid_zero_rank
 function test_interval2_multict_maps_to_reference_scenario
     [ct,cst,pln,dij,cfg,expectedCenter] = multiCtFixture(1);
 
-    [~,~,~,~,dijInterval] = matRad_calcDoseInterval2(ct,cst,[],pln,dij,cfg);
+    [plnOut,~] = calcInterval2(ct,cst,[],pln,dij,cfg);
+    dijInterval = plnOut.propOpt.dij_interval;
 
     assertElementsAlmostEqual(full(dijInterval.center(:,1)),expectedCenter,'absolute',1e-12);
     assertEqual(dijInterval.refScen,1);
-    assertEqual(dijInterval.scenarioCtScen,[1;2]);
+    assertEqual(dijInterval.scenarioCtScenIds,[1;2]);
 
 function test_interval2_multict_supports_nonfirst_reference_scenario
     [ct,cst,pln,dij,cfg,expectedCenter] = multiCtFixture(2);
 
-    [~,~,~,~,dijInterval] = matRad_calcDoseInterval2(ct,cst,[],pln,dij,cfg);
+    [plnOut,dijIntervalContext] = calcInterval2(ct,cst,[],pln,dij,cfg);
+    dijInterval = plnOut.propOpt.dij_interval;
 
     assertElementsAlmostEqual(full(dijInterval.center(:,1)),expectedCenter,'absolute',1e-12);
     assertEqual(dijInterval.refScen,2);
-    assertEqual(dijInterval.scenarioCtScen,[2;3]);
+    assertEqual(dijInterval.scenarioCtScenIds,[2;3]);
+    assertEqual(dijIntervalContext.scenarioModel.numScenarios(),1);
+    assertEqual(dijIntervalContext.scenarioModel.getDijScenarioIndex(1),1);
+    assertEqual(dijIntervalContext.scenarioModel.getCtScenario(1),2);
+    assertEqual(plnOut.multScen.getCtScenario(1),2);
 
 function test_interval2_multict_requires_pull_dvf
     [ct,cst,pln,dij,cfg] = multiCtFixture(1);
@@ -172,9 +222,16 @@ function test_interval2_multict_requires_pull_dvf
 function test_interval2_multict_uses_dij_ct_grid_when_ct_axes_are_missing
     [ct,cst,pln,dij,cfg,expectedCenter] = multiCtResamplingFixture();
 
-    [~,~,~,~,dijInterval] = matRad_calcDoseInterval2(ct,cst,[],pln,dij,cfg);
+    [plnOut,~] = calcInterval2(ct,cst,[],pln,dij,cfg);
+    dijInterval = plnOut.propOpt.dij_interval;
 
     assertElementsAlmostEqual(full(dijInterval.center(:,1)),expectedCenter,'absolute',1e-12);
+
+function [plnInterval,dijIntervalContext] = calcInterval2(ct,cst,stf,pln,dij,cfg)
+    [plnInterval,dijIntervalContext] = matRad_calcDoseInterval2(ct,cst,stf,pln,dij,cfg);
+
+function [plnInterval,dijIntervalContext] = calcInterval3(ct,cst,stf,pln,dij,cfg)
+    [plnInterval,dijIntervalContext] = matRad_calcDoseInterval3(ct,cst,stf,pln,dij,cfg);
 
 function [ct,cst,pln,dij,cfg] = singleCtFixture()
     ct.numOfCtScen = 1;
@@ -187,17 +244,14 @@ function [ct,cst,pln,dij,cfg] = singleCtFixture()
     cst = addStructure(cst,2,'OAR','OAR',[3;4]);
 
     pln.bioParam.quantityOpt = 'physicalDose';
-    pln.multScen.scenMask = true(1,2,1);
-    pln.multScen.linearMask = [1 1 1; 1 2 1];
-    pln.multScen.scenWeight = [0.25;0.75];
-    pln.multScen.scenProb = [0.25;0.75];
+    scenarioValues = [0 0 0 0 0; 1 0 0 0 0];
+    pln.multScen = fixtureScenarioModel(ct,[1;1],scenarioValues, ...
+        [1 1 1; 1 2 1],true(1,2,1),[0.25;0.75]);
 
     dij = baseDij(ct.cubeDim,2);
     dij.physicalDose = cell(1,2,1);
     dij.physicalDose{1} = sparse([1 0; 0 2; 1 1; 0 1]);
     dij.physicalDose{2} = sparse([3 0; 0 4; 2 1; 0 5]);
-
-    cfg.CalculateReferenceDij = false;
     cfg.BatchSize = 2;
 
 function [ct,cst,pln,dij,cfg,expectedCenter] = multiCtFixture(refScen)
@@ -230,19 +284,16 @@ function [ct,cst,pln,dij,cfg,expectedCenter] = multiCtFixture(refScen)
     cst{1,4}{refScen} = (1:prod(dim))';
 
     pln.bioParam.quantityOpt = 'physicalDose';
-    pln.multScen.scenMask = false(ct.numOfCtScen,1,1);
-    pln.multScen.scenMask(refScen) = true;
-    pln.multScen.scenMask(refScen + 1) = true;
-    pln.multScen.linearMask = [refScen 1 1; refScen + 1 1 1];
-    pln.multScen.scenWeight = [0.5;0.5];
-    pln.multScen.scenProb = [0.5;0.5];
+    scenMask = false(ct.numOfCtScen,1,1);
+    scenMask(refScen) = true;
+    scenMask(refScen + 1) = true;
+    pln.multScen = fixtureScenarioModel(ct,[refScen; refScen + 1],zeros(2,5), ...
+        [refScen 1 1; refScen + 1 1 1],scenMask,[0.5;0.5]);
 
     dij = baseDij(dim,1);
     dij.physicalDose = cell(ct.numOfCtScen,1,1);
     dij.physicalDose{refScen} = sparse(sourceRows);
     dij.physicalDose{refScen + 1} = sparse(sourceRows);
-
-    cfg.CalculateReferenceDij = false;
     cfg.refScen = refScen;
     cfg.BatchSize = 2;
 
@@ -268,10 +319,8 @@ function [ct,cst,pln,dij,cfg,expectedCenter] = multiCtResamplingFixture()
     cst = addStructure(cst,1,'PTV','TARGET',(1:prod(ctDim))');
 
     pln.bioParam.quantityOpt = 'physicalDose';
-    pln.multScen.scenMask = true(2,1,1);
-    pln.multScen.linearMask = [1 1 1; 2 1 1];
-    pln.multScen.scenWeight = [0.5;0.5];
-    pln.multScen.scenProb = [0.5;0.5];
+    pln.multScen = fixtureScenarioModel(ct,[1;2],zeros(2,5), ...
+        [1 1 1; 2 1 1],true(2,1,1),[0.5;0.5]);
 
     dij = baseDij(doseDim,1);
     dij.ctGrid.dimensions = ctDim;
@@ -287,8 +336,6 @@ function [ct,cst,pln,dij,cfg,expectedCenter] = multiCtResamplingFixture()
     dij.physicalDose = cell(2,1,1);
     dij.physicalDose{1} = sparse((1:prod(doseDim))');
     dij.physicalDose{2} = sparse((prod(doseDim) + 1:2*prod(doseDim))');
-
-    cfg.CalculateReferenceDij = false;
     cfg.refScen = 1;
     cfg.BatchSize = 2;
     expectedCenter = 0.5*((1:prod(doseDim))' + (prod(doseDim) + 1:2*prod(doseDim))');
@@ -310,3 +357,10 @@ function cst = addStructure(cst,rowIx,name,type,voxels)
     cst{rowIx,4} = {voxels(:)};
     cst{rowIx,5} = struct();
     cst{rowIx,6} = {};
+
+function scenarioModel = fixtureScenarioModel(ct,ctScenIds,scenarioValues,linearMask,scenMask,scenarioWeights)
+    scenarioModel = matRad_NominalScenario(ct);
+    dimensions = matRad_createScenarioComponents([1 1 1],1,1);
+    scenForProb = [ctScenIds(:) scenarioValues];
+    scenarioModel.setScenarioRealizations(dimensions,scenarioValues,ctScenIds, ...
+        scenarioWeights(:),scenarioWeights(:),scenForProb,linearMask,scenMask);

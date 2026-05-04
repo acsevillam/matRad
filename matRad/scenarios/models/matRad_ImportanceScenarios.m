@@ -46,9 +46,7 @@ classdef matRad_ImportanceScenarios < matRad_GriddedScenariosAbstract
 
             this@matRad_GriddedScenariosAbstract(superclassArgs{:});
 
-            %TODO: We could do this automatically in the superclass
-            %Octave 5 has a bug there and throws an error
-            this.updateScenarios();
+            this.initializeScenarioModel();
         end
 
         function set.numOfSetupGridPoints(this,numGridPoints)
@@ -58,7 +56,7 @@ classdef matRad_ImportanceScenarios < matRad_GriddedScenariosAbstract
                 matRad_cfg.dispError('Invalid number of setup grid points, needs to be a positive scalar!');
             end
             this.numOfSetupGridPoints = numGridPoints;
-            this.updateScenarios();
+            this.requestScenarioUpdate();
         end
 
         function set.numOfRangeGridPoints(this,numGridPoints)
@@ -68,7 +66,7 @@ classdef matRad_ImportanceScenarios < matRad_GriddedScenariosAbstract
                 matRad_cfg.dispError('Invalid number of range grid points, needs to be a positive scalar!');
             end
             this.numOfRangeGridPoints = numGridPoints;
-            this.updateScenarios();
+            this.requestScenarioUpdate();
         end
     end
 end

@@ -929,22 +929,19 @@ classdef (Abstract) matRad_ParticlePencilBeamEngineAbstract < DoseEngines.matRad
             end
         end
 
-        function scenRay = extractSingleScenarioRay(this,ray,scenIdx)
-            scenRay = extractSingleScenarioRay@DoseEngines.matRad_PencilBeamEngineAbstract(this,ray,scenIdx);
-            
-            %Gets number of scenario
-            scenNum = this.multScen.scenNum(scenIdx);
-            ctScen = this.multScen.linearMask(scenNum,1);
+        function scenRay = extractSingleScenarioRay(this,ray,scenarioId)
+            scenRay = extractSingleScenarioRay@DoseEngines.matRad_PencilBeamEngineAbstract(this,ray,scenarioId);
+            ctScenId = this.multScen.getCtScenario(scenarioId);
 
             if isfield(scenRay,'vTissueIndex')
-                scenRay.vTissueIndex = scenRay.vTissueIndex{ctScen};
-                scenRay.vAlphaX = scenRay.vAlphaX{ctScen};
-                scenRay.vBetaX = scenRay.vBetaX{ctScen};
+                scenRay.vTissueIndex = scenRay.vTissueIndex{ctScenId};
+                scenRay.vAlphaX = scenRay.vAlphaX{ctScenId};
+                scenRay.vBetaX = scenRay.vBetaX{ctScenId};
             end
         end
 
-        function dij = fillDij(this,bixel,dij,stf,scenIdx,currBeamIdx,currRayIdx,currBixelIdx,bixelCounter)
-            dij = this.fillDij@DoseEngines.matRad_PencilBeamEngineAbstract(bixel,dij,stf,scenIdx,currBeamIdx,currRayIdx,currBixelIdx,bixelCounter);
+        function dij = fillDij(this,bixel,dij,stf,fullScenIx,currBeamIdx,currRayIdx,currBixelIdx,bixelCounter)
+            dij = this.fillDij@DoseEngines.matRad_PencilBeamEngineAbstract(bixel,dij,stf,fullScenIx,currBeamIdx,currRayIdx,currBixelIdx,bixelCounter);
             
             % Add MU information
             if ~this.calcDoseDirect
@@ -969,4 +966,3 @@ classdef (Abstract) matRad_ParticlePencilBeamEngineAbstract < DoseEngines.matRad
 
     end   
 end
-

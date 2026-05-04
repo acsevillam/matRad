@@ -140,7 +140,7 @@ pln.propOpt.runDAO        = 0;
 pln.bioParam = matRad_bioModel(pln.radiationMode,quantityOpt, modelName);
 
 % retrieve scenarios for dose calculation and optimziation
-pln.multScen = matRad_multScen(ct,'nomScen');
+pln.multScen = matRad_createScenarioModel(ct,'nomScen');
 
 %%
 % and et voila our treatment plan structure is ready. Lets have a look:

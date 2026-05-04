@@ -130,7 +130,7 @@ pln.radiationMode   = radiationMode; % either photons / protons / carbon
 pln.numOfFractions  = planInfo.FractionGroupSequence.Item_1.NumberOfFractionsPlanned;
 
 % set handling of multiple scenarios -> default: only nominal
-pln.multScen = matRad_multScen(ct,'nomScen');
+pln.multScen = matRad_createScenarioModel(ct,'nomScen');
 pln.machine         = BeamSequence.Item_1.TreatmentMachineName;
 
 % set bio model parameters (default physical opt, no bio model)

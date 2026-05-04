@@ -74,7 +74,7 @@ pln.propDoseCalc.doseGrid.resolution.y = 5; % [mm]
 pln.propDoseCalc.doseGrid.resolution.z = 5; % [mm]
 
 % retrieve scenarios for dose calculation and optimziation
-pln.multScen = matRad_multScen(ct,'nomScen');
+pln.multScen = matRad_createScenarioModel(ct,'nomScen');
 
 %% Generate Beam Geometry STF
 stf = matRad_generateStf(ct,cst,pln);

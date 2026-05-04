@@ -482,14 +482,12 @@ classdef matRad_TopasMCEngine < DoseEngines.matRad_MonteCarloEngineAbstract
             % save current directory to revert back to later
             currDir = cd;
 
-            for shiftScen = 1:this.multScen.totNumShiftScen
-
-                %Find first instance of the shift to select the shift values
-                ixShiftScen = find(this.multScen.linearMask(:,2) == shiftScen,1);
+            for setupScenIx = 1:this.multScen.totNumShiftScen
 
                 % manipulate isocenter
+                setupShift = this.multScen.getSetupShiftByIndex(setupScenIx);
                 for k = 1:numel(stf)
-                    stf(k).isoCenter = matRad_world2cubeCoords(stf(k).isoCenter,this.doseGrid) + this.multScen.isoShift(ixShiftScen,:);
+                    stf(k).isoCenter = matRad_world2cubeCoords(stf(k).isoCenter,this.doseGrid) + setupShift;
                 end
 
                 % Delete previous topas files so there is no mix-up
@@ -501,14 +499,19 @@ classdef matRad_TopasMCEngine < DoseEngines.matRad_MonteCarloEngineAbstract
                 end
 
                 % Run simulations for each scenario
-                for ctScen = 1:this.multScen.numOfCtScen
-                    for rangeShiftScen = 1:this.multScen.totNumRangeScen
-                        if this.multScen.scenMask(ctScen,shiftScen,rangeShiftScen)
+                scenarioIds = this.multScen.scenarioIds();
+                for ctScenIx = 1:this.multScen.numOfCtScen
+                    for rangeScenIx = 1:this.multScen.totNumRangeScen
+                        if this.multScen.isScenarioActiveBySubscripts(ctScenIx,setupScenIx,rangeScenIx,'position')
+                            fullScenIx = this.multScen.getDijScenarioIndexBySubscripts(ctScenIx,setupScenIx,rangeScenIx,'position');
+                            scenarioRowIx = this.multScen.getScenarioRowIndexFromDijIndex(fullScenIx);
+                            scenarioId = scenarioIds(scenarioRowIx);
+                            ctScenId = this.multScen.getCtScenario(scenarioId);
 
-                            % Save ctScen and rangeShiftScen for file constructor
+                            % Save CT scenario id and range scenario index for file constructor
                             if ct.numOfCtScen > 1
-                                this.ctR.currCtScen = ctScen;
-                                this.ctR.currRangeShiftScen = rangeShiftScen;
+                                this.ctR.currCtScen = ctScenId;
+                                this.ctR.currRangeShiftScen = rangeScenIx;
                             end
 
                             % actually write TOPAS files
@@ -530,11 +533,11 @@ classdef matRad_TopasMCEngine < DoseEngines.matRad_MonteCarloEngineAbstract
                 if strcmp(this.externalCalculation,'write')
                     matRad_cfg.dispInfo(['TOPAS simulation skipped for external calculation\nFiles have been written to: "',strrep(this.workingDir,'\','\\'),'"']);
                 else
-                    for ctScen = 1:ct.numOfCtScen
+                    for ctScenId = 1:ct.numOfCtScen
                         for beamIx = 1:numel(stf)
                             for runIx = 1:this.numOfRuns
                                 if ct.numOfCtScen > 1
-                                    fname = sprintf('%s_field%d_ct%d_run%d',this.label,beamIx,ctScen,runIx);
+                                    fname = sprintf('%s_field%d_ct%d_run%d',this.label,beamIx,ctScenId,runIx);
                                 else
                                     fname = sprintf('%s_field%d_run%d',this.label,beamIx,runIx);
                                 end
@@ -590,7 +593,7 @@ classdef matRad_TopasMCEngine < DoseEngines.matRad_MonteCarloEngineAbstract
 
                 % manipulate isocenter back
                 for k = 1:length(stf)
-                    stf(k).isoCenter = stf(k).isoCenter - this.multScen.isoShift(ixShiftScen,:);
+                    stf(k).isoCenter = stf(k).isoCenter - setupShift;
                 end
 
             end
@@ -610,13 +613,14 @@ classdef matRad_TopasMCEngine < DoseEngines.matRad_MonteCarloEngineAbstract
                 dij.numOfBeams = 1;
                 dij.numOfRaysPerBeam = 1;
                 dij.numOfScenarios = this.multScen.totNumScen;
-                for i = 1:this.multScen.numOfCtScen
-                    for j = 1:this.multScen.totNumShiftScen
-                        for k = 1:this.multScen.totNumRangeScen
-                            if this.multScen.scenMask(i,j,k)
+                for ctScenIx = 1:this.multScen.numOfCtScen
+                    for setupScenIx = 1:this.multScen.totNumShiftScen
+                        for rangeScenIx = 1:this.multScen.totNumRangeScen
+                            if this.multScen.isScenarioActiveBySubscripts(ctScenIx,setupScenIx,rangeScenIx,'position')
+                                fullScenIx = this.multScen.getDijScenarioIndexBySubscripts(ctScenIx,setupScenIx,rangeScenIx,'position');
                                 %TODO: loop over all expected output quantities
-                                dij.physicalDose{i,j,k} = zeros(dij.ctGrid.numOfVoxels,1);
-                                dij.physicalDose_std{i,j,k} = zeros(dij.ctGrid.numOfVoxels,1);
+                                dij.physicalDose{fullScenIx} = zeros(dij.ctGrid.numOfVoxels,1);
+                                dij.physicalDose_std{fullScenIx} = zeros(dij.ctGrid.numOfVoxels,1);
                             end
 
                         end
@@ -757,13 +761,13 @@ classdef matRad_TopasMCEngine < DoseEngines.matRad_MonteCarloEngineAbstract
                 tname = talliesCut{t};
                 % Loop over all beams/fields and ctScenarios
                 for f = 1:obj.MCparam.nbFields
-                    for ctScen = 1:obj.MCparam.numOfCtScen
+                    for ctScenId = 1:obj.MCparam.numOfCtScen
 
                         % Loop over all batches/runs
                         for k = 1:obj.MCparam.nbRuns
                             % Get file name of current field, run and tally (and ct, if applicable)
                             if obj.MCparam.numOfCtScen > 1
-                                genFileName = sprintf('score_%s_field%d_ct%d_run%d_%s',obj.MCparam.simLabel,f,ctScen,k,tnameFile);
+                                genFileName = sprintf('score_%s_field%d_ct%d_run%d_%s',obj.MCparam.simLabel,f,ctScenId,k,tnameFile);
                             else
                                 genFileName = sprintf('score_%s_field%d_run%d_%s',obj.MCparam.simLabel,f,k,tnameFile);
                             end
@@ -819,7 +823,7 @@ classdef matRad_TopasMCEngine < DoseEngines.matRad_MonteCarloEngineAbstract
                                 topasStdSum = topasStdMean * correctionFactor * obj.MCparam.nbRuns;
 
                                 % Save std to topasCube
-                                topasCube.([tname '_batchStd_beam' num2str(f)]){ctScen} = topasStdSum;
+                                topasCube.([tname '_batchStd_beam' num2str(f)]){ctScenId} = topasStdSum;
                             end
 
                             for i = 1:currNumOfQuantities
@@ -834,10 +838,10 @@ classdef matRad_TopasMCEngine < DoseEngines.matRad_MonteCarloEngineAbstract
 
                         % Tally per field
                         if isfield(topasSum,'Sum')
-                            topasCube.([tname '_beam' num2str(f)]){ctScen} = topasSum.Sum;
+                            topasCube.([tname '_beam' num2str(f)]){ctScenId} = topasSum.Sum;
                         end
                         if isfield(topasSum,'Standard_Deviation')
-                            topasCube.([tname '_std_beam' num2str(f)]){ctScen} = topasSum.Standard_Deviation;
+                            topasCube.([tname '_std_beam' num2str(f)]){ctScenId} = topasSum.Standard_Deviation;
                         end
                     end
                 end
@@ -891,7 +895,7 @@ classdef matRad_TopasMCEngine < DoseEngines.matRad_MonteCarloEngineAbstract
 
         function dij = prepareDij(obj,topasCubes)
 
-            % Load ctScen variable
+            % Load CT scenario count
             numOfScenarios = obj.MCparam.numOfCtScen;
 
             % Set flag for RBE and LET
@@ -958,11 +962,11 @@ classdef matRad_TopasMCEngine < DoseEngines.matRad_MonteCarloEngineAbstract
             % Create empty sparse matrices
             % Note that for MonteCarlo, there are no individual bixels, but only 2 beams
             for t = 1:length(dijTallies)
-                for ctScen = 1:dij.numOfScenarios
+                for ctScenId = 1:dij.numOfScenarios
                     if obj.scorer.calcDij
-                        dij.(dijTallies{t}){ctScen,1} = spalloc(obj.MCparam.ctGrid.numOfVoxels,dij.totalNumOfBixels,1);
+                        dij.(dijTallies{t}){ctScenId,1} = spalloc(obj.MCparam.ctGrid.numOfVoxels,dij.totalNumOfBixels,1);
                     else
-                        dij.(dijTallies{t}){ctScen,1} = spalloc(obj.MCparam.ctGrid.numOfVoxels,dij.numOfBeams,1);
+                        dij.(dijTallies{t}){ctScenId,1} = spalloc(obj.MCparam.ctGrid.numOfVoxels,dij.numOfBeams,1);
                     end
                 end
             end
@@ -994,7 +998,7 @@ classdef matRad_TopasMCEngine < DoseEngines.matRad_MonteCarloEngineAbstract
             
 
             % Loop through 4D scenarios
-            for ctScen = 1:dij.numOfScenarios
+            for ctScenId = 1:dij.numOfScenarios
 
                 % Process physicalDose
                 % this is done separately since it's needed for processing the other dose fields
@@ -1008,7 +1012,7 @@ classdef matRad_TopasMCEngine < DoseEngines.matRad_MonteCarloEngineAbstract
                                 % Check if current quantity is available and write to dij
                                 if isfield(topasCubes,[topasCubesTallies{j} '_ray' num2str(dij.rayNum(d)) '_bixel' num2str(dij.bixelNum(d)) processedQuantities{p} '_beam' num2str(dij.beamNum(d))]) ...
                                         && iscell(topasCubes.([topasCubesTallies{j} '_ray' num2str(dij.rayNum(d)) '_bixel' num2str(dij.bixelNum(d)) processedQuantities{p} '_beam' num2str(dij.beamNum(d))]))
-                                    dij.([topasCubesTallies{j} processedQuantities{p}]){ctScen,1}(:,d) = sum(w)*reshape(topasCubes.([topasCubesTallies{j} '_ray' num2str(dij.rayNum(d)) '_bixel' num2str(dij.bixelNum(d)) processedQuantities{p} '_beam' num2str(dij.beamNum(d))]){ctScen},[],1);
+                                    dij.([topasCubesTallies{j} processedQuantities{p}]){ctScenId,1}(:,d) = sum(w)*reshape(topasCubes.([topasCubesTallies{j} '_ray' num2str(dij.rayNum(d)) '_bixel' num2str(dij.bixelNum(d)) processedQuantities{p} '_beam' num2str(dij.beamNum(d))]){ctScenId},[],1);
                                 end
                             end
                         end
@@ -1021,7 +1025,7 @@ classdef matRad_TopasMCEngine < DoseEngines.matRad_MonteCarloEngineAbstract
                             for p = 1:length(processedQuantities)
                                 % Check if current quantity is available and write to dij
                                 if isfield(topasCubes,[topasCubesTallies{j} processedQuantities{p} '_beam' num2str(d)]) && iscell(topasCubes.([topasCubesTallies{j} processedQuantities{p} '_beam' num2str(d)]))
-                                    dij.([topasCubesTallies{j} processedQuantities{p}]){ctScen}(:,d) = sum(w)*reshape(topasCubes.([topasCubesTallies{j} processedQuantities{p} '_beam',num2str(d)]){ctScen},[],1);
+                                    dij.([topasCubesTallies{j} processedQuantities{p}]){ctScenId}(:,d) = sum(w)*reshape(topasCubes.([topasCubesTallies{j} processedQuantities{p} '_beam',num2str(d)]){ctScenId},[],1);
                                 end
                             end
                         end
@@ -1042,7 +1046,7 @@ classdef matRad_TopasMCEngine < DoseEngines.matRad_MonteCarloEngineAbstract
                                     % Check if current quantity is available and write to dij
                                     if isfield(topasCubes,[topasCubesTallies{j} '_ray' num2str(dij.rayNum(d)) '_bixel' num2str(dij.bixelNum(d)) processedQuantities{p} '_beam' num2str(dij.beamNum(d))]) ...
                                             && iscell(topasCubes.([topasCubesTallies{j} '_ray' num2str(dij.rayNum(d)) '_bixel' num2str(dij.bixelNum(d)) processedQuantities{p} '_beam' num2str(dij.beamNum(d))]))
-                                        dij.([topasCubesTallies{j} processedQuantities{p}]){ctScen,1}(:,d) = sum(w)*reshape(topasCubes.([topasCubesTallies{j} '_ray' num2str(dij.rayNum(d)) '_bixel' num2str(dij.bixelNum(d)) processedQuantities{p} '_beam' num2str(dij.beamNum(d))]){ctScen},[],1);
+                                        dij.([topasCubesTallies{j} processedQuantities{p}]){ctScenId,1}(:,d) = sum(w)*reshape(topasCubes.([topasCubesTallies{j} '_ray' num2str(dij.rayNum(d)) '_bixel' num2str(dij.bixelNum(d)) processedQuantities{p} '_beam' num2str(dij.beamNum(d))]){ctScenId},[],1);
                                     end
                                 end
                                 % Handle RBE-related quantities (not multiplied by sum(w)!)
@@ -1051,19 +1055,19 @@ classdef matRad_TopasMCEngine < DoseEngines.matRad_MonteCarloEngineAbstract
                                 modelName = modelName{end};
                                 if isfield(topasCubes,[topasCubesTallies{j} '_ray' num2str(dij.rayNum(d)) '_bixel' num2str(dij.bixelNum(d)) '_beam' num2str(dij.beamNum(d))]) ...
                                         && iscell(topasCubes.([topasCubesTallies{j} '_ray' num2str(dij.rayNum(d)) '_bixel' num2str(dij.bixelNum(d)) '_beam' num2str(dij.beamNum(d))]))
-                                    dij.(['mAlphaDose_' modelName]){ctScen,1}(:,d) = reshape(topasCubes.([topasCubesTallies{j} '_ray' num2str(dij.rayNum(d)) '_bixel' num2str(dij.bixelNum(d)) '_beam' num2str(dij.beamNum(d))]){ctScen},[],1) .* dij.physicalDose{ctScen,1}(:,d);
+                                    dij.(['mAlphaDose_' modelName]){ctScenId,1}(:,d) = reshape(topasCubes.([topasCubesTallies{j} '_ray' num2str(dij.rayNum(d)) '_bixel' num2str(dij.bixelNum(d)) '_beam' num2str(dij.beamNum(d))]){ctScenId},[],1) .* dij.physicalDose{ctScenId,1}(:,d);
                                 end
                             elseif ~isempty(strfind(lower(topasCubesTallies{j}),'beta'))
                                 modelName = strsplit(topasCubesTallies{j},'_');
                                 modelName = modelName{end};
                                 if isfield(topasCubes,[topasCubesTallies{j} '_ray' num2str(dij.rayNum(d)) '_bixel' num2str(dij.bixelNum(d)) '_beam' num2str(dij.beamNum(d))]) ...
                                         && iscell(topasCubes.([topasCubesTallies{j} '_ray' num2str(dij.rayNum(d)) '_bixel' num2str(dij.bixelNum(d)) '_beam' num2str(dij.beamNum(d))]))
-                                    dij.(['mSqrtBetaDose_' modelName]){ctScen,1}(:,d) = sqrt(reshape(topasCubes.([topasCubesTallies{j} '_ray' num2str(dij.rayNum(d)) '_bixel' num2str(dij.bixelNum(d)) '_beam' num2str(dij.beamNum(d))]){ctScen},[],1)) .* dij.physicalDose{ctScen,1}(:,d);
+                                    dij.(['mSqrtBetaDose_' modelName]){ctScenId,1}(:,d) = sqrt(reshape(topasCubes.([topasCubesTallies{j} '_ray' num2str(dij.rayNum(d)) '_bixel' num2str(dij.bixelNum(d)) '_beam' num2str(dij.beamNum(d))]){ctScenId},[],1)) .* dij.physicalDose{ctScenId,1}(:,d);
                                 end
                             elseif ~isempty(strfind(topasCubesTallies{j},'LET'))
                                 if isfield(topasCubes,[topasCubesTallies{j} '_ray' num2str(dij.rayNum(d)) '_bixel' num2str(dij.bixelNum(d)) '_beam' num2str(dij.beamNum(d))]) ...
                                         && iscell(topasCubes.([topasCubesTallies{j} '_ray' num2str(dij.rayNum(d)) '_bixel' num2str(dij.bixelNum(d)) '_beam' num2str(dij.beamNum(d))]))
-                                    dij.mLETDose{ctScen,1}(:,d) = reshape(topasCubes.([topasCubesTallies{j} '_ray' num2str(dij.rayNum(d)) '_bixel' num2str(dij.bixelNum(d)) '_beam' num2str(dij.beamNum(d))]){ctScen},[],1) .* dij.physicalDose{ctScen,1}(:,d);
+                                    dij.mLETDose{ctScenId,1}(:,d) = reshape(topasCubes.([topasCubesTallies{j} '_ray' num2str(dij.rayNum(d)) '_bixel' num2str(dij.bixelNum(d)) '_beam' num2str(dij.beamNum(d))]){ctScenId},[],1) .* dij.physicalDose{ctScenId,1}(:,d);
                                 end
                             else
                                 matRad_cfg.dispError('Postprocessing error: Tallies handles incorrectly')
@@ -1079,7 +1083,7 @@ classdef matRad_TopasMCEngine < DoseEngines.matRad_MonteCarloEngineAbstract
                                 for p = 1:length(processedQuantities)
                                     % Check if current quantity is available and write to dij
                                     if isfield(topasCubes,[topasCubesTallies{j} processedQuantities{p} '_beam' num2str(d)]) && iscell(topasCubes.([topasCubesTallies{j} processedQuantities{p} '_beam' num2str(d)]))
-                                        dij.([topasCubesTallies{j} processedQuantities{p}]){ctScen}(:,d) = sum(w)*reshape(topasCubes.([topasCubesTallies{j} processedQuantities{p} '_beam',num2str(d)]){ctScen},[],1);
+                                        dij.([topasCubesTallies{j} processedQuantities{p}]){ctScenId}(:,d) = sum(w)*reshape(topasCubes.([topasCubesTallies{j} processedQuantities{p} '_beam',num2str(d)]){ctScenId},[],1);
                                     end
                                 end
                                 % Handle RBE-related quantities (not multiplied by sum(w)!)
@@ -1087,17 +1091,17 @@ classdef matRad_TopasMCEngine < DoseEngines.matRad_MonteCarloEngineAbstract
                                 modelName = strsplit(topasCubesTallies{j},'_');
                                 modelName = modelName{end};
                                 if isfield(topasCubes,[topasCubesTallies{j} '_beam' num2str(d)]) && iscell(topasCubes.([topasCubesTallies{j} '_beam' num2str(d)]))
-                                    dij.(['mAlphaDose_' modelName]){ctScen}(:,d)        = reshape(topasCubes.([topasCubesTallies{j} '_beam',num2str(d)]){ctScen},[],1) .* dij.physicalDose{ctScen}(:,d);
+                                    dij.(['mAlphaDose_' modelName]){ctScenId}(:,d)        = reshape(topasCubes.([topasCubesTallies{j} '_beam',num2str(d)]){ctScenId},[],1) .* dij.physicalDose{ctScenId}(:,d);
                                 end
                             elseif ~isempty(strfind(lower(topasCubesTallies{j}),'beta'))
                                 modelName = strsplit(topasCubesTallies{j},'_');
                                 modelName = modelName{end};
                                 if isfield(topasCubes,[topasCubesTallies{j} '_beam' num2str(d)]) && iscell(topasCubes.([topasCubesTallies{j} '_beam' num2str(d)]))
-                                    dij.(['mSqrtBetaDose_' modelName]){ctScen}(:,d)        = sqrt(reshape(topasCubes.([topasCubesTallies{j} '_beam',num2str(d)]){ctScen},[],1)) .* dij.physicalDose{ctScen}(:,d);
+                                    dij.(['mSqrtBetaDose_' modelName]){ctScenId}(:,d)        = sqrt(reshape(topasCubes.([topasCubesTallies{j} '_beam',num2str(d)]){ctScenId},[],1)) .* dij.physicalDose{ctScenId}(:,d);
                                 end
                             elseif ~isempty(strfind(topasCubesTallies{j},'LET'))
                                 if isfield(topasCubes,[topasCubesTallies{j} '_beam' num2str(d)]) && iscell(topasCubes.([topasCubesTallies{j} '_beam' num2str(d)]))
-                                    dij.mLETDose{ctScen}(:,d)        = reshape(topasCubes.([topasCubesTallies{j} '_beam',num2str(d)]){ctScen},[],1) .* dij.physicalDose{ctScen}(:,d);
+                                    dij.mLETDose{ctScenId}(:,d)        = reshape(topasCubes.([topasCubesTallies{j} '_beam',num2str(d)]){ctScenId},[],1) .* dij.physicalDose{ctScenId}(:,d);
                                 end
                             else
                                 matRad_cfg.dispError('Postprocessing error: Tallies handles incorrectly')
@@ -1113,11 +1117,11 @@ classdef matRad_TopasMCEngine < DoseEngines.matRad_MonteCarloEngineAbstract
 
         end
 
-        function writeRunHeader(obj,fID,fieldIx,runIx,ctScen)
+        function writeRunHeader(obj,fID,fieldIx,runIx,ctScenId)
             %TODO: Insert documentation
             fprintf(fID,'s:Sim/PlanLabel = "%s"\n',obj.label);
-            if exist('ctScen','var')
-                fprintf(fID,'s:Sim/ScoreLabel = "score_%s_field%d_ct%d_run%d"\n',obj.label,fieldIx,ctScen,runIx);
+            if exist('ctScenId','var')
+                fprintf(fID,'s:Sim/ScoreLabel = "score_%s_field%d_ct%d_run%d"\n',obj.label,fieldIx,ctScenId,runIx);
             else
                 fprintf(fID,'s:Sim/ScoreLabel = "score_%s_field%d_run%d"\n',obj.label,fieldIx,runIx);
             end
@@ -1155,7 +1159,7 @@ classdef matRad_TopasMCEngine < DoseEngines.matRad_MonteCarloEngineAbstract
             %fprintf(fID,'includeFile = %s/TOPAS_scorer_surfaceIC.txt\n',obj.thisFolder);
         end
 
-        function writeFieldHeader(obj,fID,ctScen)
+        function writeFieldHeader(obj,fID,ctScenId)
             %TODO: Insert documentation
             matRad_cfg = MatRad_Config.instance(); %Instance of matRad configuration class
 
@@ -1175,10 +1179,10 @@ classdef matRad_TopasMCEngine < DoseEngines.matRad_MonteCarloEngineAbstract
             fprintf(fID,'s:Sim/WorldMaterial = "%s"\n',obj.worldMaterial);
             fprintf(fID,'\n');
 
-            % Add ctScen number to filenames
-            if exist('ctScen','var')
+            % Add CT scenario id to filenames
+            if exist('ctScenId','var')
                 paramFile = strsplit(obj.outfilenames.patientParam,'.');
-                paramFile = strjoin(paramFile,[num2str(ctScen) '.']);
+                paramFile = strjoin(paramFile,[num2str(ctScenId) '.']);
             else
                 paramFile = obj.outfilenames.patientParam;
             end
@@ -2138,16 +2142,16 @@ classdef matRad_TopasMCEngine < DoseEngines.matRad_MonteCarloEngineAbstract
             paramFile = obj.outfilenames.patientParam;
             dataFile = obj.outfilenames.patientCube;
 
-            % Add ctScen number to filenames
+            % Add CT scenario id to filenames
             if isfield(ct,'currCtScen')
-                ctScen = ct.currCtScen;
+                ctScenId = ct.currCtScen;
                 paramFile = strsplit(paramFile,'.');
                 paramFile = strjoin(paramFile,[num2str(ct.currCtScen) '.']);
 
                 dataFile = strsplit(dataFile,'.');
                 dataFile = strjoin(dataFile,[num2str(ct.currCtScen) '.']);
             else
-                ctScen = 1;
+                ctScenId = 1;
             end
 
             % Open file to write in data
@@ -2162,7 +2166,7 @@ classdef matRad_TopasMCEngine < DoseEngines.matRad_MonteCarloEngineAbstract
                     min_HU = rspHlut(1,1);
                     max_HU = rspHlut(end,1);
 
-                    huCube = int32(permute(ct.cubeHU{ctScen},permutation)); %  X,Y,Z ordering
+                    huCube = int32(permute(ct.cubeHU{ctScenId},permutation)); %  X,Y,Z ordering
                     huCube(huCube < min_HU) = min_HU;
                     huCube(huCube > max_HU) = max_HU;
 
@@ -2362,7 +2366,7 @@ classdef matRad_TopasMCEngine < DoseEngines.matRad_MonteCarloEngineAbstract
 
                         % write HU data
                         matRad_cfg.dispInfo('TOPAS: Export patient cube\n');
-                        huCube = int32(permute(ct.cubeHU{ctScen},permutation));
+                        huCube = int32(permute(ct.cubeHU{ctScenId},permutation));
                         fID = fopen(fullfile(obj.workingDir, dataFile),'w');
                         fwrite(fID,huCube,'short');
                         fclose(fID);
@@ -2375,7 +2379,7 @@ classdef matRad_TopasMCEngine < DoseEngines.matRad_MonteCarloEngineAbstract
                 otherwise
                     matRad_cfg.dispError('Material Conversion rule "%s" not implemented (yet)!\n',obj.materialConverter.mode);
             end
-            obj.MCparam.imageCube{ctScen} = cube;
+            obj.MCparam.imageCube{ctScenId} = cube;
 
 
         end
@@ -2440,4 +2444,3 @@ classdef matRad_TopasMCEngine < DoseEngines.matRad_MonteCarloEngineAbstract
        end
     end
 end
-

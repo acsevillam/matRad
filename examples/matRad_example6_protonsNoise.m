@@ -67,7 +67,7 @@ quantityOpt  = 'RBExD';
 pln.bioParam = matRad_bioModel(pln.radiationMode,quantityOpt,modelName);
 
 % retrieve scenarios for dose calculation and optimziation
-pln.multScen = matRad_multScen(ct,'nomScen');  % optimize on the nominal scenario
+pln.multScen = matRad_createScenarioModel(ct,'nomScen');  % optimize on the nominal scenario
 
 
 % dose calculation settings
@@ -125,8 +125,8 @@ imagesc(resultGUI.RBExD(:,:,slice)),colorbar, colormap(jet)
 % stopping power cube by 3.5% percent. For that to happen, we need to tell 
 % matRad that it should not convert the HU-cube (ct.cubeHU) to RSP cube 
 % implicitly, but directly use the RSP cube we provide in ct.cube
-% Note that such uncertainty scenarios can also be computed by using the
-% functionalities of matRad_multScen
+% Note that such uncertainty scenarios can also be computed by using
+% matRad_createScenarioModel.
 
 pln.propDoseCalc.useGivenEqDensityCube = true;
 ct_manip         = ct;

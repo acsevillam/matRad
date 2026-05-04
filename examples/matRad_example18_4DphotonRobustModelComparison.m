@@ -131,7 +131,7 @@ pln.propDoseCalc.doseGrid.resolution.y = 5; % [mm]
 pln.propDoseCalc.doseGrid.resolution.z = 5; % [mm]
 
 pln.bioParam = matRad_bioModel(pln.radiationMode,quantityOpt,modelName);
-pln.multScen = matRad_multScen(ct,'nomScen');
+pln.multScen = matRad_createScenarioModel(ct,'nomScen');
 
 %% Generate beam geometry and dose influence
 stf = matRad_generateStf(ct,cst,pln);
@@ -169,11 +169,10 @@ cstInterval3{ixPTV,6}{1} = struct(DoseObjectives.matRad_SquaredBertoluzzaDeviati
 intervalCfg = struct();
 intervalCfg.Quantity = quantityOpt;
 intervalCfg.refScen = ct.refScen;
-intervalCfg.CalculateReferenceDij = false;
 intervalCfg.ProgressLevel = 'summary';
 intervalCfg.targetStructSel = cstInterval3(ixPTV,2);
 intervalCfg.OARStructSel = cstInterval3(ixOAR,2);
-[~,~,dijInterval,plnInterval3] = matRad_calcDoseInterval3(ct,cstInterval3,stf,pln,dij,intervalCfg);
+[plnInterval3,dijIntervalContext] = matRad_calcDoseInterval3(ct,cstInterval3,stf,pln,dij,intervalCfg);
 
 plnInterval3.propOpt.scen4D = 'all';
 plnInterval3.propOpt.theta1 = 30;
@@ -182,7 +181,7 @@ interval3Label = sprintf('INTERVAL3 (theta1=%g, theta2=%g)', ...
     plnInterval3.propOpt.theta1,plnInterval3.propOpt.theta2);
 cstInterval3{ixPTV,6}{1}.robustness = 'INTERVAL3';
 cstInterval3{ixOAR,6}{1}.robustness = 'INTERVAL3';
-resultGUIInterval3 = matRad_fluenceOptimization(dijInterval,cstInterval3,plnInterval3);
+resultGUIInterval3 = matRad_fluenceOptimization(dijIntervalContext,cstInterval3,plnInterval3);
 
 %% Sampling setup
 plane = 3;

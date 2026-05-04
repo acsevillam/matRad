@@ -1,24 +1,56 @@
-function scenarioMaps = matRad_buildDoseIntervalScenarioMappings(ct,dij,scenarioCtScen,refScen,matRad_cfg)
-% Build per-scenario mapping metadata for reference-scenario interval data.
+function scenarioMaps = matRad_buildDoseIntervalScenarioMappings(ct,dij,scenarioCtScenIds,refScen,matRad_cfg)
+% matRad_buildDoseIntervalScenarioMappings builds reference CT mapping metadata
+%
+% call
+%   scenarioMaps = matRad_buildDoseIntervalScenarioMappings(ct,dij,scenarioCtScenIds,refScen,matRad_cfg)
+%
+% input
+%   ct:                matRad ct struct; non-reference CT scenarios require
+%                      pull DVFs in ct.dvf
+%   dij:               matRad dose influence struct with dose grid metadata
+%   scenarioCtScenIds: CT scenario id for each active interval scenario
+%   refScen:           reference CT scenario id used for interval rows
+%   matRad_cfg:        MatRad_Config instance for diagnostics
+%
+% output
+%   scenarioMaps:      cell array with one mapping struct per active
+%                      scenario; unmapped reference scenarios are marked by
+%                      mapped = false
+%
+% References
+%   -
+%
+% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+% Copyright 2026 the matRad development team.
+%
+% This file is part of the matRad project. It is subject to the license
+% terms in the LICENSE file found in the top-level directory of this
+% distribution and at https://github.com/e0404/matRad/LICENSE.md. No part
+% of the matRad project, including this file, may be copied, modified,
+% propagated, or distributed except according to the terms contained in the
+% LICENSE file.
+%
+% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-scenarioMaps = cell(numel(scenarioCtScen),1);
-for s = 1:numel(scenarioCtScen)
-    if scenarioCtScen(s) == refScen
+scenarioMaps = cell(numel(scenarioCtScenIds),1);
+for s = 1:numel(scenarioCtScenIds)
+    if scenarioCtScenIds(s) == refScen
         scenarioMaps{s}.mapped = false;
     else
-        scenarioMaps{s} = buildDvfMapping(ct,dij,scenarioCtScen(s),refScen,matRad_cfg);
+        scenarioMaps{s} = buildDvfMapping(ct,dij,scenarioCtScenIds(s),refScen,matRad_cfg);
     end
 end
 end
 
-function map = buildDvfMapping(ct,dij,ctScen,refScen,matRad_cfg)
+function map = buildDvfMapping(ct,dij,ctScenId,refScen,matRad_cfg)
 validateReferenceScenarioMetadata(ct,refScen,matRad_cfg);
 
 if ~strcmp(getDvfType(ct),'pull')
     matRad_cfg.dispError('MultiCT interval dose calculation requires pull DVFs.');
 end
 
-dvf = getScenarioDvf(ct,ctScen,matRad_cfg);
+dvf = getScenarioDvf(ct,ctScenId,matRad_cfg);
 [dvfX,dvfY,dvfZ] = getDvfComponents(dvf,matRad_cfg);
 doseDim = getDoseGridDimensions(dij,matRad_cfg);
 sourceDim = [size(dvfX,1) size(dvfX,2) size(dvfX,3)];
@@ -36,8 +68,8 @@ else
 end
 
 map.mapped = true;
-map.sourceCtScen = ctScen;
-map.referenceCtScen = refScen;
+map.sourceCtScenId = ctScenId;
+map.referenceCtScenId = refScen;
 map.dvfX = dvfX;
 map.dvfY = dvfY;
 map.dvfZ = dvfZ;
@@ -88,12 +120,12 @@ if strcmp(dvfUnits,'mm') && isfield(ct,'dvfUnits') && ~isempty(ct.dvfUnits)
 end
 end
 
-function dvf = getScenarioDvf(ct,ctScen,matRad_cfg)
-if ~isfield(ct,'dvf') || isempty(ct.dvf) || numel(ct.dvf) < ctScen || ...
-   isempty(ct.dvf{ctScen})
-    matRad_cfg.dispError('ct.dvf must contain a DVF for CT scenario %d.',ctScen);
+function dvf = getScenarioDvf(ct,ctScenId,matRad_cfg)
+if ~isfield(ct,'dvf') || isempty(ct.dvf) || numel(ct.dvf) < ctScenId || ...
+   isempty(ct.dvf{ctScenId})
+    matRad_cfg.dispError('ct.dvf must contain a DVF for CT scenario %d.',ctScenId);
 end
-dvf = ct.dvf{ctScen};
+dvf = ct.dvf{ctScenId};
 end
 
 function [dvfX,dvfY,dvfZ] = getDvfComponents(dvf,matRad_cfg)

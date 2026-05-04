@@ -10,7 +10,7 @@ function scenWeights = matRad_getSamplingScenarioWeights(pln,numScenarios,ctScen
 %   pln:                matRad pln struct with multScen scenario model
 %   numScenarios:       number of sampled scenarios
 %   ctScenProb:         (optional) CT scenario probability override as
-%                       [ctScenIndex probability]
+%                       [ctScenId probability]
 %   inputScenWeights:   (optional) resolved scenario weights to use directly
 %
 % output
@@ -66,21 +66,22 @@ end
 
 validateCtScenProb(ctScenProb);
 
-if ~hasFieldOrProp(pln.multScen,'linearMask') || isempty(pln.multScen.linearMask)
-    matRad_cfg.dispError('ctScenProb override requires multScen.linearMask.');
-end
-
 if ~hasFieldOrProp(pln.multScen,'ctScenProb') || isempty(pln.multScen.ctScenProb)
     matRad_cfg.dispError('ctScenProb override requires multScen.ctScenProb.');
 end
 
-ctScen = pln.multScen.linearMask(:,1);
-if numel(ctScen) ~= numScenarios
-    matRad_cfg.dispError('Number of CT scenario indices does not match number of sampled scenarios.');
+if ~isa(pln.multScen,'matRad_ScenarioModel')
+    matRad_cfg.dispError('ctScenProb override requires a matRad_ScenarioModel instance.');
 end
 
-oldCtProb = getCtScenarioProbabilities(pln.multScen.ctScenProb,ctScen);
-newCtProb = getCtScenarioProbabilities(ctScenProb,ctScen);
+scenarioIds = pln.multScen.scenarioIds();
+ctScenIds = arrayfun(@(id) pln.multScen.getCtScenario(id),scenarioIds);
+if numel(ctScenIds) ~= numScenarios
+    matRad_cfg.dispError('Number of CT scenario ids does not match number of sampled scenarios.');
+end
+
+oldCtProb = getCtScenarioProbabilities(pln.multScen.ctScenProb,ctScenIds);
+newCtProb = getCtScenarioProbabilities(ctScenProb,ctScenIds);
 
 invalidOriginalProb = oldCtProb <= 0 & scenWeights > 0;
 if any(invalidOriginalProb)
@@ -106,7 +107,7 @@ valid = isnumeric(ctScenProb) && ismatrix(ctScenProb) && size(ctScenProb,2) == 2
     all(round(ctScenProb(:,1)) == ctScenProb(:,1)) && all(ctScenProb(:,1) > 0);
 if ~valid
     matRad_cfg = MatRad_Config.instance();
-    matRad_cfg.dispError('ctScenProb must be a two-column matrix [ctScenIndex probability].');
+    matRad_cfg.dispError('ctScenProb must be a two-column matrix [ctScenId probability].');
 end
 
 if sum(ctScenProb(:,2)) <= 0
@@ -115,16 +116,16 @@ if sum(ctScenProb(:,2)) <= 0
 end
 end
 
-function ctProb = getCtScenarioProbabilities(ctScenProb,ctScen)
+function ctProb = getCtScenarioProbabilities(ctScenProb,ctScenIds)
 matRad_cfg = MatRad_Config.instance();
-ctProb = zeros(size(ctScen));
+ctProb = zeros(size(ctScenIds));
 
-for i = 1:numel(ctScen)
-    ctProbIx = find(ctScenProb(:,1) == ctScen(i),1,'first');
-    if isempty(ctProbIx)
-        matRad_cfg.dispError('Missing probability for CT scenario %d.',ctScen(i));
+for i = 1:numel(ctScenIds)
+    ctScenIx = find(ctScenProb(:,1) == ctScenIds(i),1,'first');
+    if isempty(ctScenIx)
+        matRad_cfg.dispError('Missing probability for CT scenario %d.',ctScenIds(i));
     end
-    ctProb(i) = ctScenProb(ctProbIx,2);
+    ctProb(i) = ctScenProb(ctScenIx,2);
 end
 end
 

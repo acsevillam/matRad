@@ -1,7 +1,39 @@
-function rows = matRad_getDoseIntervalScenarioRows(quantity,scenarioIx,scenarioMap,rowIx,matRad_cfg)
-% Return influence rows, mapped to the reference CT scenario if required.
+function rows = matRad_getDoseIntervalScenarioRows(quantity,scenarioDijIx,scenarioMap,rowIx,matRad_cfg)
+% matRad_getDoseIntervalScenarioRows returns mapped interval influence rows
+%
+% call
+%   rows = matRad_getDoseIntervalScenarioRows(quantity,scenarioDijIx,scenarioMap,rowIx,matRad_cfg)
+%
+% input
+%   quantity:      struct describing the linear dij quantity, including
+%                  matrixCell and scale
+%   scenarioDijIx: DIJ linear scenario index used to select the influence
+%                  matrix from quantity.matrixCell
+%   scenarioMap:   mapping metadata for the scenario CT to the reference CT
+%   rowIx:         dose-grid linear row indices in the reference CT scenario
+%   matRad_cfg:    MatRad_Config instance for diagnostics
+%
+% output
+%   rows:          sparse influence rows on the reference dose grid, scaled
+%                  according to quantity.scale
+%
+% References
+%   -
+%
+% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+% Copyright 2026 the matRad development team.
+%
+% This file is part of the matRad project. It is subject to the license
+% terms in the LICENSE file found in the top-level directory of this
+% distribution and at https://github.com/e0404/matRad/LICENSE.md. No part
+% of the matRad project, including this file, may be copied, modified,
+% propagated, or distributed except according to the terms contained in the
+% LICENSE file.
+%
+% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-matrix = quantity.matrixCell{scenarioIx};
+matrix = quantity.matrixCell{scenarioDijIx};
 if ~scenarioMap.mapped
     rows = matrix(rowIx,:) .* quantity.scale;
 else

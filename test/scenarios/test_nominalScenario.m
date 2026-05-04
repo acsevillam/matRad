@@ -61,9 +61,9 @@ function test_nominalScenarioExtractSingleScenarioWithCtScen
     for scenNum = 1:refScen.totNumScen
         scenario = refScen.extractSingleScenario(scenNum);
         assertTrue(isa(scenario, 'matRad_NominalScenario'));
-        ctScenIx = refScen.ctScenIx(scenNum);
-        ctScenNum = find(ctScenIx == refScen.ctScenProb(:,1));
-        assertEqual(scenario.ctScenProb, refScen.ctScenProb(ctScenNum,:));
+        ctScenId = refScen.scenarioCtScenIds(scenNum);
+        ctScenProbIx = find(ctScenId == refScen.ctScenProb(:,1));
+        assertEqual(scenario.ctScenProb, refScen.ctScenProb(ctScenProbIx,:));
         assertEqual(scenario.numOfCtScen, 1);
         assertEqual(scenario.totNumScen, 1);
         assertEqual(scenario.totNumShiftScen, 1);
@@ -73,9 +73,9 @@ function test_nominalScenarioExtractSingleScenarioWithCtScen
         assertEqual(scenario.isoShift, refScen.isoShift(scenNum,:));
         assertEqual(scenario.maxAbsRangeShift, max(abs(refScen.absRangeShift(scenNum))));
         assertEqual(scenario.maxRelRangeShift, max(abs(refScen.relRangeShift(scenNum))));
-        assertTrue(scenario.scenMask(ctScenIx,1,1));
+        assertTrue(scenario.scenMask(ctScenId,1,1));
         assertTrue(numel(find(scenario.scenMask)) == 1);
-        assertEqual(scenario.linearMask, [ctScenIx 1 1]);
+        assertEqual(scenario.linearMask, [ctScenId 1 1]);
         assertElementsAlmostEqual(scenario.scenProb,helper_mvarGauss(scenario));
         assertEqual(scenario.scenForProb,refScen.scenForProb(scenNum,:));
         assertEqual(scenario.scenWeight, refScen.scenWeight(scenNum));

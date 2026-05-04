@@ -201,7 +201,7 @@ pln.propDoseCalc.doseGrid.resolution.z = 5; % [mm]
 pln.bioParam = matRad_bioModel(pln.radiationMode,quantityOpt,modelName);
 
 % retrieve the 4D CT scenarios for dose calculation and optimization
-pln.multScen = matRad_multScen(ct,'nomScen');
+pln.multScen = matRad_createScenarioModel(ct,'nomScen');
 
 %% Generate Beam Geometry STF
 stf = matRad_generateStf(ct,cst,pln);
@@ -226,11 +226,10 @@ cstInterval3{ixPTV,6}{1} = struct(DoseObjectives.matRad_SquaredBertoluzzaDeviati
 intervalCfg = struct();
 intervalCfg.Quantity = quantityOpt;
 intervalCfg.refScen = ct.refScen;
-intervalCfg.CalculateReferenceDij = false;
 intervalCfg.ProgressLevel = 'detailed';
 intervalCfg.targetStructSel = cstInterval3(ixPTV,2);
 intervalCfg.OARStructSel = cstInterval3(ixOAR,2);
-[~,~,dij,pln] = matRad_calcDoseInterval3(ct,cstInterval3,stf,pln,dij,intervalCfg);
+[plnInterval3,dijIntervalContext] = matRad_calcDoseInterval3(ct,cstInterval3,stf,pln,dij,intervalCfg);
 
 %% Trigger INTERVAL3 robust optimization
 % INTERVAL3 targets require the squared Bertoluzza deviation objective.
@@ -238,13 +237,21 @@ cstInterval3{ixPTV,6}{1}.robustness  = 'INTERVAL3';
 cstInterval3{ixOAR,6}{1}.robustness  = 'INTERVAL3';
 
 %Activate 4D Optimization
-pln.propOpt.scen4D = 'all';
-pln.propOpt.theta1 = 30;
-pln.propOpt.theta2 = 1.0;
+plnInterval3.propOpt.scen4D = 'all';
+plnInterval3.propOpt.theta1 = 30;
+plnInterval3.propOpt.theta2 = 1.0;
 interval3Label = sprintf('INTERVAL3 (theta1=%g, theta2=%g)', ...
-    pln.propOpt.theta1,pln.propOpt.theta2);
+    plnInterval3.propOpt.theta1,plnInterval3.propOpt.theta2);
 
-resultGUIinterval3 = matRad_fluenceOptimization(dij,cstInterval3,pln);
+resultGUIinterval3 = matRad_fluenceOptimization(dijIntervalContext,cstInterval3,plnInterval3);
+
+scenarioIds = pln.multScen.scenarioIds();
+for i = 1:numel(scenarioIds)
+    resultGUItmp = matRad_calcCubes(resultGUIinterval3.w,dij, ...
+        pln.multScen.getDijScenarioIndex(scenarioIds(i)));
+    resultGUIinterval3 = matRad_appendResultGUI(resultGUIinterval3, ...
+        resultGUItmp,false,sprintf('scen%d',i));
+end
 
 % add resultGUIinterval3 dose cubes to the existing resultGUI structure to allow the visualization in the GUI
 resultGUI = matRad_appendResultGUI(resultGUI,resultGUIinterval3,0,'interval3');

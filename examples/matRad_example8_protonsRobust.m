@@ -90,7 +90,7 @@ pln.propOpt.runSequencing = 0;
 pln.bioParam = matRad_bioModel(pln.radiationMode,quantityOpt,modelName);
 
 % retrieve 9 worst case scenarios for dose calculation and optimziation
-pln.multScen = matRad_multScen(ct,'wcScen');
+pln.multScen = matRad_createScenarioModel(ct,'wcScen');
 
 pln.propDoseCalc.doseGrid.resolution.x = 3; % [mm]
 pln.propDoseCalc.doseGrid.resolution.y = 3; % [mm]
@@ -165,15 +165,23 @@ dvhSamplingArgs = {'dvhDoseWindow',dvhDoseWindow};
 [cstStat, resultGUISamp, meta, gammaFig, robustnessFig1] = ...
     matRad_samplingAnalysis(ct,cst,plnSamp,caSamp,mSampDose,resultGUInomScen,samplingAnalysisArgs{:});
 
-figure(gammaFig),title('Gamma index (nominal vs expected) - conventional');
-figure(robustnessFig1),title('Delta index - conventional');
+if ~isempty(gammaFig) && ishandle(gammaFig)
+    figure(gammaFig),title('Gamma index (nominal vs expected) - conventional');
+end
+if ~isempty(robustnessFig1) && ishandle(robustnessFig1)
+    figure(robustnessFig1),title('Delta index - conventional');
+end
 
 [caSampRob, mSampDoseRob, plnSampRob, resultGUInomScen] = matRad_sampling(ct,stf,cst,pln,resultGUIrobust.w,structSel,[],dvhSamplingArgs{:});
 [cstStatRob, resultGUISampRob, metaRob, gammaFigRob, robustnessFigRob1] = ...
     matRad_samplingAnalysis(ct,cst,plnSampRob,caSampRob,mSampDoseRob,resultGUInomScen,samplingAnalysisArgs{:});
 
-figure(gammaFigRob),title('Gamma index (nominal vs expected) - robust');
-figure(robustnessFigRob1),title('Delta index - robust');
+if ~isempty(gammaFigRob) && ishandle(gammaFigRob)
+    figure(gammaFigRob),title('Gamma index (nominal vs expected) - robust');
+end
+if ~isempty(robustnessFigRob1) && ishandle(robustnessFigRob1)
+    figure(robustnessFigRob1),title('Delta index - robust');
+end
 
 figure,title('DVH trustband based on sampling - conventional')
 matRad_showDVHFromSampling(caSamp,[],cst,plnSamp, ...

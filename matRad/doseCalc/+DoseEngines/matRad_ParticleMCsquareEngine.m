@@ -252,18 +252,19 @@ classdef matRad_ParticleMCsquareEngine < DoseEngines.matRad_MonteCarloEngineAbst
             ct = matRad_getWorldAxes(ct);
             
 
-            for scenarioIx = 1:this.multScen.totNumScen
+            scenarioIds = this.multScen.scenarioIds();
+            for scenarioRowIx = 1:numel(scenarioIds)
+                scenarioId = scenarioIds(scenarioRowIx);
+                fullScenIx = this.multScen.getDijScenarioIndex(scenarioId);
                 %For direct dose calculation
                 totalWeights = 0;
 
                 % manipulate isocenter
-                isoCenterShift = this.multScen.isoShift(scenarioIx,:) + mcSquareAddIsoCenterOffset;
+                isoCenterShift = this.multScen.getSetupShift(scenarioId) + mcSquareAddIsoCenterOffset;
                 
-                ctScen = this.multScen.linearMask(scenarioIx,1);
-                shiftScen = this.multScen.linearMask(scenarioIx,2);
-                rangeShiftScen = this.multScen.linearMask(scenarioIx,3);
+                ctScenId = this.multScen.getCtScenario(scenarioId);
 
-                if this.multScen.scenMask(ctScen,shiftScen,rangeShiftScen)
+                if ~isempty(fullScenIx)
            
  
                     counter = 0;
@@ -388,7 +389,7 @@ classdef matRad_ParticleMCsquareEngine < DoseEngines.matRad_MonteCarloEngineAbst
                         dij.doseGrid.resolution.y ...
                         dij.doseGrid.resolution.z];
 
-                    this.writeMhd(HUcube{ctScen},MCsquareBinCubeResolution);
+                    this.writeMhd(HUcube{ctScenId},MCsquareBinCubeResolution);
 
                     % write config file
                     this.writeInputFiles(MCsquareConfigFile,stfMCsquare);
@@ -406,7 +407,7 @@ classdef matRad_ParticleMCsquareEngine < DoseEngines.matRad_MonteCarloEngineAbst
 
                     % read sparse matrix
                     if ~this.calcDoseDirect
-                        dij.physicalDose{ctScen,shiftScen,rangeShiftScen} = absCalibrationFactorMC2 * matRad_sparseBeamletsReaderMCsquare ( ...
+                        dij.physicalDose{fullScenIx} = absCalibrationFactorMC2 * matRad_sparseBeamletsReaderMCsquare ( ...
                             [this.config.Output_Directory filesep 'Sparse_Dose.bin'], ...
                             dij.doseGrid.dimensions, ...
                             dij.totalNumOfBixels, ...
@@ -414,7 +415,7 @@ classdef matRad_ParticleMCsquareEngine < DoseEngines.matRad_MonteCarloEngineAbst
                         
                         %Read sparse LET
                         if this.calcLET
-                            dij.mLETDose{ctScen,shiftScen,rangeShiftScen} = dij.physicalDose{ctScen,shiftScen,rangeShiftScen} .* matRad_sparseBeamletsReaderMCsquare ( ...
+                            dij.mLETDose{fullScenIx} = dij.physicalDose{fullScenIx} .* matRad_sparseBeamletsReaderMCsquare ( ...
                                 [this.config.Output_Directory filesep 'Sparse_LET.bin'], ...
                                 dij.doseGrid.dimensions, ...
                                 dij.totalNumOfBixels, ...
@@ -428,14 +429,14 @@ classdef matRad_ParticleMCsquareEngine < DoseEngines.matRad_MonteCarloEngineAbst
                         end
                     else
                         cube = this.readMhd('Dose.mhd');
-                        dij.physicalDose{ctScen,shiftScen,rangeShiftScen} = sparse(this.VdoseGrid,ones(numel(this.VdoseGrid),1), ...
+                        dij.physicalDose{fullScenIx} = sparse(this.VdoseGrid,ones(numel(this.VdoseGrid),1), ...
                             absCalibrationFactorMC2 * cube(this.VdoseGrid), ...
                             dij.doseGrid.numOfVoxels,1);
 
                         %Read LET cube
                         if this.calcLET
                             cube = this.readMhd('LET.mhd');
-                            dij.mLETDose{ctScen,shiftScen,rangeShiftScen} = dij.physicalDose{ctScen,shiftScen,rangeShiftScen} .* sparse(this.VdoseGrid,ones(numel(this.VdoseGrid),1), ...
+                            dij.mLETDose{fullScenIx} = dij.physicalDose{fullScenIx} .* sparse(this.VdoseGrid,ones(numel(this.VdoseGrid),1), ...
                                 cube(this.VdoseGrid), ...
                                 dij.doseGrid.numOfVoxels,1);
                         end
@@ -458,7 +459,7 @@ classdef matRad_ParticleMCsquareEngine < DoseEngines.matRad_MonteCarloEngineAbst
                         
                     end
 
-                    matRad_cfg.dispInfo('Scenario %d of %d finished!\n',scenarioIx,this.multScen.totNumScen);
+                    matRad_cfg.dispInfo('Scenario %d of %d finished!\n',scenarioRowIx,this.multScen.totNumScen);
                     
                     %% clear all data
                     %could also be moved to the "finalize" function
@@ -929,4 +930,3 @@ classdef matRad_ParticleMCsquareEngine < DoseEngines.matRad_MonteCarloEngineAbst
               
     end
 end
-

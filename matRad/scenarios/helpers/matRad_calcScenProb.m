@@ -1,26 +1,29 @@
 function scenProb = matRad_calcScenProb(mu,sigma,samplePos,calcType,probDist)
 % matRad_calcScenProb provides different ways of calculating the probability 
-% of occurance of individual scenarios
+% of occurrence of individual scenarios
 % 
 % call
 %   scenProb = matRad_calcScenProb(mu,sigma,samplePos,calcType,probDist)
 %
 % input
-%   mu:             mean of the distrubtion
+%   mu:             mean of the distribution
 %   sigma:          standard deviation of the distribution
+%   samplePos:      scenario sample positions, one scenario per row
 %   calcType:       can be set to 
-%                   (i)  probBins to calculate the accumulated occurance probability in a certain bin width
-%                   (ii) pointwise to calculate the pointwise occurance probability
+%                   (i)  probBins to calculate the accumulated occurrence probability in a certain bin width
+%                   (ii) pointwise to calculate the pointwise occurrence probability
 %   probDist:       identifier for the underlying probability distribution
 %                   (i) normDist
 %
 % output
-%   scenProb:       occurance probability of the specified scenario
+%   scenProb:       occurrence probability of the specified scenario
 %
+% References
+%   -
 %
 % %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
-% Copyright 2017 the matRad development team. 
+% Copyright 2017-2026 the matRad development team.
 % 
 % This file is part of the matRad project. It is subject to the license 
 % terms in the LICENSE file found in the top-level directory of this 

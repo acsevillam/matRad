@@ -22,20 +22,20 @@ classdef matRad_BEDProjection < matRad_EffectProjection
     methods
         function BED = computeSingleScenario(obj,dij,scen,w)
             %Get corresponding ct scenario
-            [ctScen,~] = ind2sub(size(dij.physicalDose),scen);
+            [ctScenId,~] = ind2sub(size(dij.physicalDose),scen);
 
             effect = computeSingleScenario@matRad_EffectProjection(obj,dij,scen,w);
             
             BED = zeros(dij.doseGrid.numOfVoxels,1);
-            BED(dij.ixDose{ctScen}) = effect(dij.ixDose{ctScen})./ dij.ax{ctScen}(dij.ixDose{ctScen});
+            BED(dij.ixDose{ctScenId}) = effect(dij.ixDose{ctScenId})./ dij.ax{ctScenId}(dij.ixDose{ctScenId});
             % photon equivalent BED = n * effect / alphax
         end
 
         function wGrad = projectSingleScenarioGradient(obj,dij,doseGrad,scen,w)
-            [ctScen,~] = ind2sub(size(dij.physicalDose),scen);
+            [ctScenId,~] = ind2sub(size(dij.physicalDose),scen);
 
             doseGradtmp{scen} = zeros(size(doseGrad{scen}));
-            doseGradtmp{scen}(dij.ixDose{ctScen}) = doseGrad{scen}(dij.ixDose{ctScen})./dij.ax{scen}(dij.ixDose{ctScen});
+            doseGradtmp{scen}(dij.ixDose{ctScenId}) = doseGrad{scen}(dij.ixDose{ctScenId})./dij.ax{ctScenId}(dij.ixDose{ctScenId});
             wGradEffect = projectSingleScenarioGradient@matRad_EffectProjection(obj,dij,doseGradtmp,scen,w);
             wGrad = wGradEffect;
         end

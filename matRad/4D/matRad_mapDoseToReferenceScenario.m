@@ -1,15 +1,15 @@
-function [doseCubeRef,meta] = matRad_mapDoseToReferenceScenario(ct,doseCube,ctScen,refScen)
+function [doseCubeRef,meta] = matRad_mapDoseToReferenceScenario(ct,doseCube,ctScenId,refScen)
 % matRad_mapDoseToReferenceScenario maps a dose cube to the reference CT scenario
 %
 % call
-%   doseCubeRef = matRad_mapDoseToReferenceScenario(ct,doseCube,ctScen)
-%   [doseCubeRef,meta] = matRad_mapDoseToReferenceScenario(ct,doseCube,ctScen,refScen)
+%   doseCubeRef = matRad_mapDoseToReferenceScenario(ct,doseCube,ctScenId)
+%   [doseCubeRef,meta] = matRad_mapDoseToReferenceScenario(ct,doseCube,ctScenId,refScen)
 %
 % input
 %   ct:          matRad ct struct with pull deformation vector fields
-%   doseCube:    dose cube calculated on ct scenario ctScen
-%   ctScen:      CT scenario index of doseCube
-%   refScen:     reference CT scenario index (default: ct.refScen or 1)
+%   doseCube:    dose cube calculated on CT scenario ctScenId
+%   ctScenId:    CT scenario id of doseCube
+%   refScen:     reference CT scenario id (default: ct.refScen or 1)
 %
 % output
 %   doseCubeRef: doseCube mapped to the reference CT scenario
@@ -37,8 +37,8 @@ if nargin < 4 || isempty(refScen)
     refScen = getReferenceScenario(ct);
 end
 
-ctScen = validateScenarioIndex(ctScen,'ctScen',ct,matRad_cfg);
-refScen = validateScenarioIndex(refScen,'refScen',ct,matRad_cfg);
+ctScenId = validateCtScenarioId(ctScenId,'ctScenId',ct,matRad_cfg);
+refScen = validateCtScenarioId(refScen,'refScen',ct,matRad_cfg);
 validateReferenceScenarioMetadata(ct,refScen,matRad_cfg);
 
 if ~isequal(size(doseCube),ct.cubeDim)
@@ -46,14 +46,14 @@ if ~isequal(size(doseCube),ct.cubeDim)
 end
 
 meta = struct();
-meta.sourceCtScen = ctScen;
-meta.referenceCtScen = refScen;
+meta.sourceCtScenId = ctScenId;
+meta.referenceCtScenId = refScen;
 meta.dvfType = getDvfType(ct);
 meta.dvfUnits = getDvfUnits(ct);
 meta.method = 'pullDirectDoseMapping';
-meta.mapped = ctScen ~= refScen;
+meta.mapped = ctScenId ~= refScen;
 
-if ctScen == refScen
+if ctScenId == refScen
     doseCubeRef = doseCube;
     return;
 end
@@ -62,7 +62,7 @@ if ~strcmp(meta.dvfType,'pull')
     matRad_cfg.dispError('Mapping dose to a reference CT scenario requires pull DVFs.');
 end
 
-dvf = getScenarioDvf(ct,ctScen,matRad_cfg);
+dvf = getScenarioDvf(ct,ctScenId,matRad_cfg);
 [dvfX,dvfY,dvfZ] = getDvfComponents(dvf,ct,matRad_cfg);
 [dvfX,dvfY,dvfZ] = convertDvfToVoxelUnits(dvfX,dvfY,dvfZ,ct,meta.dvfUnits,matRad_cfg);
 
@@ -84,7 +84,7 @@ else
 end
 end
 
-function scen = validateScenarioIndex(scen,name,ct,matRad_cfg)
+function scen = validateCtScenarioId(scen,name,ct,matRad_cfg)
 if ~(isnumeric(scen) && isscalar(scen) && isfinite(scen) && round(scen) == scen && scen >= 1)
     matRad_cfg.dispError('%s must be a positive integer scalar.',name);
 end
@@ -156,11 +156,11 @@ if strcmp(dvfUnits,'mm') && isfield(ct,'dvfUnits') && ~isempty(ct.dvfUnits)
 end
 end
 
-function dvf = getScenarioDvf(ct,ctScen,matRad_cfg)
-if ~isfield(ct,'dvf') || isempty(ct.dvf) || numel(ct.dvf) < ctScen || isempty(ct.dvf{ctScen})
-    matRad_cfg.dispError('ct.dvf must contain a deformation vector field for CT scenario %d.',ctScen);
+function dvf = getScenarioDvf(ct,ctScenId,matRad_cfg)
+if ~isfield(ct,'dvf') || isempty(ct.dvf) || numel(ct.dvf) < ctScenId || isempty(ct.dvf{ctScenId})
+    matRad_cfg.dispError('ct.dvf must contain a deformation vector field for CT scenario %d.',ctScenId);
 end
-dvf = ct.dvf{ctScen};
+dvf = ct.dvf{ctScenId};
 end
 
 function [dvfX,dvfY,dvfZ] = getDvfComponents(dvf,ct,matRad_cfg)

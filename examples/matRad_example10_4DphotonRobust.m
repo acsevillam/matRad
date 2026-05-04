@@ -197,7 +197,7 @@ pln.propDoseCalc.doseGrid.resolution.z = 5; % [mm]
 pln.bioParam = matRad_bioModel(pln.radiationMode,quantityOpt,modelName);
 
 % retrieve 9 worst case scenarios for dose calculation and optimziation
-pln.multScen = matRad_multScen(ct,'nomScen');                                         
+pln.multScen = matRad_createScenarioModel(ct,'nomScen');
 
 %% Generate Beam Geometry STF
 stf = matRad_generateStf(ct,cst,pln);

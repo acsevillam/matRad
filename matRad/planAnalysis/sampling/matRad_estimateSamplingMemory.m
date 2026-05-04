@@ -8,7 +8,7 @@ function samplingMemoryEstimate = matRad_estimateSamplingMemory(samplingContext)
 %   samplingContext:          struct with sampling inputs and diagnostics
 %                             needed for memory estimation. Required fields:
 %                             ct, stf, cst, cstEval, pln, w, subIx,
-%                             samplingCtScenIx, dvhPoints, refGy, refVol,
+%                             samplingCtScenIds, dvhPoints, refGy, refVol,
 %                             resultGUInomScen, doseMapping, refScen,
 %                             samplingDoseStorageBytes, and numSamples
 %
@@ -41,7 +41,7 @@ cstEval = samplingContext.cstEval;
 pln = samplingContext.pln;
 w = samplingContext.w;
 subIx = samplingContext.subIx;
-samplingCtScenIx = samplingContext.samplingCtScenIx;
+samplingCtScenIds = samplingContext.samplingCtScenIds;
 dvhPoints = samplingContext.dvhPoints;
 refGy = samplingContext.refGy;
 refVol = samplingContext.refVol;
@@ -54,7 +54,7 @@ numSamples = samplingContext.numSamples;
 inputBytes = getVariableBytes(ct) + getVariableBytes(stf) + ...
     getVariableBytes(cst) + getVariableBytes(cstEval) + ...
     getVariableBytes(pln) + getVariableBytes(w) + ...
-    getVariableBytes(subIx) + getVariableBytes(samplingCtScenIx) + ...
+    getVariableBytes(subIx) + getVariableBytes(samplingCtScenIds) + ...
     getVariableBytes(dvhPoints) + getVariableBytes(refGy) + ...
     getVariableBytes(refVol) + getVariableBytes(doseMapping) + ...
     getVariableBytes(refScen);
@@ -94,7 +94,7 @@ if ~isstruct(samplingContext) || ~isscalar(samplingContext)
 end
 
 requiredFields = {'ct','stf','cst','cstEval','pln','w','subIx', ...
-    'samplingCtScenIx','dvhPoints','refGy','refVol','resultGUInomScen', ...
+    'samplingCtScenIds','dvhPoints','refGy','refVol','resultGUInomScen', ...
     'doseMapping','refScen','samplingDoseStorageBytes','numSamples'};
 
 for fieldIx = 1:numel(requiredFields)
@@ -108,14 +108,15 @@ end
 function sampleResultBytes = estimateSamplingResultBytes(pln,refScen,doseMapping,resultGUInomScen,numSamples)
 sampleResult = createEmptySamplingResult();
 sampleResult.bioParam = pln.bioParam;
-sampleResult.ctScen = refScen;
+sampleResult.ctScenId = refScen;
 sampleResult.refScen = refScen;
 sampleResult.doseMapping = createRepresentativeDoseMappingInfo(refScen,doseMapping);
 if numSamples > 0
     representativeScenario = pln.multScen.extractSingleScenario(1);
-    sampleResult.relRangeShift = representativeScenario.relRangeShift;
-    sampleResult.absRangeShift = representativeScenario.absRangeShift;
-    sampleResult.isoShift = representativeScenario.isoShift;
+    rangeShift = representativeScenario.getRangeShift(1);
+    sampleResult.relRangeShift = rangeShift(2);
+    sampleResult.absRangeShift = rangeShift(1);
+    sampleResult.isoShift = representativeScenario.getSetupShift(1);
 end
 if isfield(resultGUInomScen,'dvh')
     sampleResult.dvh = resultGUInomScen.dvh;
@@ -129,7 +130,7 @@ end
 function sampleResult = createEmptySamplingResult()
 sampleResult = struct( ...
     'bioParam',[], ...
-    'ctScen',[], ...
+    'ctScenId',[], ...
     'refScen',[], ...
     'doseMapping',[], ...
     'relRangeShift',[], ...
@@ -142,8 +143,8 @@ end
 
 function doseMappingInfo = createRepresentativeDoseMappingInfo(refScen,doseMapping)
 doseMappingInfo = struct();
-doseMappingInfo.sourceCtScen = refScen;
-doseMappingInfo.referenceCtScen = refScen;
+doseMappingInfo.sourceCtScenId = refScen;
+doseMappingInfo.referenceCtScenId = refScen;
 doseMappingInfo.method = doseMapping.method;
 doseMappingInfo.mapped = false;
 if doseMapping.enabled

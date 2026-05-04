@@ -59,7 +59,7 @@ scenGenType  = 'nomScen';          % scenario creation type 'nomScen'  'wcScen' 
 pln.bioParam = matRad_bioModel(pln.radiationMode,quantityOpt, modelName);
 
 % retrieve scenarios for dose calculation and optimziation
-pln.multScen = matRad_multScen(ct,scenGenType);
+pln.multScen = matRad_createScenarioModel(ct,scenGenType);
 
 %%
 % generate steering file

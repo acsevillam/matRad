@@ -51,8 +51,8 @@ function test_mapDoseToReferenceScenarioSupportsNonFirstReferenceScenario()
     expected = zeros(ct.cubeDim);
     expected(:,2:end,:) = xGrid(:,1:end-1,:);
     assertElementsAlmostEqual(doseCubeRef,expected);
-    assertEqual(meta.sourceCtScen,3);
-    assertEqual(meta.referenceCtScen,2);
+    assertEqual(meta.sourceCtScenId,3);
+    assertEqual(meta.referenceCtScenId,2);
     assertTrue(meta.mapped);
 
 function test_mapDoseToReferenceScenarioRejectsMismatchedReferenceScenario()

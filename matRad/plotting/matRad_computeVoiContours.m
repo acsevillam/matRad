@@ -31,28 +31,28 @@ matRad_cfg = MatRad_Config.instance();
 matRad_cfg.dispInfo('Precomputing Contours for Display...\n');
 
 mask = zeros(ct.cubeDim); % create zero cube with same dimeonsions like dose cube
-for ctScen = 1:ct.numOfCtScen
+for ctScenId = 1:ct.numOfCtScen
     for s = 1:size(cst,1)
-        cst{s,7}{1,ctScen} = cell(max(ct.cubeDim(:)),3);
+        cst{s,7}{1,ctScenId} = cell(max(ct.cubeDim(:)),3);
         mask(:) = 0;
-        mask(cst{s,4}{ctScen}) = 1;
+        mask(cst{s,4}{ctScenId}) = 1;
         for slice = 1:ct.cubeDim(1)
             if any(any(mask(slice,:,:) > 0))
-                cst{s,7}{1,ctScen}{slice,1} = contourc(squeeze(mask(slice,:,:)),.5*[1 1]);
+                cst{s,7}{1,ctScenId}{slice,1} = contourc(squeeze(mask(slice,:,:)),.5*[1 1]);
             end
         end
         for slice = 1:ct.cubeDim(2)
             if any(any(mask(:,slice,:) > 0))
-                cst{s,7}{1,ctScen}{slice,2} = contourc(squeeze(mask(:,slice,:)),.5*[1 1]);
+                cst{s,7}{1,ctScenId}{slice,2} = contourc(squeeze(mask(:,slice,:)),.5*[1 1]);
             end
         end
         for slice = 1:ct.cubeDim(3)
             if any(any(mask(:,:,slice) > 0))
-                cst{s,7}{1,ctScen}{slice,3} = contourc(squeeze(mask(:,:,slice)),.5*[1 1]);
+                cst{s,7}{1,ctScenId}{slice,3} = contourc(squeeze(mask(:,:,slice)),.5*[1 1]);
             end
         end
         if matRad_cfg.logLevel > 2
-            matRad_progress(s + (ctScen-1)*s,size(cst,1)*ct.numOfCtScen);
+            matRad_progress(s + (ctScenId-1)*s,size(cst,1)*ct.numOfCtScen);
         end
     end
 end

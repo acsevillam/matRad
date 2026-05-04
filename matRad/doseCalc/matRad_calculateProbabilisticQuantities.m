@@ -59,7 +59,8 @@ for i = 1:size(cst,1)
     end
 end
 
-scens = find(pln.multScen.scenMask);
+scenarioIds = pln.multScen.scenarioIds();
+scens = arrayfun(@(id) pln.multScen.getDijScenarioIndex(id),scenarioIds);
 
 %Create structures
 for i = 1:numel(fNames)
@@ -68,9 +69,7 @@ for i = 1:numel(fNames)
         dij.([fNames{1,i} 'Exp']){1:pln.multScen.numOfCtScen} = spalloc(dij.doseGrid.numOfVoxels,dij.totalNumOfBixels,1);
         dij.([fNames{1,i} 'Omega']) = cell(size(cst,1),pln.multScen.numOfCtScen);
         
-        ixTmp = cell(ndims(pln.multScen.scenMask),1);
-        [ixTmp{:}] = ind2sub(size(pln.multScen.scenMask),scens);
-        ctIxMap = ixTmp{1};        
+        ctIxMap = arrayfun(@(id) pln.multScen.getCtScenario(id),scenarioIds);
     else
         dij.([fNames{1,i} 'Exp']){1} = spalloc(dij.doseGrid.numOfVoxels,dij.totalNumOfBixels,1);
         dij.([fNames{1,i} 'Omega']) = cell(size(cst,1),1);
@@ -106,5 +105,4 @@ for i = 1:numel(fNames)
     end  
     matRad_cfg.dispInfo('\tDone!\n');
 end
-
 

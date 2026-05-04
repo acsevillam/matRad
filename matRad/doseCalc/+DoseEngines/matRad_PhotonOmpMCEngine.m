@@ -134,16 +134,18 @@ classdef matRad_PhotonOmpMCEngine < DoseEngines.matRad_MonteCarloEngineAbstract
 
             scenCount = 0;
             %run over all scenarios
-            for scenarioIx = 1:this.multScen.totNumScen
-                ctScen = this.multScen.linearMask(scenarioIx,1);
-                shiftScen = this.multScen.linearMask(scenarioIx,2);
-                rangeShiftScen = this.multScen.linearMask(scenarioIx,3);
+            scenarioIds = this.multScen.scenarioIds();
+            for scenarioRowIx = 1:numel(scenarioIds)
+                scenarioId = scenarioIds(scenarioRowIx);
+                fullScenIx = this.multScen.getDijScenarioIndex(scenarioId);
+                ctScenId = this.multScen.getCtScenario(scenarioId);
 
-                if this.multScen.scenMask(ctScen,shiftScen,rangeShiftScen)
+                if ~isempty(fullScenIx)
                     scenCount = scenCount + 1;
 
                     % manipulate isocenter
-                    shiftedIsoCenter = matRad_world2cubeCoords(vertcat(stf(:).isoCenter), this.doseGrid) + this.multScen.isoShift(scenarioIx,:);
+                    shiftedIsoCenter = matRad_world2cubeCoords(vertcat(stf(:).isoCenter), this.doseGrid) + ...
+                        this.multScen.getSetupShift(scenarioId);
 
                     this.ompMCgeo.isoCenter = shiftedIsoCenter;
                     tmpStf = stf;
@@ -177,9 +179,9 @@ classdef matRad_PhotonOmpMCEngine < DoseEngines.matRad_MonteCarloEngineAbstract
                     try
                         %If we ask for variance, a field in the dij will be filled
                         if this.outputMCvariance
-                            [dij.physicalDose{ctScen,shiftScen,rangeShiftScen},dij.physicalDose_MCvar{ctScen,shiftScen,rangeShiftScen}] = omc_matrad(this.cubeRho{ctScen},this.cubeMatIx{ctScen},this.ompMCgeo,this.ompMCsource,this.ompMCoptions);
+                            [dij.physicalDose{fullScenIx},dij.physicalDose_MCvar{fullScenIx}] = omc_matrad(this.cubeRho{ctScenId},this.cubeMatIx{ctScenId},this.ompMCgeo,this.ompMCsource,this.ompMCoptions);
                         else
-                            [dij.physicalDose{ctScen,shiftScen,rangeShiftScen}] = omc_matrad(this.cubeRho{ctScen},this.cubeMatIx{ctScen},this.ompMCgeo,this.ompMCsource,this.ompMCoptions);
+                            [dij.physicalDose{fullScenIx}] = omc_matrad(this.cubeRho{ctScenId},this.cubeMatIx{ctScenId},this.ompMCgeo,this.ompMCsource,this.ompMCoptions);
                         end
                     catch ME
                         errorString = [ME.message '\nThis error was thrown by the MEX-interface of ompMC.\nMex interfaces can raise compatability issues which may be resolved by compiling them by hand directly on your particular system.'];
@@ -187,9 +189,9 @@ classdef matRad_PhotonOmpMCEngine < DoseEngines.matRad_MonteCarloEngineAbstract
                     end
 
                     %Calibrate the dose with above factor
-                    dij.physicalDose{scenarioIx} = dij.physicalDose{scenarioIx} * calibrationFactor;
+                    dij.physicalDose{fullScenIx} = dij.physicalDose{fullScenIx} * calibrationFactor;
                     if isfield(dij,'physicalDose_MCvar')
-                        dij.physicalDose_MCvar{scenarioIx} = dij.physicalDose_MCvar{scenarioIx} * calibrationFactor^2;
+                        dij.physicalDose_MCvar{fullScenIx} = dij.physicalDose_MCvar{fullScenIx} * calibrationFactor^2;
                     end
                 end
             end
@@ -618,4 +620,3 @@ classdef matRad_PhotonOmpMCEngine < DoseEngines.matRad_MonteCarloEngineAbstract
         end
     end
 end
-

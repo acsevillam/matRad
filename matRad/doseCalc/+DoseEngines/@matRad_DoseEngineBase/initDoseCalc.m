@@ -61,8 +61,14 @@ radiationMode = radiationMode{1};
 
 %Scenario Model
 if ~isa(this.multScen,'matRad_ScenarioModel')
-    this.multScen = matRad_multScen(ct,this.multScen);
+    this.multScen = matRad_createScenarioModel(ct,this.multScen);
 end
+
+if this.multScen.hasActiveAngularScenarioDimension() && this.multScen.numOfBeams ~= numel(stf)
+    this.multScen.numOfBeams = numel(stf);
+end
+
+this.assertSupportedScenarioDimensions();
 
 if ~isa(this.bioParam,'matRad_BiologicalModel')
     this.bioParam = matRad_bioModel(radiationMode,'physicalDose','none');
@@ -110,6 +116,8 @@ dij.doseGrid.cubeCoordOffset = [dij.doseGrid.resolution.x - dij.ctGrid.resolutio
 % meta information for dij
 dij.numOfBeams         = numel(stf);
 dij.numOfScenarios     = this.multScen.totNumScen;
+dij.scenarioModel      = this.multScen;
+dij.scenarioIds        = this.multScen.scenarioIds();
 dij.numOfRaysPerBeam   = [stf(:).numOfRays];
 dij.totalNumOfBixels   = sum([stf(:).totalNumOfBixels]);
 dij.totalNumOfRays     = sum(dij.numOfRaysPerBeam);
@@ -198,4 +206,3 @@ cst = matRad_resizeCstToGrid(cst,dij.ctGrid.x,dij.ctGrid.y,dij.ctGrid.z,...
 this.robustVoxelsOnGrid = matRad_selectVoxelsFromCst(cst, dij.doseGrid, this.selectVoxelsInScenarios);
 
 end
-

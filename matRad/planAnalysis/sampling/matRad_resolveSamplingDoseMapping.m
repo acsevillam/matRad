@@ -7,7 +7,7 @@ function doseMapping = matRad_resolveSamplingDoseMapping(ct,multScen,refScen)
 % input
 %   ct:          matRad ct struct
 %   multScen:    matRad scenario model used for sampling
-%   refScen:     reference CT scenario index
+%   refScen:     reference CT scenario id
 %
 % output
 %   doseMapping: struct describing whether sampled doses must be mapped to
@@ -40,8 +40,13 @@ if ~(isfield(ct,'numOfCtScen') && ct.numOfCtScen > 1)
     return;
 end
 
-ctScenIx = unique(multScen.linearMask(:,1));
-if all(ctScenIx == refScen)
+if ~isa(multScen,'matRad_ScenarioModel')
+    matRad_cfg.dispError('Multi-CT sampling analysis requires a matRad_ScenarioModel instance.');
+end
+
+scenarioIds = multScen.scenarioIds();
+ctScenIds = unique(arrayfun(@(id) multScen.getCtScenario(id),scenarioIds));
+if all(ctScenIds == refScen)
     return;
 end
 
@@ -54,7 +59,7 @@ if ~hasPullDvf(ct)
 end
 
 validateDvfReferenceScenario(ct,refScen,matRad_cfg);
-validateDvfCoverage(ct,ctScenIx,refScen,matRad_cfg);
+validateDvfCoverage(ct,ctScenIds,refScen,matRad_cfg);
 
 doseMapping.enabled = true;
 doseMapping.method = 'pullDirectDoseMapping';
@@ -79,15 +84,15 @@ if ~isempty(dvfRefScen) && dvfRefScen ~= refScen
 end
 end
 
-function validateDvfCoverage(ct,ctScenIx,refScen,matRad_cfg)
-for i = 1:numel(ctScenIx)
-    ctScen = ctScenIx(i);
-    if ctScen == refScen
+function validateDvfCoverage(ct,ctScenIds,refScen,matRad_cfg)
+for i = 1:numel(ctScenIds)
+    ctScenId = ctScenIds(i);
+    if ctScenId == refScen
         continue;
     end
 
-    if numel(ct.dvf) < ctScen || isempty(ct.dvf{ctScen})
-        matRad_cfg.dispError('ct.dvf must contain a pull deformation vector field for CT scenario %d.',ctScen);
+    if numel(ct.dvf) < ctScenId || isempty(ct.dvf{ctScenId})
+        matRad_cfg.dispError('ct.dvf must contain a pull deformation vector field for CT scenario %d.',ctScenId);
     end
 end
 end

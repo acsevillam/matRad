@@ -43,6 +43,7 @@ if ~isfield(stf,'machine')
 end
 
 engine = DoseEngines.matRad_DoseEngineBase.getEngineFromPln(pln);
+engine.assertSupportedScenarioDimensions();
 
 %call the calcDose funktion
 dij = engine.calcDoseInfluence(ct,cst,stf);

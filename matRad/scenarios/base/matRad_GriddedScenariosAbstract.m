@@ -1,11 +1,39 @@
 classdef (Abstract) matRad_GriddedScenariosAbstract < matRad_ScenarioModel
-    %UNTITLED Summary of this class goes here
-    %   Detailed explanation goes here
+% matRad_GriddedScenariosAbstract base class for grid-based scenario models
+%
+% This abstract class provides common setup and range grid construction for
+% worst-case, importance, and truncated-importance scenario models. Setup
+% shifts are represented in mm, absolute range shifts in mm, and relative
+% range shifts as fractions internally after conversion from percent input.
+%
+% Usage:
+%   this = matRad_GriddedScenariosAbstract()
+%   this = matRad_GriddedScenariosAbstract(ct)
+%
+% input
+%   ct:                 matRad ct struct used to derive available CT
+%                       scenario ids and CT scenario probabilities
+%
+% References
+%   -
+%
+% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+% Copyright 2026 the matRad development team.
+%
+% This file is part of the matRad project. It is subject to the license
+% terms in the LICENSE file found in the top-level directory of this
+% distribution and at https://github.com/e0404/matRad/LICENSE.md. No part
+% of the matRad project, including this file, may be copied, modified,
+% propagated, or distributed except according to the terms contained in the
+% LICENSE file.
+%
+% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
     properties (AbortSet = true)
         %includeNominalScenario = true;        
-        combinations = 'none'; %Can be 'none', 'shift', 'all' to ontrol creation of worst case combinations 
-        combineRange = true; %Wether to treat absolute & relative range as one shift or as separate scenarios
+        combinations = 'none'; % Can be 'none', 'shift', or 'all' to control scenario combinations
+        combineRange = true; % Whether to treat absolute and relative range as one shift or separate scenarios
     end
     
     %Each subclass needs to define how many gridpoints it uses and if this
@@ -29,10 +57,6 @@ classdef (Abstract) matRad_GriddedScenariosAbstract < matRad_ScenarioModel
             end
             
             this@matRad_ScenarioModel(superclassArgs{:});
-
-            %TODO: We could do this automatically in the superclass
-            %Octave 5 has a bug there and throws an error
-            %this.updateScenarios();
         end
         
         function set.combineRange(this,combineRange_)
@@ -42,7 +66,7 @@ classdef (Abstract) matRad_GriddedScenariosAbstract < matRad_ScenarioModel
                 matRad_cfg.dispError('Invalid value for combineRange! Needs to be a boolean / logical value!');
             end
             this.combineRange = combineRange_;
-            this.updateScenarios();
+            this.requestScenarioUpdate();
         end
 
         %% set methods
@@ -65,7 +89,7 @@ classdef (Abstract) matRad_GriddedScenariosAbstract < matRad_ScenarioModel
                 matRad_cfg.dispError('Invalid value for combinations! Needs to be one of the strings %s!',strjoin(this.validCombinationTypes,' / '));
             end
             this.combinations = combinations_;
-            this.updateScenarios();
+            this.requestScenarioUpdate();
         end
 
         function scenarios = updateScenarios(this)
@@ -73,9 +97,12 @@ classdef (Abstract) matRad_GriddedScenariosAbstract < matRad_ScenarioModel
 
             %
             this.numOfCtScen = size(this.ctScenProb,1);
+            components = this.getScenarioComponents();
+            componentScales = [components.scale];
+            componentScales(~[components.active]) = 0;
 
             %Get the maximum, i.e., worst case shifts
-            wcSetupShifts = this.wcSigma * this.shiftSD;
+            wcSetupShifts = this.wcSigma * componentScales(1:3);
             
             %% Create gridded setup shifts
             %Create grid vectors for setup shifts
@@ -129,7 +156,7 @@ classdef (Abstract) matRad_GriddedScenariosAbstract < matRad_ScenarioModel
                                 
             %% Create gridded range shifts
             %Obtain worst case range shifts
-            wcRangeShifts = this.wcSigma * [this.rangeAbsSD this.rangeRelSD./100];        
+            wcRangeShifts = this.wcSigma * componentScales(4:5);
             
             rangeShiftGrid = zeros(this.numOfRangeGridPoints,numel(wcRangeShifts));  
             %{
@@ -169,6 +196,8 @@ classdef (Abstract) matRad_GriddedScenariosAbstract < matRad_ScenarioModel
             end
 
             this.totNumRangeScen = size(griddedRangeShifts,1);
+            this.totNumGantryScen = 1;
+            this.totNumCouchScen = 1;
                        
             %Aggregate scenarios
             switch this.combinations
@@ -217,49 +246,40 @@ classdef (Abstract) matRad_GriddedScenariosAbstract < matRad_ScenarioModel
             %    linearMaskTmp(nomScen,:) = [];
             %end
 
-            %Handle 4D phases
-            phases = repmat(this.ctScenProb(:,1)',size(scenarios,1),1);
-            phases = phases(:);
-            scenarios = horzcat(phases, repmat(scenarios,[this.numOfCtScen 1]));
+            %Handle 4D CT scenario ids
+            ctScenIds = repmat(this.ctScenProb(:,1)',size(scenarios,1),1);
+            ctScenIds = ctScenIds(:);
+            scenarios = horzcat(ctScenIds, repmat(scenarios,[this.numOfCtScen 1]));
             linearMaskTmp = repmat(linearMaskTmp,this.numOfCtScen,1);
-            linearMaskTmp(:,1) = phases;
-            this.ctScenIx = phases;
-
+            linearMaskTmp(:,1) = ctScenIds;
             %Finalize meta information
             this.totNumScen = size(scenarios,1);
 
-            this.relRangeShift = scenarios(:,6);
-            this.absRangeShift = scenarios(:,5);
-            this.isoShift = scenarios(:,2:4);
+            scenMask = false(this.numOfAvailableCtScen,this.totNumShiftScen,this.totNumRangeScen);
             
-            this.maxAbsRangeShift = max(this.absRangeShift);
-            this.maxRelRangeShift = max(this.relRangeShift);
+            maskIx = sub2ind(size(scenMask),linearMaskTmp(:,1),linearMaskTmp(:,2),linearMaskTmp(:,3));
+            scenMask(maskIx) = true;
 
-            this.scenMask = false(this.numOfAvailableCtScen,this.totNumShiftScen,this.totNumRangeScen);
-            
-            this.scenForProb = scenarios;
-            this.linearMask = linearMaskTmp;
-            
-            maskIx = sub2ind(size(this.scenMask),linearMaskTmp(:,1),linearMaskTmp(:,2),linearMaskTmp(:,3));
-            this.scenMask(maskIx) = true;
+            scenarioValues = scenarios(:,2:end);
+            scenProb = matRad_computeScenarioProbabilities(components,scenarioValues, ...
+                this.ctScenProb,ctScenIds);
+            scenWeight = scenProb;
+            [scenarioValues,ctScenIds,scenProb,scenWeight,scenarios,linearMaskTmp,scenMask] = ...
+                matRad_filterZeroProbabilityScenarios(scenarioValues,ctScenIds, ...
+                scenProb,scenWeight,scenarios,linearMaskTmp,scenMask);
+            this.totNumScen = size(scenarioValues,1);
+            this.setScenarioRealizations(components,scenarioValues,ctScenIds, ...
+                scenProb,scenWeight,scenarios,linearMaskTmp,scenMask);
+        end
+    end
 
-            %Get Scenario probability
-            %First, we use the Gaussian Uncertainty model for range and
-            %setup
-            Sigma = diag([this.shiftSD,this.rangeAbsSD,this.rangeRelSD./100].^2);
-            d = size(Sigma,1);
-            [cs,p] = chol(Sigma);
-            
-            tmpScenProb = (2*pi)^(-d/2) * exp(-0.5*sum((scenarios(:,2:end)/cs).^2, 2)) / prod(diag(cs));
-            
-            %Now we combine with the 4D ct phase probabilities (multiply)
-            tmpPhaseProb = arrayfun(@(phase) this.ctScenProb(find(this.ctScenProb(:,1) == phase),2),phases);
-            
-            %Finalize probabilities
-            this.scenProb = tmpPhaseProb .* tmpScenProb;
-            this.scenWeight = this.scenProb./sum(this.scenProb);  
-
-            %TODO: Discard scenarios with probability 0?
+    methods (Access = protected)
+        function validateScenarioDimensionSupport(~,scenarioDimensionActive)
+            if any(strcmp(scenarioDimensionActive,'gantry')) || any(strcmp(scenarioDimensionActive,'couch'))
+                matRad_cfg = MatRad_Config.instance();
+                matRad_cfg.dispError(['Gantry/couch uncertainty dimensions are only supported by random scenario models for now. ' ...
+                    'Use matRad_RandomScenarios (rndScen) for angular uncertainty.']);
+            end
         end
     end
 

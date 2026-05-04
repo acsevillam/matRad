@@ -53,7 +53,7 @@ scenGenType  = 'nomScen';          % scenario creation type 'nomScen'  'wcScen' 
 pln.bioParam = matRad_bioModel(pln.radiationMode,quantityOpt, modelName);
 
 % retrieve scenarios for dose calculation and optimziation
-pln.multScen = matRad_multScen(ct,scenGenType);
+pln.multScen = matRad_createScenarioModel(ct,scenGenType);
 
 % optimization settings
 pln.propOpt.optimizer       = 'IPOPT';
@@ -90,4 +90,3 @@ matRadGUI
 
 %% indicator calculation and show DVH and QI
 resultGUI = matRad_planAnalysis(resultGUI,ct,cst,stf,pln);
-

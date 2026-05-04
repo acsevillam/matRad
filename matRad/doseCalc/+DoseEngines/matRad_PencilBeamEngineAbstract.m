@@ -66,6 +66,10 @@ classdef (Abstract) matRad_PencilBeamEngineAbstract < DoseEngines.matRad_DoseEng
             this.ignoreOutsideDensities       = matRad_cfg.defaults.propDoseCalc.ignoreOutsideDensities;
             this.ssdDensityThreshold          = matRad_cfg.defaults.propDoseCalc.ssdDensityThreshold;
         end    
+
+        function applicators = supportedScenarioApplicators(~)
+            applicators = {'ct','setup','range','gantry','couch'};
+        end
     end
 
     % Should be abstract methods but in order to satisfy the compatibility
@@ -87,26 +91,29 @@ classdef (Abstract) matRad_PencilBeamEngineAbstract < DoseEngines.matRad_DoseEng
 
             %Create X Y Z vectors if not present
             ct = matRad_getWorldAxes(ct);
-            
 
-            for shiftScen = 1:this.multScen.totNumShiftScen
+            dij = this.calcDoseByScenarioStfCache(dij,ct,cst,stf);
 
-                %Find first instance of the shift to select the shift values
-                ixShiftScen = find(this.multScen.linearMask(:,2) == shiftScen,1);
+            %Finalize dose calculation
+            dij = this.finalizeDose(dij);
+        end
 
-                scenStf = stf;
-                % manipulate isocenter
-                for k = 1:numel(scenStf)
-                    scenStf(k).isoCenter = scenStf(k).isoCenter + this.multScen.isoShift(ixShiftScen,:); 
-                end
+        function dij = calcDoseByScenarioStfCache(this,dij,ct,cst,stf)
+            matRad_cfg = MatRad_Config.instance();
+            stfCacheEntries = this.buildScenarioStfCache(stf);
+            progressCounter = 0;
+            progressTotal = dij.totalNumOfBixels * this.multScen.numScenarios();
 
-                if this.multScen.totNumShiftScen > 1
-                    matRad_cfg.dispInfo('\tShift scenario %d of %d: \n',shiftScen,this.multScen.totNumShiftScen);
+            for cacheIx = 1:numel(stfCacheEntries)
+                cacheEntry = stfCacheEntries(cacheIx);
+                scenStf = this.multScen.applyScenarioToStf(cacheEntry.scenarioIds(1),stf);
+
+                if numel(stfCacheEntries) > 1
+                    matRad_cfg.dispInfo('\tSTF scenario %d of %d: \n',cacheIx,numel(stfCacheEntries));
                 end
 
                 bixelCounter = 0;
 
-                %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
                 for i = 1:dij.numOfBeams % loop over all beams
 
                     %Initialize Beam Geometry
@@ -121,40 +128,73 @@ classdef (Abstract) matRad_PencilBeamEngineAbstract < DoseEngines.matRad_DoseEng
                         %Initialize Ray Geometry
                         currRay = this.initRay(currBeam,j);
 
-                        for ctScen = 1:this.multScen.numOfCtScen
-                            for rangeShiftScen = 1:this.multScen.totNumRangeScen
-                                fullScenIdx = this.multScen.sub2scenIx(ctScen,shiftScen,rangeShiftScen,'position');
- 
-                                if this.multScen.scenMask(fullScenIdx)
-                                    %TODO: This shows we probably need
-                                    %better scenario management
-                                    %Gets linear index in scenario cell array
-                                    
+                        for s = 1:numel(cacheEntry.scenarioIds)
+                            scenarioId = cacheEntry.scenarioIds(s);
+                            fullScenIx = cacheEntry.fullScenIx(s);
+                            scenRay = this.extractSingleScenarioRay(currRay,scenarioId);
 
-                                    scenRay = this.extractSingleScenarioRay(currRay,fullScenIdx);    
-                                    
-                                    for k = 1:currRay.numOfBixels
-                                        %Bixel Computation
-                                        currBixel = this.computeBixel(scenRay,k);
+                            for k = 1:currRay.numOfBixels
+                                %Bixel Computation
+                                currBixel = this.computeBixel(scenRay,k);
 
-                                        % save computation time and memory
-                                        % by sequentially filling the sparse matrix dose.dij from the cell array
-                                        dij = this.fillDij(currBixel,dij,scenStf,fullScenIdx,i,j,k,bixelCounter + k);
-                                    end
-                                end
+                                % save computation time and memory by sequentially filling
+                                % the sparse matrix dose.dij from the cell array
+                                dij = this.fillDij(currBixel,dij,scenStf,fullScenIx,i,j,k,bixelCounter + k);
                             end
                         end
 
                         % Progress Update & Bookkeeping
                         bixelCounter = bixelCounter + currRay.numOfBixels;
                         bixelBeamCounter = bixelBeamCounter + currRay.numOfBixels;
-                        this.progressUpdate(bixelCounter,dij.totalNumOfBixels);
+                        progressCounter = progressCounter + currRay.numOfBixels * numel(cacheEntry.scenarioIds);
+                        this.progressUpdate(progressCounter,progressTotal);
                     end
                 end
             end
+        end
 
-            %Finalize dose calculation
-            dij = this.finalizeDose(dij);
+        function stfCacheEntries = buildScenarioStfCache(this,stf)
+            scenarioIds = this.multScen.scenarioIds();
+            stfSignature = this.createStfSignature(stf);
+            keys = {};
+            stfCacheEntries = struct('key',{},'scenarioIds',{},'fullScenIx',{});
+
+            for i = 1:numel(scenarioIds)
+                scenarioId = scenarioIds(i);
+                scenarioStfSignature = this.multScen.applyScenarioToStf(scenarioId,stfSignature);
+                key = this.stfSignatureKey(scenarioStfSignature);
+                cacheIx = find(strcmp(keys,key),1,'first');
+
+                if isempty(cacheIx)
+                    stfCacheEntries(end+1).key = key;
+                    stfCacheEntries(end).scenarioIds = scenarioId;
+                    stfCacheEntries(end).fullScenIx = this.multScen.getDijScenarioIndex(scenarioId);
+                    keys{end+1} = key;
+                else
+                    stfCacheEntries(cacheIx).scenarioIds(end+1) = scenarioId;
+                    stfCacheEntries(cacheIx).fullScenIx(end+1) = this.multScen.getDijScenarioIndex(scenarioId);
+                end
+            end
+        end
+
+        function stfSignature = createStfSignature(~,stf)
+            stfSignature = struct('isoCenter',{},'gantryAngle',{},'couchAngle',{});
+            for i = 1:numel(stf)
+                stfSignature(i).isoCenter = stf(i).isoCenter;
+                stfSignature(i).gantryAngle = stf(i).gantryAngle;
+                stfSignature(i).couchAngle = stf(i).couchAngle;
+            end
+        end
+
+        function key = stfSignatureKey(~,stfSignature)
+            values = [];
+            for i = 1:numel(stfSignature)
+                values = [values, stfSignature(i).isoCenter, ...
+                    stfSignature(i).gantryAngle, stfSignature(i).couchAngle];
+            end
+            stfKeyTolerance = 1e-10;
+            values = round(values ./ stfKeyTolerance) .* stfKeyTolerance;
+            key = sprintf('%.10g,',values);
         end
 
         function dij = initDoseCalc(this,ct,cst,stf)
@@ -206,20 +246,21 @@ classdef (Abstract) matRad_PencilBeamEngineAbstract < DoseEngines.matRad_DoseEng
             %Loop over all requested quantities
             for n = 1:numel(names)
                 %Create Cell arrays for container and dij
-                szContainer = [this.numOfBixelsContainer size(this.multScen.scenMask)];
+                activeScenarioMask = this.multScen.getDijActiveMask();
+                szContainer = [this.numOfBixelsContainer this.multScen.getDijContainerSize()];
                 this.tmpMatrixContainers.(names{n}) = cell(szContainer);
-                dij.(names{n}) = cell(size(this.multScen.scenMask));
+                dij.(names{n}) = cell(this.multScen.getDijContainerSize());
                 
                 %Now preallocate a matrix in each active scenario using the
                 %scenmask
                 if this.calcDoseDirect
-                    dij.(names{n})(this.multScen.scenMask) = {zeros(dij.doseGrid.numOfVoxels,this.numOfColumnsDij)};
+                    dij.(names{n})(activeScenarioMask) = {zeros(dij.doseGrid.numOfVoxels,this.numOfColumnsDij)};
                 else
                     %We preallocate a sparse matrix with sparsity of
                     %1e-3 to make the filling slightly faster
                     %TODO: the preallocation could probably
                     %have more accurate estimates
-                    dij.(names{n})(this.multScen.scenMask) = {spalloc(dij.doseGrid.numOfVoxels,this.numOfColumnsDij,round(prod(dij.doseGrid.numOfVoxels,this.numOfColumnsDij)*1e-3))};
+                    dij.(names{n})(activeScenarioMask) = {spalloc(dij.doseGrid.numOfVoxels,this.numOfColumnsDij,round(prod(dij.doseGrid.numOfVoxels,this.numOfColumnsDij)*1e-3))};
                 end
             end
         end
@@ -306,16 +347,16 @@ classdef (Abstract) matRad_PencilBeamEngineAbstract < DoseEngines.matRad_DoseEng
             %matRad_progress(1,1000);
         end
         
-        function radDepthVdoseGrid = interpRadDepth(~,ct,ctScen,V,Vcoarse,ctGrid,doseGrid,radDepthVctGrid)                        
-            for i = 1:numel(ctScen)
-                ctScenNum = ctScen(i);
+        function radDepthVdoseGrid = interpRadDepth(~,ct,ctScenIds,V,Vcoarse,ctGrid,doseGrid,radDepthVctGrid)
+            for i = 1:numel(ctScenIds)
+                ctScenId = ctScenIds(i);
 
                 radDepthCube                = NaN*ones(ct.cubeDim);
-                radDepthCube(V(~isnan(radDepthVctGrid{1}))) = radDepthVctGrid{ctScenNum}(~isnan(radDepthVctGrid{1}));
+                radDepthCube(V(~isnan(radDepthVctGrid{1}))) = radDepthVctGrid{ctScenId}(~isnan(radDepthVctGrid{1}));
 
                 % interpolate cube - cube is now stored in Y X Z
                 coarseRadDepthCube          = matRad_interp3(ctGrid.x,ctGrid.y',ctGrid.z,radDepthCube,doseGrid.x,doseGrid.y',doseGrid.z);
-                radDepthVdoseGrid{ctScenNum}  = coarseRadDepthCube(Vcoarse);
+                radDepthVdoseGrid{ctScenId}  = coarseRadDepthCube(Vcoarse);
             end
         end
         
@@ -342,37 +383,8 @@ classdef (Abstract) matRad_PencilBeamEngineAbstract < DoseEngines.matRad_DoseEng
             %initBeam function
         end
 
-        function scenRay = extractSingleScenarioRay(this,ray,scenIdx)             
-            
-             %Gets number of scenario
-             scenNum = this.multScen.scenNum(scenIdx);
-             ctScen = this.multScen.linearMask(scenNum,1);
-            
-             %First, create a ray of the
-             %specific scenario to adapt rad
-             %depths
-             scenRay = ray;
-             scenRay.radDepths = scenRay.radDepths{ctScen};
-             scenRay.radDepths = (1+this.multScen.relRangeShift(scenNum))*scenRay.radDepths + this.multScen.absRangeShift(scenNum);
-             scenRay.radialDist_sq = scenRay.radialDist_sq{ctScen};
-             scenRay.ix = scenRay.ix{ctScen};
-            
-             if this.multScen.absRangeShift(scenNum) < 0
-                 %TODO: better way to handle this?
-                 scenRay.radDepths(scenRay.radDepths < 0) = 0;
-             end
-            
-             if isfield(scenRay,'geoDepths')
-                 scenRay.geoDepths = scenRay.geoDepths{ctScen};
-             end
-            
-             if isfield(scenRay,'latDists')
-                 scenRay.latDists = scenRay.latDists{ctScen};
-             end
-            
-             if isfield(scenRay,'isoLatDists')
-                 scenRay.isoLatDists = scenRay.isoLatDists{ctScen};
-             end            
+        function scenRay = extractSingleScenarioRay(this,ray,scenarioId)
+            scenRay = this.multScen.applyNonGeometricScenarioToRay(scenarioId,ray);
         end
         
         function ray = getRayGeometryFromBeam(this,ray,currBeam)
@@ -409,7 +421,7 @@ classdef (Abstract) matRad_PencilBeamEngineAbstract < DoseEngines.matRad_DoseEng
             lateralRayCutOff = this.effectiveLateralCutOff;
         end         
         
-        function dij = fillDij(this,bixel,dij,stf,scenIdx,currBeamIdx,currRayIdx,currBixelIdx,counter)
+        function dij = fillDij(this,bixel,dij,stf,fullScenIx,currBeamIdx,currRayIdx,currBixelIdx,counter)
             % method for filling the dij struct with the computed dose cube
             % last step in bixel dose calculation
 
@@ -418,8 +430,9 @@ classdef (Abstract) matRad_PencilBeamEngineAbstract < DoseEngines.matRad_DoseEng
                 % Store in temporary containers to limit matrix filling
                 names = fieldnames(this.tmpMatrixContainers);
                 bixelContainerColIx = mod(counter-1,this.numOfBixelsContainer)+1;
-                subScenIdx = cell(ndims(this.multScen.scenMask),1);
-                [subScenIdx{:}] = ind2sub(size(this.multScen.scenMask),scenIdx);
+                scenContainerSize = this.multScen.getDijContainerSize();
+                subScenIx = cell(numel(scenContainerSize),1);
+                [subScenIx{:}] = ind2sub(scenContainerSize,fullScenIx);
                 for q = 1:numel(names)
                     qName = names{q};
                     if this.calcDoseDirect                        
@@ -428,7 +441,7 @@ classdef (Abstract) matRad_PencilBeamEngineAbstract < DoseEngines.matRad_DoseEng
                         %this.tmpMatrixContainers.(qName){bixelContainerColIx,1} = zeros(dij.doseGrid.numOfVoxels,1);                        
                         %this.tmpMatrixContainers.(qName){bixelContainerColIx,1}(this.VdoseGrid(bixel.ix)) = bixel.(qName);
                     else
-                        this.tmpMatrixContainers.(qName){bixelContainerColIx,subScenIdx{:}} = sparse(bixel.ix,1,bixel.(qName),dij.doseGrid.numOfVoxels,1);
+                        this.tmpMatrixContainers.(qName){bixelContainerColIx,subScenIx{:}} = sparse(bixel.ix,1,bixel.(qName),dij.doseGrid.numOfVoxels,1);
                     end
                 end
                 
@@ -458,12 +471,12 @@ classdef (Abstract) matRad_PencilBeamEngineAbstract < DoseEngines.matRad_DoseEng
                     for q = 1:numel(names)
                         qName = names{q};
                         if ~this.calcDoseDirect
-                            dij.(qName){scenIdx}(:,dijColIx) = [this.tmpMatrixContainers.(qName){containerIx,subScenIdx{:}}];
+                            dij.(qName){fullScenIx}(:,dijColIx) = [this.tmpMatrixContainers.(qName){containerIx,subScenIx{:}}];
                             %Clean container
-                            this.tmpMatrixContainers.(qName)(containerIx,subScenIdx{:}) = cell(numel(containerIx,subScenIdx{:}));
+                            this.tmpMatrixContainers.(qName)(containerIx,subScenIx{:}) = cell(numel(containerIx,subScenIx{:}));
                         else
                             %dij.(qName){1}(this.VdoseGrid(bixel.ix),dijColIx) = dij.(qName){1}(this.VdoseGrid(bixel.ix),dijColIx) + weight * this.tmpMatrixContainers.(qName){containerIx,1}(this.VdoseGrid(bixel.ix));
-                            dij.(qName){scenIdx}(bixel.ix,dijColIx) = dij.(qName){scenIdx}(bixel.ix,dijColIx) + weight * bixel.(qName);
+                            dij.(qName){fullScenIx}(bixel.ix,dijColIx) = dij.(qName){fullScenIx}(bixel.ix,dijColIx) + weight * bixel.(qName);
                         end
                     end
                 end
@@ -511,23 +524,13 @@ classdef (Abstract) matRad_PencilBeamEngineAbstract < DoseEngines.matRad_DoseEng
             %(i.e., which quantity an engine could compute)
             % remove dose influence for voxels outside of segmentations for every ct
             % scenario
-            for i = 1:this.multScen.numOfCtScen
-                % generate index set to erase
-                ix = setdiff(1:dij.doseGrid.numOfVoxels,this.VdoseGrid);
+            ix = setdiff(1:dij.doseGrid.numOfVoxels,this.VdoseGrid);
+            activeScenarioIx = find(this.multScen.getDijActiveMask());
 
-                for j = 1:this.multScen.totNumShiftScen
-                    for k = 1:this.multScen.totNumRangeScen
-
-                        if this.multScen.scenMask(i,j,k)
-                            
-                            %loop over all used quantities
-                            qNames = fieldnames(this.tmpMatrixContainers);
-                            for qIx = 1:numel(qNames)
-                                dij.(qNames{qIx}){i,j,k}(ix,:) = 0;
-                            end
-                        end
-
-                    end
+            for scenIx = activeScenarioIx(:)'
+                qNames = fieldnames(this.tmpMatrixContainers);
+                for qIx = 1:numel(qNames)
+                    dij.(qNames{qIx}){scenIx}(ix,:) = 0;
                 end
             end
 

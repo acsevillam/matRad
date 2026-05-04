@@ -385,9 +385,9 @@ resultGUI.info = info;
 
 %Robust quantities
 if pln.multScen.totNumScen > 1
-    activeScenIx = find(pln.multScen.scenMask);
-    for i = 1:pln.multScen.totNumScen
-        resultGUItmp = matRad_calcCubes(wOpt,dij,activeScenIx(i));
+    scenarioIds = pln.multScen.scenarioIds();
+    for i = 1:numel(scenarioIds)
+        resultGUItmp = matRad_calcCubes(wOpt,dij,pln.multScen.getDijScenarioIndex(scenarioIds(i)));
         resultGUI = matRad_appendResultGUI(resultGUI,resultGUItmp,false,sprintf('scen%d',i));
     end
 end
