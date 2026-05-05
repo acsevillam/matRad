@@ -9,7 +9,10 @@ function [pln_interval,dij_intervalContext] = matRad_calcDoseInterval2(ct,cst,st
 %   ct:     matRad ct struct
 %   cst:    matRad cst cell array
 %   stf:    matRad steering information struct
-%   pln:    matRad pln struct with robust scenario model
+%   pln:    matRad pln struct with robust scenario model; optional
+%           pln.propOpt.scen4D selects CT scenarios used for the interval
+%           calculation (default: 1; 'all' or positive integer CT
+%           scenario ids)
 %   dij:    matRad dose influence struct for the robust scenarios
 %   cfg:    optional configuration struct with fields:
 %           Quantity: optimized linear quantity (default: pln.bioParam.quantityOpt)

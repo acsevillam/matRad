@@ -188,8 +188,29 @@ function test_interval3_zero_oar_covariance_is_valid_zero_rank
     assertEqual(size(dijInterval.S{1}),[0 0]);
     assertEqual(size(dijInterval.V{1}),[2 0]);
 
-function test_interval2_multict_maps_to_reference_scenario
+function test_interval2_multict_defaults_to_first_ct_scenario
+    [ct,cst,pln,dij,cfg] = multiCtFixture(1);
+
+    [plnOut,~] = calcInterval2(ct,cst,[],pln,dij,cfg);
+    dijInterval = plnOut.propOpt.dij_interval;
+
+    assertElementsAlmostEqual(full(dijInterval.center(:,1)), ...
+        full(dij.physicalDose{1}),'absolute',1e-12);
+    assertEqual(dijInterval.scenarioCtScenIds,1);
+    assertElementsAlmostEqual(dijInterval.scenarioWeights,1,'absolute',1e-12);
+
+    pln.propOpt.scen4D = [];
+    [plnOut,~] = calcInterval2(ct,cst,[],pln,dij,cfg);
+    dijInterval = plnOut.propOpt.dij_interval;
+
+    assertElementsAlmostEqual(full(dijInterval.center(:,1)), ...
+        full(dij.physicalDose{1}),'absolute',1e-12);
+    assertEqual(dijInterval.scenarioCtScenIds,1);
+    assertElementsAlmostEqual(dijInterval.scenarioWeights,1,'absolute',1e-12);
+
+function test_interval2_multict_all_maps_to_reference_scenario
     [ct,cst,pln,dij,cfg,expectedCenter] = multiCtFixture(1);
+    pln.propOpt.scen4D = 'all';
 
     [plnOut,~] = calcInterval2(ct,cst,[],pln,dij,cfg);
     dijInterval = plnOut.propOpt.dij_interval;
@@ -198,8 +219,43 @@ function test_interval2_multict_maps_to_reference_scenario
     assertEqual(dijInterval.refScen,1);
     assertEqual(dijInterval.scenarioCtScenIds,[1;2]);
 
+function test_interval2_scen4d_filters_multict_scenarios
+    [ct,cst,pln,dij,cfg] = multiCtFixture(1);
+    pln.propOpt.scen4D = 1;
+
+    [plnOut,~] = calcInterval2(ct,cst,[],pln,dij,cfg);
+    dijInterval = plnOut.propOpt.dij_interval;
+
+    assertElementsAlmostEqual(full(dijInterval.center(:,1)), ...
+        full(dij.physicalDose{1}),'absolute',1e-12);
+    assertEqual(dijInterval.scenarioCtScenIds,1);
+    assertElementsAlmostEqual(dijInterval.scenarioWeights,1,'absolute',1e-12);
+
+function test_interval2_scen4d_filters_and_maps_selected_ct_scenario
+    [ct,cst,pln,dij,cfg] = multiCtFixture(1);
+    pln.propOpt.scen4D = 2;
+
+    [plnOut,~] = calcInterval2(ct,cst,[],pln,dij,cfg);
+    dijInterval = plnOut.propOpt.dij_interval;
+
+    [xGrid,~,~] = meshgrid(1:ct.cubeDim(2),1:ct.cubeDim(1),1:ct.cubeDim(3));
+    mappedRows = zeros(ct.cubeDim);
+    mappedRows(:,2:end,:) = xGrid(:,1:end-1,:);
+    assertElementsAlmostEqual(full(dijInterval.center(:,1)), ...
+        mappedRows(:),'absolute',1e-12);
+    assertEqual(dijInterval.scenarioCtScenIds,2);
+    assertElementsAlmostEqual(dijInterval.scenarioWeights,1,'absolute',1e-12);
+
+function test_interval2_scen4d_rejects_inactive_ct_scenario
+    [ct,cst,pln,dij,cfg] = multiCtFixture(1);
+    pln.propOpt.scen4D = 3;
+
+    assertExceptionThrown(@() matRad_calcDoseInterval2(ct,cst,[],pln,dij,cfg), ...
+        'matRad:Error');
+
 function test_interval2_multict_supports_nonfirst_reference_scenario
     [ct,cst,pln,dij,cfg,expectedCenter] = multiCtFixture(2);
+    pln.propOpt.scen4D = 'all';
 
     [plnOut,dijIntervalContext] = calcInterval2(ct,cst,[],pln,dij,cfg);
     dijInterval = plnOut.propOpt.dij_interval;
@@ -214,6 +270,7 @@ function test_interval2_multict_supports_nonfirst_reference_scenario
 
 function test_interval2_multict_requires_pull_dvf
     [ct,cst,pln,dij,cfg] = multiCtFixture(1);
+    pln.propOpt.scen4D = 'all';
     ct.dvf = {};
 
     assertExceptionThrown(@() matRad_calcDoseInterval2(ct,cst,[],pln,dij,cfg), ...
@@ -221,6 +278,7 @@ function test_interval2_multict_requires_pull_dvf
 
 function test_interval2_multict_uses_dij_ct_grid_when_ct_axes_are_missing
     [ct,cst,pln,dij,cfg,expectedCenter] = multiCtResamplingFixture();
+    pln.propOpt.scen4D = 'all';
 
     [plnOut,~] = calcInterval2(ct,cst,[],pln,dij,cfg);
     dijInterval = plnOut.propOpt.dij_interval;

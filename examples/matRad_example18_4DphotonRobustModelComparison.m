@@ -172,9 +172,11 @@ intervalCfg.refScen = ct.refScen;
 intervalCfg.ProgressLevel = 'summary';
 intervalCfg.targetStructSel = cstInterval3(ixPTV,2);
 intervalCfg.OARStructSel = cstInterval3(ixOAR,2);
-[plnInterval3,dijIntervalContext] = matRad_calcDoseInterval3(ct,cstInterval3,stf,pln,dij,intervalCfg);
+plnIntervalInput = pln;
+plnIntervalInput.propOpt.scen4D = 'all';
+[plnInterval3,dijIntervalContext] = matRad_calcDoseInterval3( ...
+    ct,cstInterval3,stf,plnIntervalInput,dij,intervalCfg);
 
-plnInterval3.propOpt.scen4D = 'all';
 plnInterval3.propOpt.theta1 = 30;
 plnInterval3.propOpt.theta2 = 1.0;
 interval3Label = sprintf('INTERVAL3 (theta1=%g, theta2=%g)', ...

@@ -229,15 +229,16 @@ intervalCfg.refScen = ct.refScen;
 intervalCfg.ProgressLevel = 'detailed';
 intervalCfg.targetStructSel = cstInterval3(ixPTV,2);
 intervalCfg.OARStructSel = cstInterval3(ixOAR,2);
-[plnInterval3,dijIntervalContext] = matRad_calcDoseInterval3(ct,cstInterval3,stf,pln,dij,intervalCfg);
+plnIntervalInput = pln;
+plnIntervalInput.propOpt.scen4D = 'all';
+[plnInterval3,dijIntervalContext] = matRad_calcDoseInterval3( ...
+    ct,cstInterval3,stf,plnIntervalInput,dij,intervalCfg);
 
 %% Trigger INTERVAL3 robust optimization
 % INTERVAL3 targets require the squared Bertoluzza deviation objective.
 cstInterval3{ixPTV,6}{1}.robustness  = 'INTERVAL3';
 cstInterval3{ixOAR,6}{1}.robustness  = 'INTERVAL3';
 
-%Activate 4D Optimization
-plnInterval3.propOpt.scen4D = 'all';
 plnInterval3.propOpt.theta1 = 30;
 plnInterval3.propOpt.theta2 = 1.0;
 interval3Label = sprintf('INTERVAL3 (theta1=%g, theta2=%g)', ...

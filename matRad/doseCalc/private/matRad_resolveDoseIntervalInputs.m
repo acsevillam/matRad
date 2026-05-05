@@ -17,7 +17,8 @@ function ctx = matRad_resolveDoseIntervalInputs(ct,cst,pln,dij,cfg,intervalMode,
 %
 % output
 %   ctx:          validated context struct with quantity metadata, DIJ
-%                 scenario indices, CT scenario ids, normalized scenario
+%                 scenario indices, CT scenario ids selected by
+%                 pln.propOpt.scen4D (default: 1), normalized scenario
 %                 weights, selected target/OAR rows and CT mapping metadata
 %
 % References
@@ -244,6 +245,17 @@ end
 
 scenarioIds = pln.multScen.scenarioIds();
 scenarioDijIx = arrayfun(@(id) pln.multScen.getDijScenarioIndex(id),scenarioIds);
+scenarioCtScenIds = arrayfun(@(id) pln.multScen.getCtScenario(id),scenarioIds);
+
+selectedCtScenIds = resolveScen4DSelection(pln,scenarioCtScenIds,matRad_cfg);
+scenarioMask = ismember(scenarioCtScenIds,selectedCtScenIds);
+
+if ~any(scenarioMask)
+    matRad_cfg.dispError('pln.propOpt.scen4D does not select any active CT scenarios.');
+end
+
+scenarioDijIx = scenarioDijIx(scenarioMask);
+scenarioCtScenIds = scenarioCtScenIds(scenarioMask);
 
 if isempty(scenarioDijIx)
     matRad_cfg.dispError('No active scenarios found for dose interval calculation.');
@@ -259,14 +271,55 @@ if any(emptyScenario)
     matRad_cfg.dispError('dij.%s contains empty active scenarios.',quantityField);
 end
 
-scenarioCtScenIds = arrayfun(@(id) pln.multScen.getCtScenario(id),scenarioIds);
-
-scenarioWeights = resolveScenarioWeights(pln.multScen,scenarioDijIx,matRad_cfg);
+scenarioWeights = resolveScenarioWeights(pln.multScen,scenarioMask,matRad_cfg);
 scenarioDijIx = scenarioDijIx(:);
 scenarioCtScenIds = scenarioCtScenIds(:);
 end
 
-function scenarioWeights = resolveScenarioWeights(multScen,scenarioDijIx,matRad_cfg)
+function selectedCtScenIds = resolveScen4DSelection(pln,scenarioCtScenIds,matRad_cfg)
+activeCtScenIds = unique(scenarioCtScenIds(:),'stable');
+selectedCtScenIds = 1;
+
+if ~isfield(pln,'propOpt') || ~isstruct(pln.propOpt) || ...
+   ~isfield(pln.propOpt,'scen4D') || isempty(pln.propOpt.scen4D)
+    validateSelectedCtScenIds(selectedCtScenIds,activeCtScenIds,matRad_cfg);
+    return;
+end
+
+scen4D = pln.propOpt.scen4D;
+if isstring(scen4D) && isscalar(scen4D)
+    scen4D = char(scen4D);
+end
+
+if ischar(scen4D)
+    scen4D = strtrim(scen4D);
+    if strcmpi(scen4D,'all')
+        selectedCtScenIds = activeCtScenIds;
+        return;
+    end
+    matRad_cfg.dispError(['pln.propOpt.scen4D must be ''all'' or a numeric ', ...
+        'vector of positive integer CT scenario ids.']);
+end
+
+if ~isnumeric(scen4D) || isempty(scen4D) || any(~isfinite(scen4D(:))) || ...
+   any(scen4D(:) < 1) || any(fix(scen4D(:)) ~= scen4D(:))
+    matRad_cfg.dispError(['pln.propOpt.scen4D must be ''all'' or a numeric ', ...
+        'vector of positive integer CT scenario ids.']);
+end
+
+selectedCtScenIds = unique(double(scen4D(:)),'stable');
+validateSelectedCtScenIds(selectedCtScenIds,activeCtScenIds,matRad_cfg);
+end
+
+function validateSelectedCtScenIds(selectedCtScenIds,activeCtScenIds,matRad_cfg)
+missingCtScenIds = selectedCtScenIds(~ismember(selectedCtScenIds,activeCtScenIds));
+if ~isempty(missingCtScenIds)
+    matRad_cfg.dispError('Dose interval scen4D selection includes inactive CT scenario ids: %s.', ...
+        mat2str(missingCtScenIds(:)'));
+end
+end
+
+function scenarioWeights = resolveScenarioWeights(multScen,scenarioMask,matRad_cfg)
 if hasFieldOrProp(multScen,'scenWeight') && ~isempty(multScen.scenWeight)
     rawWeights = multScen.scenWeight(:);
 elseif hasFieldOrProp(multScen,'scenProb') && ~isempty(multScen.scenProb)
@@ -275,10 +328,10 @@ else
     matRad_cfg.dispError('Scenario model must provide scenWeight or scenProb.');
 end
 
-if numel(rawWeights) ~= numel(scenarioDijIx)
+if numel(rawWeights) ~= numel(scenarioMask)
     matRad_cfg.dispError('Number of scenario weights is inconsistent with active scenarios.');
 end
-scenarioWeights = rawWeights;
+scenarioWeights = rawWeights(scenarioMask);
 
 scenarioWeights = scenarioWeights(:);
 scenarioWeights(~isfinite(scenarioWeights) | scenarioWeights < 0) = 0;

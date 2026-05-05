@@ -9,7 +9,9 @@ function [pln_interval,dij_intervalContext] = matRad_calcDoseIntervalCore(ct,cst
 %                 non-reference CT scenarios are mapped to cfg.refScen
 %   cst:          matRad cst cell array
 %   stf:          matRad steering information struct
-%   pln:          matRad pln struct with a matRad_ScenarioModel in pln.multScen
+%   pln:          matRad pln struct with a matRad_ScenarioModel in
+%                 pln.multScen; optional pln.propOpt.scen4D selects CT
+%                 scenarios used for the interval calculation (default: 1)
 %   dij:          robust dose influence struct; scenario cells are addressed
 %                 by DIJ linear scenario indices from pln.multScen
 %   cfg:          dose interval configuration struct
