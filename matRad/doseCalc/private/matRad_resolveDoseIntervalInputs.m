@@ -71,6 +71,7 @@ cfg = setDefault(cfg,'refScen',getDefaultReferenceScenario(ct));
 cfg = setDefault(cfg,'targetStructSel',[]);
 cfg = setDefault(cfg,'OARStructSel',[]);
 cfg = setDefault(cfg,'UseParallel',false);
+cfg = setDefault(cfg,'CollectTiming',false);
 cfg = setDefault(cfg,'MemoryLimitMB',[]);
 cfg = setDefault(cfg,'BatchSize',[]);
 cfg = setDefault(cfg,'ProgressLevel','summary');
@@ -90,6 +91,7 @@ if isfield(ct,'refScen') && ~isempty(ct.refScen) && ct.refScen ~= cfg.refScen
 end
 
 cfg.UseParallel = logicalScalar(cfg.UseParallel,'UseParallel',matRad_cfg);
+cfg.CollectTiming = logicalScalar(cfg.CollectTiming,'CollectTiming',matRad_cfg);
 
 if ~isempty(cfg.MemoryLimitMB) && ...
    (~isnumeric(cfg.MemoryLimitMB) || ~isscalar(cfg.MemoryLimitMB) || ...

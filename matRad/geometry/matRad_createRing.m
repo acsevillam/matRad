@@ -35,7 +35,7 @@ function [cst,ixRing] = matRad_createRing(ixBase,ixLimit,cst,ct,vOuterMargin,vIn
 % %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 VOIRing = cell(1, ct.numOfCtScen);
-useDiagonalConnectivity = true;
+useDiagonalConnectivity = false;
 
 for scen_iterator = 1:ct.numOfCtScen
     VOIBase = cst{ixBase,4}{scen_iterator};

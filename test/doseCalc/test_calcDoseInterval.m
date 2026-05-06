@@ -88,6 +88,26 @@ function test_interval2_batch_size_does_not_change_result
     assertElementsAlmostEqual(full(dijIntervalBatch.radius), ...
         full(dijIntervalFull.radius),'absolute',1e-12);
 
+function test_interval2_collect_timing_reports_target_and_oar_components
+    [ct,cst,pln,dij,cfg] = singleCtFixture();
+    cfg.CollectTiming = true;
+
+    [plnOut,~] = calcInterval2(ct,cst,[],pln,dij,cfg);
+    dijInterval = plnOut.propOpt.dij_interval;
+    timing = dijInterval.timing;
+
+    assertEqual(timing.intervalMode,'INTERVAL2');
+    assertEqual(timing.numTargetVoxels,2);
+    assertEqual(timing.numOarVoxels,2);
+    assertEqual(timing.numScenarios,2);
+    assertEqual(timing.numBixels,2);
+    assertTimingStageIsValid(timing.target);
+    assertTimingStageIsValid(timing.oar);
+    assertTrue(timing.target.radiusMultiplySeconds >= 0);
+    assertEqual(timing.target.svdSeconds,0);
+    assertEqual(timing.oar.radiusMultiplySeconds,0);
+    assertEqual(timing.oar.svdSeconds,0);
+
 function test_interval3_oar_covariance_svd
     [ct,cst,pln,dij,cfg] = singleCtFixture();
     cfg.KMode = 'static';
@@ -139,6 +159,54 @@ function test_interval3_oar_svd_accepts_sufficient_memory_limit
     assertElementsAlmostEqual(full(dijIntervalLimited.U{1}*dijIntervalLimited.S{1}*dijIntervalLimited.V{1}'), ...
         full(dijIntervalDefault.U{1}*dijIntervalDefault.S{1}*dijIntervalDefault.V{1}'),'absolute',1e-12);
 
+function test_interval3_oar_svd_memory_scales_with_scenario_matrix
+    [ct,cst,pln,~,cfg] = singleCtFixture();
+    numBixels = 50;
+    dij = baseDij(ct.cubeDim,numBixels);
+    dij.physicalDose = cell(1,2,1);
+    dij.physicalDose{1} = sparse(4,numBixels);
+    dij.physicalDose{2} = sparse(4,numBixels);
+    dij.physicalDose{1}(3,1:25) = 1;
+    dij.physicalDose{2}(3,1:25) = 2;
+    dij.physicalDose{1}(4,26:50) = 1;
+    dij.physicalDose{2}(4,26:50) = 3;
+    cfg.KMode = 'static';
+    cfg.KMax = 2;
+    cfg.MemoryLimitMB = 0.01;
+
+    [plnOut,~] = calcInterval3(ct,cst,[],pln,dij,cfg);
+    dijInterval = plnOut.propOpt.dij_interval;
+
+    scenarioMatrix = [dij.physicalDose{1}(3,:); dij.physicalDose{2}(3,:)];
+    centerRow = dijInterval.center(3,:);
+    expectedCovariance = scenarioMatrix' * spdiags(dijInterval.scenarioWeights,0,2,2) * ...
+        scenarioMatrix - centerRow' * centerRow;
+    reconstructedCovariance = dijInterval.U{1} * dijInterval.S{1} * ...
+        dijInterval.V{1}';
+
+    assertEqual(size(dijInterval.V{1},1),numBixels);
+    assertElementsAlmostEqual(full(reconstructedCovariance), ...
+        full(expectedCovariance),'absolute',1e-10);
+
+function test_interval3_dynamic_svd_rank_selection_handles_large_energy_values
+    [ct,cst,pln,dij,cfg] = singleCtFixture();
+    cfg.KMode = 'dynamic';
+    cfg.KMax = 2;
+    cfg.RetentionThreshold = 1.0;
+    largeValue = 1e150;
+    dij.physicalDose{1}(3,:) = sparse([largeValue 0]);
+    dij.physicalDose{2}(3,:) = sparse([-largeValue 0]);
+    dij.physicalDose{1}(4,:) = sparse([0 0]);
+    dij.physicalDose{2}(4,:) = sparse([0 0]);
+
+    [plnOut,~] = calcInterval3(ct,cst,[],pln,dij,cfg);
+    dijInterval = plnOut.propOpt.dij_interval;
+
+    assertEqual(dijInterval.k(1),1);
+    assertTrue(all(isfinite(nonzeros(dijInterval.U{1}))));
+    assertTrue(all(isfinite(nonzeros(dijInterval.S{1}))));
+    assertTrue(all(isfinite(nonzeros(dijInterval.V{1}))));
+
 function test_interval3_oar_svd_rejects_low_memory_limit
     [ct,cst,pln,dij,cfg] = singleCtFixture();
     cfg.MemoryLimitMB = 1e-6;
@@ -173,6 +241,53 @@ function test_interval3_batch_size_does_not_change_result_when_memory_allows
         full(dijIntervalFull.center),'absolute',1e-12);
     assertElementsAlmostEqual(full(dijIntervalBatch.U{2}*dijIntervalBatch.S{2}*dijIntervalBatch.V{2}'), ...
         full(dijIntervalFull.U{2}*dijIntervalFull.S{2}*dijIntervalFull.V{2}'),'absolute',1e-12);
+
+function test_interval3_parallel_oar_center_svd_matches_serial
+    [ct,cst,pln,dij,cfg] = singleCtFixture();
+    cfg.KMode = 'static';
+    cfg.KMax = 2;
+    cfg.MemoryLimitMB = 1;
+    cfg.BatchSize = 1;
+
+    cfg.UseParallel = false;
+    [plnSerial,~] = calcInterval3(ct,cst,[],pln,dij,cfg);
+    dijIntervalSerial = plnSerial.propOpt.dij_interval;
+
+    cfg.UseParallel = true;
+    [plnParallel,~] = calcInterval3(ct,cst,[],pln,dij,cfg);
+    dijIntervalParallel = plnParallel.propOpt.dij_interval;
+
+    assertElementsAlmostEqual(full(dijIntervalParallel.center), ...
+        full(dijIntervalSerial.center),'absolute',1e-12);
+    assertElementsAlmostEqual(dijIntervalParallel.k,dijIntervalSerial.k, ...
+        'absolute',1e-12);
+    for i = 1:numel(dijIntervalSerial.U)
+        serialCovariance = dijIntervalSerial.U{i} * dijIntervalSerial.S{i} * ...
+            dijIntervalSerial.V{i}';
+        parallelCovariance = dijIntervalParallel.U{i} * dijIntervalParallel.S{i} * ...
+            dijIntervalParallel.V{i}';
+        assertElementsAlmostEqual(full(parallelCovariance),full(serialCovariance), ...
+            'absolute',1e-12);
+    end
+
+function test_interval3_collect_timing_reports_oar_svd_components
+    [ct,cst,pln,dij,cfg] = singleCtFixture();
+    cfg.KMode = 'static';
+    cfg.KMax = 2;
+    cfg.CollectTiming = true;
+    cfg.UseParallel = false;
+
+    [plnOut,~] = calcInterval3(ct,cst,[],pln,dij,cfg);
+    timing = plnOut.propOpt.dij_interval.timing;
+
+    assertEqual(timing.intervalMode,'INTERVAL3');
+    assertFalse(timing.oar.parallelEnabled);
+    assertTimingStageIsValid(timing.target);
+    assertTimingStageIsValid(timing.oar);
+    assertTrue(timing.target.radiusMultiplySeconds >= 0);
+    assertTrue(timing.oar.svdSeconds >= 0);
+    assertEqual(timing.oar.radiusMultiplySeconds,0);
+    assertTrue(timing.oar.serialAssemblySeconds >= 0);
 
 function test_interval3_zero_oar_covariance_is_valid_zero_rank
     [ct,cst,pln,dij,cfg] = singleCtFixture();
@@ -290,6 +405,22 @@ function [plnInterval,dijIntervalContext] = calcInterval2(ct,cst,stf,pln,dij,cfg
 
 function [plnInterval,dijIntervalContext] = calcInterval3(ct,cst,stf,pln,dij,cfg)
     [plnInterval,dijIntervalContext] = matRad_calcDoseInterval3(ct,cst,stf,pln,dij,cfg);
+
+function assertTimingStageIsValid(stageTiming)
+    assertTrue(isstruct(stageTiming));
+    assertTrue(stageTiming.numVoxels >= 0);
+    assertTrue(stageTiming.batchSize >= 0);
+    assertTrue(stageTiming.numBatches >= 0);
+    timingFields = {'extractMapSeconds','centerAccumSeconds', ...
+        'radiusMultiplySeconds','svdSeconds','parallelSetupSeconds', ...
+        'parallelComputeWallSeconds','serialAssemblySeconds','wallSeconds'};
+    for fieldIx = 1:numel(timingFields)
+        value = stageTiming.(timingFields{fieldIx});
+        assertTrue(isnumeric(value));
+        assertTrue(isscalar(value));
+        assertTrue(isfinite(value));
+        assertTrue(value >= 0);
+    end
 
 function [ct,cst,pln,dij,cfg] = singleCtFixture()
     ct.numOfCtScen = 1;

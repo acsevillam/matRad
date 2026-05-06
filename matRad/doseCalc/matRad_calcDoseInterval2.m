@@ -26,6 +26,8 @@ function [pln_interval,dij_intervalContext] = matRad_calcDoseInterval2(ct,cst,st
 %           MemoryLimitMB: batch memory limit, [] uses 256 MB internally
 %           BatchSize: explicit voxel batch size (default: derived from MemoryLimitMB)
 %           ProgressLevel: 'summary' (default) or 'detailed'
+%           CollectTiming: collect internal timing diagnostics in
+%               pln_interval.propOpt.dij_interval.timing (default: false)
 %
 % output
 %   pln_interval:         plan struct; pln_interval.propOpt.dij_interval
