@@ -21,3 +21,10 @@
 	path = submodules/MOcov
 	url = https://github.com/e0404/MOcov
 	branch = matRad
+[submodule "submodules/planWorkflow"]
+	path = submodules/planWorkflow
+	url = https://github.com/acsevillam/planWorkflow.git
+[submodule "userdata/patients"]
+	path = userdata/patients
+	url = https://github.com/acsevillam/clinical_cases.git
+	branch = planWorkflow
