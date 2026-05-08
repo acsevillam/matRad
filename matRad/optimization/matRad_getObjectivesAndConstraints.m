@@ -6,8 +6,8 @@ function classNames = matRad_getObjectivesAndConstraints()
 %
 %
 % output
-%   classNames:     contains class names (row 1) and display descriptions 
-%                   (row 2) of all available objectives
+%   classNames:     contains class names (row 1) and display descriptions
+%                   (row 2) of all available objectives and constraints
 %
 % References
 %   -
@@ -54,7 +54,7 @@ else
       objFiles(i).pkgName = 'DoseObjectives';
     end
     constrFiles = dir(constraintDir);
-    for i=1:numel(objFiles)
+    for i=1:numel(constrFiles)
       constrFiles(i).pkgName = 'DoseConstraints';
     end
     
@@ -93,4 +93,3 @@ function [defName,dispName] = testForClass(potentialClassFile)
         dispName = '';
     end      
 end
-
