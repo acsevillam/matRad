@@ -48,6 +48,7 @@ useScen  = optiProb.BP.scenarios;
 scenProb = optiProb.BP.scenarioProb;
 useNominalCtScen = optiProb.BP.nominalCtScenarios;
 optiProb.validateIntervalConfiguration(cst,w);
+optiProb.validateProb2Configuration(cst,w);
 
 % retrieve matching 4D scenarios
 fullScen      = cell(ndims(d),1);
@@ -122,6 +123,20 @@ for  i = 1:size(cst,1)
                         p = objective.penalty/numel(cst{i,4}{1});
                         
                         vOmega = vOmega + p * dOmega{i,1};
+
+                    case 'PROB2' % scenario-free probabilistic optimization
+                        stats = optiProb.GetResultProbabilistic(w,dij,cst,i);
+
+                        if isa(objective,'DoseObjectives.matRad_MeanVariance')
+                            directWeightGradient = directWeightGradient + ...
+                                objective.penalty * ...
+                                objective.computeProb2ObjectiveGradient(stats);
+                        else
+                            doseGradientProb2 = objective.penalty * ...
+                                objective.computeDoseObjectiveGradient(stats.dExp);
+                            directWeightGradient = directWeightGradient + ...
+                                stats.expectedRows' * doseGradientProb2;
+                        end
                     
                     case 'VWWC'  % voxel-wise worst case - takes minimum dose in TARGET and maximum in OAR
                         contourIx = unique(contourScen);
@@ -243,27 +258,18 @@ for  i = 1:size(cst,1)
                         end
 
                     case {'INTERVAL2','INTERVAL3'}
-                        [subIx,ixContour] = optiProb.getIntervalStructureVoxelIndices(cst,i);
+                        stats = optiProb.GetResultInterval(w,cst,i,objective);
 
                         if isequal(cst{i,3},'TARGET')
                             directWeightGradient = directWeightGradient + ...
-                                objective.computeFluenceObjectiveGradient(w,subIx, ...
+                                objective.computeFluenceObjectiveGradient(w,stats.subIx, ...
                                 optiProb.theta1,optiProb.dij_interval);
-                        elseif strcmp(robustness,'INTERVAL2')
-                            dInterval = optiProb.dij_interval.center(subIx,:)*w;
-                            doseGradientInterval = ...
-                                objective.penalty*objective.computeDoseObjectiveGradient(dInterval);
-                            directWeightGradient = directWeightGradient + ...
-                                optiProb.dij_interval.center(subIx,:)'*doseGradientInterval;
                         else
-                            [dCenter,dRadius,fluenceGradientCenter,fluenceGradientRadius] = ...
-                                optiProb.getOARDoseInterval(cst,i,ixContour,w);
-                            dInterval = dCenter + optiProb.theta2*dRadius;
                             doseGradientInterval = ...
-                                objective.penalty*objective.computeDoseObjectiveGradient(dInterval);
+                                objective.penalty*objective.computeDoseObjectiveGradient( ...
+                                stats.doseForObjective);
                             directWeightGradient = directWeightGradient + ...
-                                fluenceGradientCenter'*doseGradientInterval + ...
-                                optiProb.theta2*fluenceGradientRadius'*doseGradientInterval;
+                                stats.gradDoseForObjective'*doseGradientInterval;
                         end
                         
                     case 'OWC' % objective-wise worst case consideres the worst individual objective function value

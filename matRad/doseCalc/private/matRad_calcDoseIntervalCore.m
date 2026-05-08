@@ -41,7 +41,7 @@ function [pln_interval,dij_intervalContext] = matRad_calcDoseIntervalCore(ct,cst
 matRad_cfg = MatRad_Config.instance();
 timer = tic;
 
-ctx = matRad_resolveDoseIntervalInputs(ct,cst,pln,dij,cfg, ...
+ctx = matRad_resolveScenarioDoseInputs(ct,cst,pln,dij,cfg, ...
     intervalMode,matRad_cfg);
 cfg = ctx.cfg;
 quantity = ctx.quantity;
@@ -60,6 +60,8 @@ matRad_cfg.dispInfo(['matRad: Calculating %s dose interval for quantity ', ...
 matRad_cfg.dispInfo(['matRad: Dose interval reference CT scenario %d, ', ...
     '%d target voxels, %d OAR voxels, %d bixels.\n'],cfg.refScen, ...
     numel(targetRows),numel(oarRows),numBixels);
+matRad_cfg.dispInfo('matRad: Dose interval radius mode is ''%s''.\n', ...
+    cfg.RadiusMode);
 if quantity.scale ~= 1
     matRad_cfg.dispInfo('matRad: Dose interval quantity scale is %.6g.\n', ...
         quantity.scale);
@@ -76,8 +78,8 @@ else
 end
 
 if ~isempty(oarRows) && strcmp(intervalMode,'INTERVAL3')
-    guardOARSvdMemory(numel(scenarioDijIx),numBixels,cfg,matRad_cfg);
-    dij_interval = accumulateOARCenterAndSvd(dij_interval,quantity,scenarioDijIx, ...
+    guardOARRadiusFactorMemory(numel(scenarioDijIx),numBixels,cfg,matRad_cfg);
+    dij_interval = accumulateOARCenterAndRadiusFactor(dij_interval,quantity,scenarioDijIx, ...
         scenarioWeights,scenarioMaps,oarRows,cfg,numBixels,matRad_cfg);
 elseif ~isempty(oarRows)
     dij_interval = accumulateOARCenter(dij_interval,quantity,scenarioDijIx, ...
@@ -172,6 +174,7 @@ dij_interval.scenarioDijIx = scenarioDijIx(:);
 dij_interval.scenarioCtScenIds = scenarioCtScenIds(:);
 dij_interval.scenarioWeights = scenarioWeights(:);
 dij_interval.intervalMode = intervalMode;
+dij_interval.radiusMode = cfg.RadiusMode;
 if cfg.CollectTiming
     dij_interval.timing = matRad_initializeDoseIntervalTiming('interval', ...
         intervalMode,cfg, ...
@@ -179,10 +182,8 @@ if cfg.CollectTiming
 end
 
 if strcmp(intervalMode,'INTERVAL3')
-    dij_interval.k = zeros(numel(oarRows),1);
-    dij_interval.U = cell(numel(oarRows),1);
-    dij_interval.S = cell(numel(oarRows),1);
-    dij_interval.V = cell(numel(oarRows),1);
+    dij_interval.OARRadiusRank = zeros(numel(oarRows),1);
+    dij_interval.OARRadiusFactor = cell(numel(oarRows),1);
 end
 end
 
@@ -192,7 +193,7 @@ if isempty(batchTiming)
 end
 
 timingFields = {'extractMapSeconds','centerAccumSeconds', ...
-    'radiusMultiplySeconds','svdSeconds','wallSeconds'};
+    'radiusMultiplySeconds','factorSeconds','wallSeconds'};
 for f = 1:numel(timingFields)
     fieldName = timingFields{f};
     stageTiming.(fieldName) = stageTiming.(fieldName) + ...
@@ -219,36 +220,27 @@ for b = 1:numBatches
     rows = batches{b};
     logBatchProgress(matRad_cfg,cfg,'Target interval',b,numBatches);
     logBatchStart(matRad_cfg,cfg,'Target interval',b,numBatches,numel(rows));
-    centerBlock = sparse(numel(rows),numBixels);
-    radiusBlock = sparse(numBixels,numBixels);
-
-    for s = 1:numel(scenarioDijIx)
-        logScenarioProgress(matRad_cfg,cfg,'Target interval',b,numBatches, ...
-            s,numel(scenarioDijIx),scenarioDijIx(s),scenarioWeights(s));
-        if cfg.CollectTiming
-            sectionTimer = tic;
-        end
-        scenarioRows = matRad_getDoseIntervalScenarioRows(quantity,scenarioDijIx(s), ...
-            scenarioMaps{s},rows,matRad_cfg);
-        if cfg.CollectTiming
-            stageTiming.extractMapSeconds = stageTiming.extractMapSeconds + ...
-                toc(sectionTimer);
-            sectionTimer = tic;
-        end
-        centerBlock = centerBlock + scenarioWeights(s) .* scenarioRows;
-        if cfg.CollectTiming
-            stageTiming.centerAccumSeconds = stageTiming.centerAccumSeconds + ...
-                toc(sectionTimer);
-            sectionTimer = tic;
-        end
-        radiusBlock = radiusBlock + scenarioRows' * (scenarioWeights(s) .* scenarioRows);
-        if cfg.CollectTiming
-            stageTiming.radiusMultiplySeconds = ...
-                stageTiming.radiusMultiplySeconds + toc(sectionTimer);
-        end
+    [~,meanRows,batchStatsTiming,secondMoment,extremeDeltaRows] = computeScenarioDoseBatchStats( ...
+        quantity,scenarioDijIx,scenarioWeights,scenarioMaps,rows,numBixels, ...
+        cfg,matRad_cfg,'Target interval',b,numBatches,true,true);
+    if cfg.CollectTiming
+        stageTiming.extractMapSeconds = stageTiming.extractMapSeconds + ...
+            batchStatsTiming.extractMapSeconds;
+        stageTiming.centerAccumSeconds = stageTiming.centerAccumSeconds + ...
+            batchStatsTiming.centerAccumSeconds;
+        stageTiming.radiusMultiplySeconds = stageTiming.radiusMultiplySeconds + ...
+            batchStatsTiming.radiusMultiplySeconds;
+        sectionTimer = tic;
     end
 
-    dij_interval.center(rows,:) = centerBlock;
+    radiusBlock = computeTargetRadiusBlock(meanRows,secondMoment, ...
+        extremeDeltaRows,cfg,numBixels);
+    if cfg.CollectTiming
+        stageTiming.radiusMultiplySeconds = ...
+            stageTiming.radiusMultiplySeconds + toc(sectionTimer);
+    end
+
+    dij_interval.center(rows,:) = meanRows;
     dij_interval.radius = dij_interval.radius + radiusBlock;
     logBatchEnd(matRad_cfg,cfg,'Target interval',b,numBatches,toc(batchTimer));
 end
@@ -278,27 +270,16 @@ for b = 1:numBatches
     rows = batches{b};
     logBatchProgress(matRad_cfg,cfg,'OAR center',b,numBatches);
     logBatchStart(matRad_cfg,cfg,'OAR center',b,numBatches,numel(rows));
-    centerBlock = sparse(numel(rows),numBixels);
-    for s = 1:numel(scenarioDijIx)
-        logScenarioProgress(matRad_cfg,cfg,'OAR center',b,numBatches, ...
-            s,numel(scenarioDijIx),scenarioDijIx(s),scenarioWeights(s));
-        if cfg.CollectTiming
-            sectionTimer = tic;
-        end
-        scenarioRows = matRad_getDoseIntervalScenarioRows(quantity,scenarioDijIx(s), ...
-            scenarioMaps{s},rows,matRad_cfg);
-        if cfg.CollectTiming
-            stageTiming.extractMapSeconds = stageTiming.extractMapSeconds + ...
-                toc(sectionTimer);
-            sectionTimer = tic;
-        end
-        centerBlock = centerBlock + scenarioWeights(s) .* scenarioRows;
-        if cfg.CollectTiming
-            stageTiming.centerAccumSeconds = stageTiming.centerAccumSeconds + ...
-                toc(sectionTimer);
-        end
+    [~,meanRows,batchStatsTiming] = computeScenarioDoseBatchStats( ...
+        quantity,scenarioDijIx,scenarioWeights,scenarioMaps,rows,numBixels, ...
+        cfg,matRad_cfg,'OAR center',b,numBatches,true,false);
+    if cfg.CollectTiming
+        stageTiming.extractMapSeconds = stageTiming.extractMapSeconds + ...
+            batchStatsTiming.extractMapSeconds;
+        stageTiming.centerAccumSeconds = stageTiming.centerAccumSeconds + ...
+            batchStatsTiming.centerAccumSeconds;
     end
-    dij_interval.center(rows,:) = centerBlock;
+    dij_interval.center(rows,:) = meanRows;
     logBatchEnd(matRad_cfg,cfg,'OAR center',b,numBatches,toc(batchTimer));
 end
 if cfg.CollectTiming
@@ -308,13 +289,62 @@ end
 matRad_cfg.dispInfo('matRad: OAR interval center accumulation finished.\n');
 end
 
-function dij_interval = accumulateOARCenterAndSvd(dij_interval,quantity,scenarioDijIx, ...
+function [scenarioRows,meanRows,batchTiming,secondMoment,extremeDeltaRows] = computeScenarioDoseBatchStats( ...
+    quantity,scenarioDijIx,scenarioWeights,scenarioMaps,rows,numBixels, ...
+    cfg,matRad_cfg,stageName,batchIx,numBatches,enableProgress,computeRadiusStats)
+if cfg.CollectTiming
+    batchTiming = matRad_initializeDoseIntervalTiming('batch',numel(rows));
+else
+    batchTiming = [];
+end
+
+options = struct();
+options.StoreScenarioRows = true;
+options.ComputeSecondMoment = computeRadiusStats && strcmp(cfg.RadiusMode,'std');
+options.ComputeExtremeDelta = computeRadiusStats && strcmp(cfg.RadiusMode,'extreme');
+options.CollectTiming = cfg.CollectTiming;
+if enableProgress
+    options.ScenarioProgressFcn = @(s) logScenarioProgress(matRad_cfg,cfg, ...
+        stageName,batchIx,numBatches,s,numel(scenarioDijIx), ...
+        scenarioDijIx(s),scenarioWeights(s));
+end
+
+[stats,helperTiming] = matRad_computeScenarioDoseBatchStats(quantity, ...
+    scenarioDijIx,scenarioWeights,scenarioMaps,rows,numBixels, ...
+    matRad_cfg,options);
+
+scenarioRows = stats.scenarioRows;
+meanRows = stats.meanRows;
+secondMoment = stats.secondMoment;
+extremeDeltaRows = stats.extremeDeltaRows;
+
+if cfg.CollectTiming
+    batchTiming.extractMapSeconds = helperTiming.extractMapSeconds;
+    batchTiming.centerAccumSeconds = helperTiming.centerAccumSeconds;
+    batchTiming.radiusMultiplySeconds = helperTiming.secondMomentSeconds + ...
+        helperTiming.extremeDeltaSeconds;
+end
+end
+
+function radiusBlock = computeTargetRadiusBlock(meanRows,secondMoment, ...
+    extremeDeltaRows,cfg,numBixels)
+if strcmp(cfg.RadiusMode,'std')
+    radiusBlock = secondMoment;
+    return;
+end
+
+deltaSquared = full(sum(extremeDeltaRows.^2,1));
+radiusBlock = meanRows' * meanRows + ...
+    spdiags(deltaSquared(:),0,numBixels,numBixels);
+end
+
+function dij_interval = accumulateOARCenterAndRadiusFactor(dij_interval,quantity,scenarioDijIx, ...
     scenarioWeights,scenarioMaps,oarRows,cfg,numBixels,matRad_cfg)
 batchSize = resolveBatchSize(numel(oarRows),numel(scenarioDijIx),numBixels,cfg);
 batches = makeBatches(oarRows,batchSize);
 numBatches = numel(batches);
 matRad_cfg.dispInfo(['matRad: Accumulating INTERVAL3 OAR interval center ', ...
-    'and scenario SVD for %d voxels in %d batches of up to %d voxels.\n'], ...
+    'and radius factor for %d voxels in %d batches of up to %d voxels.\n'], ...
     numel(oarRows),numBatches,batchSize);
 
 if cfg.CollectTiming
@@ -323,7 +353,7 @@ if cfg.CollectTiming
         numel(oarRows),batchSize,numBatches);
     sectionTimer = tic;
 end
-useParallel = configureOARSvdParallel(numBatches,batchSize,quantity, ...
+useParallel = configureOARRadiusFactorParallel(numBatches,batchSize,quantity, ...
     scenarioMaps,numel(scenarioDijIx),numBixels,cfg,matRad_cfg);
 if cfg.CollectTiming
     stageTiming.parallelSetupSeconds = toc(sectionTimer);
@@ -332,10 +362,8 @@ end
 
 if useParallel
     centerBlocks = cell(numBatches,1);
-    kBlocks = cell(numBatches,1);
-    UBlocks = cell(numBatches,1);
-    SBlocks = cell(numBatches,1);
-    VBlocks = cell(numBatches,1);
+    rankBlocks = cell(numBatches,1);
+    factorBlocks = cell(numBatches,1);
     timingBlocks = cell(numBatches,1);
 
     logLevel = matRad_cfg.logLevel;
@@ -354,16 +382,14 @@ if useParallel
         workerCfg = MatRad_Config.instance();
         workerCfg.logLevel = logLevel;
 
-        [centerBlock,kBlock,UBlock,SBlock,VBlock,batchTiming] = ...
-            computeOARCenterAndSvdBatch( ...
+        [centerBlock,rankBlock,factorBlock,batchTiming] = ...
+            computeOARCenterAndRadiusFactorBatch( ...
             quantity,scenarioDijIx,scenarioWeights,scenarioMaps,batches{b}, ...
-            cfg,numBixels,workerCfg,'OAR center/scenario SVD',b, ...
+            cfg,numBixels,workerCfg,'OAR center/radius factor',b, ...
             numBatches,false);
         centerBlocks{b} = centerBlock;
-        kBlocks{b} = kBlock;
-        UBlocks{b} = UBlock;
-        SBlocks{b} = SBlock;
-        VBlocks{b} = VBlock;
+        rankBlocks{b} = rankBlock;
+        factorBlocks{b} = factorBlock;
         timingBlocks{b} = batchTiming;
 
         if ~isempty(progressQueue)
@@ -381,8 +407,8 @@ if useParallel
     if cfg.CollectTiming
         sectionTimer = tic;
     end
-    dij_interval = assembleOARCenterAndSvdBatches(dij_interval,oarRows,batches, ...
-        centerBlocks,kBlocks,UBlocks,SBlocks,VBlocks);
+    dij_interval = assembleOARCenterAndRadiusFactorBatches(dij_interval,oarRows,batches, ...
+        centerBlocks,rankBlocks,factorBlocks);
     if cfg.CollectTiming
         stageTiming.serialAssemblySeconds = toc(sectionTimer);
         for b = 1:numBatches
@@ -392,36 +418,32 @@ if useParallel
     end
 else
     centerBlocks = cell(numBatches,1);
-    kBlocks = cell(numBatches,1);
-    UBlocks = cell(numBatches,1);
-    SBlocks = cell(numBatches,1);
-    VBlocks = cell(numBatches,1);
+    rankBlocks = cell(numBatches,1);
+    factorBlocks = cell(numBatches,1);
     timingBlocks = cell(numBatches,1);
 
     for b = 1:numBatches
         batchTimer = tic;
         rows = batches{b};
-        logBatchProgress(matRad_cfg,cfg,'OAR center/scenario SVD',b,numBatches);
-        logBatchStart(matRad_cfg,cfg,'OAR center/scenario SVD',b,numBatches,numel(rows));
-        [centerBlock,kBlock,UBlock,SBlock,VBlock,batchTiming] = ...
-            computeOARCenterAndSvdBatch( ...
+        logBatchProgress(matRad_cfg,cfg,'OAR center/radius factor',b,numBatches);
+        logBatchStart(matRad_cfg,cfg,'OAR center/radius factor',b,numBatches,numel(rows));
+        [centerBlock,rankBlock,factorBlock,batchTiming] = ...
+            computeOARCenterAndRadiusFactorBatch( ...
             quantity,scenarioDijIx,scenarioWeights,scenarioMaps,rows,cfg, ...
-            numBixels,matRad_cfg,'OAR center/scenario SVD',b,numBatches,true);
+            numBixels,matRad_cfg,'OAR center/radius factor',b,numBatches,true);
         centerBlocks{b} = centerBlock;
-        kBlocks{b} = kBlock;
-        UBlocks{b} = UBlock;
-        SBlocks{b} = SBlock;
-        VBlocks{b} = VBlock;
+        rankBlocks{b} = rankBlock;
+        factorBlocks{b} = factorBlock;
         timingBlocks{b} = batchTiming;
-        logBatchEnd(matRad_cfg,cfg,'OAR center/scenario SVD',b,numBatches, ...
+        logBatchEnd(matRad_cfg,cfg,'OAR center/radius factor',b,numBatches, ...
             toc(batchTimer));
     end
 
     if cfg.CollectTiming
         sectionTimer = tic;
     end
-    dij_interval = assembleOARCenterAndSvdBatches(dij_interval,oarRows,batches, ...
-        centerBlocks,kBlocks,UBlocks,SBlocks,VBlocks);
+    dij_interval = assembleOARCenterAndRadiusFactorBatches(dij_interval,oarRows,batches, ...
+        centerBlocks,rankBlocks,factorBlocks);
     if cfg.CollectTiming
         stageTiming.serialAssemblySeconds = toc(sectionTimer);
         for b = 1:numBatches
@@ -437,54 +459,29 @@ if cfg.CollectTiming
 end
 
 matRad_cfg.dispInfo(['matRad: INTERVAL3 OAR interval center and scenario ', ...
-    'SVD accumulation finished.\n']);
+    'radius factor accumulation finished.\n']);
 
     function updateParallelProgress()
         nFinishedBatches = nFinishedBatches + 1;
-        logBatchProgress(matRad_cfg,cfg,'OAR center/scenario SVD', ...
+        logBatchProgress(matRad_cfg,cfg,'OAR center/radius factor', ...
             nFinishedBatches,numBatches);
         drawnow('limitrate');
     end
 end
 
-function [centerBlock,kBlock,UBlock,SBlock,VBlock,batchTiming] = ...
-    computeOARCenterAndSvdBatch( ...
+function [centerBlock,rankBlock,factorBlock,batchTiming] = ...
+    computeOARCenterAndRadiusFactorBatch( ...
     quantity,scenarioDijIx,scenarioWeights,scenarioMaps,rows,cfg,numBixels, ...
     matRad_cfg,stageName,batchIx,numBatches,enableProgress)
 if cfg.CollectTiming
     batchTimer = tic;
-    batchTiming = matRad_initializeDoseIntervalTiming('batch',numel(rows));
-else
-    batchTiming = [];
 end
-centerBlock = sparse(numel(rows),numBixels);
-scenarioRows = cell(numel(scenarioDijIx),1);
-for s = 1:numel(scenarioDijIx)
-    if enableProgress
-        logScenarioProgress(matRad_cfg,cfg,stageName,batchIx,numBatches, ...
-            s,numel(scenarioDijIx),scenarioDijIx(s),scenarioWeights(s));
-    end
-    if cfg.CollectTiming
-        sectionTimer = tic;
-    end
-    scenarioRows{s} = matRad_getDoseIntervalScenarioRows(quantity,scenarioDijIx(s), ...
-        scenarioMaps{s},rows,matRad_cfg);
-    if cfg.CollectTiming
-        batchTiming.extractMapSeconds = batchTiming.extractMapSeconds + ...
-            toc(sectionTimer);
-        sectionTimer = tic;
-    end
-    centerBlock = centerBlock + scenarioWeights(s) .* scenarioRows{s};
-    if cfg.CollectTiming
-        batchTiming.centerAccumSeconds = batchTiming.centerAccumSeconds + ...
-            toc(sectionTimer);
-    end
-end
+[scenarioRows,centerBlock,batchTiming] = computeScenarioDoseBatchStats( ...
+    quantity,scenarioDijIx,scenarioWeights,scenarioMaps,rows,numBixels, ...
+    cfg,matRad_cfg,stageName,batchIx,numBatches,enableProgress,false);
 
-kBlock = zeros(numel(rows),1);
-UBlock = cell(numel(rows),1);
-SBlock = cell(numel(rows),1);
-VBlock = cell(numel(rows),1);
+rankBlock = zeros(numel(rows),1);
+factorBlock = cell(numel(rows),1);
 for localIx = 1:numel(rows)
     if enableProgress
         logVoxelProgress(matRad_cfg,cfg,stageName,batchIx,numBatches, ...
@@ -501,43 +498,41 @@ for localIx = 1:numel(rows)
     if cfg.CollectTiming
         sectionTimer = tic;
     end
-    [U,S,V,k] = truncateWeightedScenarioSvd(scenarioMatrix,centerRow, ...
-        scenarioWeights,cfg,numBixels);
+    [factor,rank] = buildWeightedScenarioRadiusFactor(scenarioMatrix, ...
+        centerRow,scenarioWeights,cfg,numBixels);
     if cfg.CollectTiming
-        batchTiming.svdSeconds = batchTiming.svdSeconds + toc(sectionTimer);
+        batchTiming.factorSeconds = batchTiming.factorSeconds + ...
+            toc(sectionTimer);
     end
-    kBlock(localIx) = k;
-    UBlock{localIx} = U;
-    SBlock{localIx} = S;
-    VBlock{localIx} = V;
+    rankBlock(localIx) = rank;
+    factorBlock{localIx} = factor;
 end
+
 if cfg.CollectTiming
     batchTiming.wallSeconds = toc(batchTimer);
 end
 end
 
-function dij_interval = assembleOARCenterAndSvdBatches(dij_interval,oarRows, ...
-    batches,centerBlocks,kBlocks,UBlocks,SBlocks,VBlocks)
+function dij_interval = assembleOARCenterAndRadiusFactorBatches(dij_interval,oarRows, ...
+    batches,centerBlocks,rankBlocks,factorBlocks)
 intervalOffset = 0;
 for b = 1:numel(batches)
     rows = batches{b};
     numRows = numel(rows);
     intervalIx = intervalOffset + (1:numRows);
     dij_interval.center(rows,:) = centerBlocks{b};
-    dij_interval.k(intervalIx) = kBlocks{b};
-    dij_interval.U(intervalIx) = UBlocks{b};
-    dij_interval.S(intervalIx) = SBlocks{b};
-    dij_interval.V(intervalIx) = VBlocks{b};
+    dij_interval.OARRadiusRank(intervalIx) = rankBlocks{b};
+    dij_interval.OARRadiusFactor(intervalIx) = factorBlocks{b};
     intervalOffset = intervalOffset + numRows;
 end
 
 if intervalOffset ~= numel(oarRows)
     matRad_cfg = MatRad_Config.instance();
-    matRad_cfg.dispError('OAR SVD batch assembly did not cover all OAR voxels.');
+    matRad_cfg.dispError('OAR radius factor batch assembly did not cover all OAR voxels.');
 end
 end
 
-function useParallel = configureOARSvdParallel(numBatches,batchSize,quantity, ...
+function useParallel = configureOARRadiusFactorParallel(numBatches,batchSize,quantity, ...
     scenarioMaps,numScenarios,numBixels,cfg,matRad_cfg)
 useParallel = false;
 if ~cfg.UseParallel || numBatches < 2
@@ -546,25 +541,25 @@ end
 
 if ~isParallelComputingAvailable()
     matRad_cfg.dispWarning(['UseParallel was requested for INTERVAL3 OAR ', ...
-        'scenario SVD, but the Parallel Computing Toolbox is unavailable. ', ...
+        'radius factor, but the Parallel Computing Toolbox is unavailable. ', ...
         'Falling back to serial batch accumulation.\n']);
     return;
 end
 
-workerMemoryBytes = estimateOARSvdBatchWorkerMemoryBytes(numScenarios, ...
-    numBixels,batchSize,cfg) + estimateOARSvdParallelBroadcastBytes( ...
+workerMemoryBytes = estimateOARRadiusFactorBatchWorkerMemoryBytes(numScenarios, ...
+    numBixels,batchSize,cfg) + estimateOARRadiusFactorParallelBroadcastBytes( ...
     quantity,scenarioMaps);
 [poolSizeLimit,memoryEstimate] = matRad_estimateMemoryLimitedWorkerCount( ...
     workerMemoryBytes,'numTasks',numBatches,'safetyFactor',1.2, ...
     'minWorkerMemoryBytes',512 * 1024^2);
 
-matRad_cfg.dispInfo(['matRad: Estimated INTERVAL3 OAR scenario SVD memory ', ...
+matRad_cfg.dispInfo(['matRad: Estimated INTERVAL3 OAR radius factor memory ', ...
     'per parallel worker is %.2f MB, including broadcast data.\n'], ...
     memoryEstimate.workerBytes / 1e6);
 
 if isempty(poolSizeLimit) || poolSizeLimit < 2
     matRad_cfg.dispWarning(['UseParallel was requested for INTERVAL3 OAR ', ...
-        'scenario SVD, but the estimated memory only allows one worker. ', ...
+        'radius factor, but the estimated memory only allows one worker. ', ...
         'Falling back to serial batch accumulation.\n']);
     return;
 end
@@ -573,19 +568,19 @@ try
     pPool = configureDoseIntervalParallelPool(poolSizeLimit,matRad_cfg);
 catch
     matRad_cfg.dispWarning(['Could not configure a parallel pool for ', ...
-        'INTERVAL3 OAR scenario SVD. Falling back to serial batch ', ...
+        'INTERVAL3 OAR radius factor. Falling back to serial batch ', ...
         'accumulation.\n']);
     return;
 end
 
 if isempty(pPool) || pPool.NumWorkers < 2
     matRad_cfg.dispWarning(['UseParallel was requested for INTERVAL3 OAR ', ...
-        'scenario SVD, but fewer than two workers are available. Falling ', ...
+        'radius factor, but fewer than two workers are available. Falling ', ...
         'back to serial batch accumulation.\n']);
     return;
 end
 
-matRad_cfg.dispInfo(['matRad: Parallel INTERVAL3 OAR scenario SVD uses %d ', ...
+matRad_cfg.dispInfo(['matRad: Parallel INTERVAL3 OAR radius factor uses %d ', ...
     'worker(s) for %d batches.\n'],pPool.NumWorkers,numBatches);
 useParallel = true;
 end
@@ -616,28 +611,28 @@ if isempty(pPool)
 elseif pPool.NumWorkers > poolSizeLimit
     matRad_cfg.dispWarning(['Reducing parallel pool from ', ...
         num2str(pPool.NumWorkers),' to ',num2str(poolSizeLimit), ...
-        ' worker(s) to keep INTERVAL3 OAR scenario SVD within the ', ...
+        ' worker(s) to keep INTERVAL3 OAR radius factor within the ', ...
         'estimated available memory.\n']);
     delete(pPool);
     pPool = parpool(poolSizeLimit);
 end
 end
 
-function workerMemoryBytes = estimateOARSvdBatchWorkerMemoryBytes(numScenarios, ...
+function workerMemoryBytes = estimateOARRadiusFactorBatchWorkerMemoryBytes(numScenarios, ...
     numBixels,batchSize,cfg)
 bytesPerDouble = 8;
 kMax = min([cfg.KMax,numBixels,numScenarios]);
 
 scenarioRowsBytes = numScenarios * batchSize * numBixels * bytesPerDouble;
 centerBlockBytes = batchSize * numBixels * bytesPerDouble;
-perVoxelWorkspaceBytes = estimateOARSvdMemoryMB(numScenarios,numBixels,cfg) * 1e6;
+perVoxelWorkspaceBytes = estimateOARRadiusFactorMemoryMB(numScenarios,numBixels,cfg) * 1e6;
 batchFactorBytes = batchSize * (3*numBixels*kMax + kMax^2) * bytesPerDouble;
 
 workerMemoryBytes = scenarioRowsBytes + centerBlockBytes + ...
     perVoxelWorkspaceBytes + batchFactorBytes;
 end
 
-function broadcastBytes = estimateOARSvdParallelBroadcastBytes(quantity,scenarioMaps)
+function broadcastBytes = estimateOARRadiusFactorParallelBroadcastBytes(quantity,scenarioMaps)
 broadcastBytes = estimateVariableBytes(quantity) + estimateVariableBytes(scenarioMaps);
 end
 
@@ -699,31 +694,31 @@ function detailed = isDetailedProgress(cfg)
 detailed = isfield(cfg,'ProgressLevel') && strcmp(cfg.ProgressLevel,'detailed');
 end
 
-function guardOARSvdMemory(numScenarios,numBixels,cfg,matRad_cfg)
+function guardOARRadiusFactorMemory(numScenarios,numBixels,cfg,matRad_cfg)
 memoryLimitMB = resolveMemoryLimitMB(cfg);
-estimatedMB = estimateOARSvdMemoryMB(numScenarios,numBixels,cfg);
+estimatedMB = estimateOARRadiusFactorMemoryMB(numScenarios,numBixels,cfg);
 
-matRad_cfg.dispInfo(['matRad: Estimated INTERVAL3 OAR scenario SVD memory ', ...
+matRad_cfg.dispInfo(['matRad: Estimated INTERVAL3 OAR radius factor memory ', ...
     'per voxel is %.2f MB (limit %.2f MB).\n'],estimatedMB,memoryLimitMB);
 
 if estimatedMB > memoryLimitMB
-    matRad_cfg.dispError(['INTERVAL3 OAR scenario SVD estimated memory per ', ...
+    matRad_cfg.dispError(['INTERVAL3 OAR radius factor estimated memory per ', ...
         'voxel is %.2f MB, which exceeds MemoryLimitMB %.2f MB. Increase ', ...
         'cfg.MemoryLimitMB, reduce cfg.KMax, reduce the number of scenarios ', ...
         'or bixels, or use INTERVAL2.'],estimatedMB,memoryLimitMB);
 end
 end
 
-function estimatedMB = estimateOARSvdMemoryMB(numScenarios,numBixels,cfg)
+function estimatedMB = estimateOARRadiusFactorMemoryMB(numScenarios,numBixels,cfg)
 bytesPerDouble = 8;
 kMax = min([cfg.KMax,numBixels,numScenarios]);
 
 scenarioMatrixBytes = 3 * numScenarios * numBixels * bytesPerDouble;
 scenarioGramBytes = 3 * numScenarios^2 * bytesPerDouble;
-truncatedSvdBytes = (3*numBixels*kMax + kMax^2) * bytesPerDouble;
+factorBytes = (3*numBixels*kMax + kMax^2) * bytesPerDouble;
 
 estimatedMB = (scenarioMatrixBytes + scenarioGramBytes + ...
-    truncatedSvdBytes) / 1e6;
+    factorBytes) / 1e6;
 end
 
 function memoryLimitMB = resolveMemoryLimitMB(cfg)
@@ -765,13 +760,24 @@ for b = 1:numBatches
 end
 end
 
-function [U,S,V,k] = truncateWeightedScenarioSvd(scenarioMatrix,centerRow, ...
-    scenarioWeights,cfg,numBixels)
+function [factor,rank] = buildWeightedScenarioRadiusFactor(scenarioMatrix, ...
+    centerRow,scenarioWeights,cfg,numBixels)
+if strcmp(cfg.RadiusMode,'extreme')
+    [factor,rank] = buildExtremeScenarioRadiusFactor(scenarioMatrix, ...
+        centerRow,scenarioWeights,numBixels);
+else
+    [factor,rank] = buildStdScenarioRadiusFactor(scenarioMatrix, ...
+        centerRow,scenarioWeights,cfg,numBixels);
+end
+end
+
+function [factor,rank] = buildStdScenarioRadiusFactor(scenarioMatrix, ...
+    centerRow,scenarioWeights,cfg,numBixels)
 tolerance = 1e-12;
 
 kMax = min(cfg.KMax,numBixels);
 if kMax == 0
-    [U,S,V,k] = zeroRankSvd(numBixels);
+    [factor,rank] = zeroRankRadiusFactor(numBixels);
     return;
 end
 
@@ -781,7 +787,7 @@ scenarioMatrix = scenarioMatrix(positiveWeightIx,:);
 
 activeBixels = unique([find(any(scenarioMatrix,1)) find(centerRow)]);
 if isempty(activeBixels)
-    [U,S,V,k] = zeroRankSvd(numBixels);
+    [factor,rank] = zeroRankRadiusFactor(numBixels);
     return;
 end
 
@@ -795,85 +801,109 @@ weightedScenarioMatrix = spdiags(sqrt(scenarioWeights),0, ...
 
 if nnz(weightedScenarioMatrix) == 0 || ...
         norm(weightedScenarioMatrix,'fro') <= tolerance
-    [U,S,V,k] = zeroRankSvd(numBixels);
+    [factor,rank] = zeroRankRadiusFactor(numBixels);
     return;
 end
 
 % X'*X and X*X' share non-zero eigenvalues; diagonalize the smaller
-% scenario Gram and expand right singular vectors back to bixel space.
+% scenario Gram and expand compact bixel-space factors.
 scenarioGram = weightedScenarioMatrix * weightedScenarioMatrix';
 scenarioGram = full(0.5 .* (scenarioGram + scenarioGram'));
-[leftSingularVectors,eigenValueMatrix] = eig(scenarioGram);
-singularValues = real(diag(eigenValueMatrix));
-singularValues(abs(singularValues) <= tolerance) = 0;
-singularValues(singularValues < 0) = 0;
-[singularValues,sortIx] = sort(singularValues,'descend');
-leftSingularVectors = leftSingularVectors(:,sortIx);
+[leftEigenVectors,eigenValueMatrix] = eig(scenarioGram);
+eigenValues = real(diag(eigenValueMatrix));
+eigenValues(abs(eigenValues) <= tolerance) = 0;
+eigenValues(eigenValues < 0) = 0;
+[eigenValues,sortIx] = sort(eigenValues,'descend');
+leftEigenVectors = leftEigenVectors(:,sortIx);
 
-positiveIx = find(singularValues > tolerance);
+positiveIx = find(eigenValues > tolerance);
 if isempty(positiveIx)
-    [U,S,V,k] = zeroRankSvd(numBixels);
+    [factor,rank] = zeroRankRadiusFactor(numBixels);
     return;
 end
 
-singularValues = singularValues(positiveIx);
-leftSingularVectors = leftSingularVectors(:,positiveIx);
+eigenValues = eigenValues(positiveIx);
+leftEigenVectors = leftEigenVectors(:,positiveIx);
 
 if strcmp(cfg.KMode,'dynamic')
-    k = selectScenarioSvdRank(singularValues,kMax, ...
+    rank = selectScenarioFactorRank(eigenValues,kMax, ...
         cfg.RetentionThreshold,tolerance);
 else
-    k = min(kMax,numel(singularValues));
+    rank = min(kMax,numel(eigenValues));
 end
 
-if k == 0
-    [U,S,V,k] = zeroRankSvd(numBixels);
+if rank == 0
+    [factor,rank] = zeroRankRadiusFactor(numBixels);
     return;
 end
 
-singularValues = singularValues(1:k);
-leftSingularVectors = leftSingularVectors(:,1:k);
-rightSingularVectors = weightedScenarioMatrix' * leftSingularVectors;
-rightSingularVectors = bsxfun(@rdivide,rightSingularVectors, ...
-    sqrt(singularValues(:))');
+eigenValues = eigenValues(1:rank);
+leftEigenVectors = leftEigenVectors(:,1:rank);
+rightFactorBasis = weightedScenarioMatrix' * leftEigenVectors;
+rightFactorBasis = bsxfun(@rdivide,rightFactorBasis, ...
+    sqrt(eigenValues(:))');
+factorActive = bsxfun(@times,rightFactorBasis,sqrt(eigenValues(:))');
 
-V = sparse(double(numBixels),double(k));
-V(activeBixels,:) = sparse(rightSingularVectors);
-U = V;
-S = spdiags(singularValues(:),0,k,k);
+factor = sparse(double(numBixels),double(rank));
+factor(activeBixels,:) = sparse(factorActive);
 end
 
-function k = selectScenarioSvdRank(singularValues,kMax,retentionThreshold,tolerance)
-maxRank = min(kMax,numel(singularValues));
+function [factor,rank] = buildExtremeScenarioRadiusFactor(scenarioMatrix, ...
+    centerRow,scenarioWeights,numBixels)
+tolerance = 1e-12;
+
+positiveWeightIx = scenarioWeights(:) > 0;
+scenarioMatrix = scenarioMatrix(positiveWeightIx,:);
+if isempty(scenarioMatrix)
+    [factor,rank] = zeroRankRadiusFactor(numBixels);
+    return;
+end
+
+centeredRows = abs(scenarioMatrix - repmat(centerRow,size(scenarioMatrix,1),1));
+delta = max(centeredRows,[],1);
+delta(abs(delta) <= tolerance) = 0;
+activeBixels = find(delta);
+
+rank = numel(activeBixels);
+if rank == 0
+    [factor,rank] = zeroRankRadiusFactor(numBixels);
+    return;
+end
+
+deltaValues = full(delta(activeBixels(:)));
+factor = sparse(activeBixels(:),(1:rank)',deltaValues(:), ...
+    double(numBixels),double(rank));
+end
+
+function rank = selectScenarioFactorRank(eigenValues,kMax,retentionThreshold,tolerance)
+maxRank = min(kMax,numel(eigenValues));
 if maxRank == 0
-    k = 0;
+    rank = 0;
     return;
 end
 
-rankSingularValues = singularValues(1:maxRank);
-energyScale = max(abs(rankSingularValues));
+rankEigenValues = eigenValues(1:maxRank);
+energyScale = max(abs(rankEigenValues));
 if ~isfinite(energyScale) || energyScale <= tolerance
-    k = maxRank;
+    rank = maxRank;
     return;
 end
 
-relativeEnergy = (rankSingularValues ./ energyScale).^2;
+relativeEnergy = (rankEigenValues ./ energyScale).^2;
 totalEnergy = sum(relativeEnergy);
 if ~isfinite(totalEnergy) || totalEnergy <= 0
-    k = maxRank;
+    rank = maxRank;
     return;
 end
 
 thresholdEnergy = retentionThreshold * totalEnergy;
-k = find(cumsum(relativeEnergy) >= thresholdEnergy,1,'first');
-if isempty(k)
-    k = maxRank;
+rank = find(cumsum(relativeEnergy) >= thresholdEnergy,1,'first');
+if isempty(rank)
+    rank = maxRank;
 end
 end
 
-function [U,S,V,k] = zeroRankSvd(numBixels)
-k = 0;
-U = sparse(numBixels,0);
-S = sparse(0,0);
-V = sparse(numBixels,0);
+function [factor,rank] = zeroRankRadiusFactor(numBixels)
+rank = 0;
+factor = sparse(numBixels,0);
 end

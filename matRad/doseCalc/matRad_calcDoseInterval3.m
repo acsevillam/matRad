@@ -20,15 +20,18 @@ function [pln_interval,dij_intervalContext] = matRad_calcDoseInterval3(ct,cst,st
 %           refScen: reference CT scenario (default: ct.refScen, otherwise 1)
 %           targetStructSel: target structure selection (default: all TARGETs)
 %           OARStructSel: OAR structure selection (default: all OARs)
-%           UseParallel: parallelize INTERVAL3 OAR center/scenario SVD
+%           UseParallel: parallelize INTERVAL3 OAR center/radius factor
 %               batches when the Parallel Computing Toolbox is available;
 %               target interval accumulation remains serial (default: false)
-%           MemoryLimitMB: batch and OAR SVD memory limit, [] uses 256 MB internally
+%           MemoryLimitMB: batch and OAR factor memory limit, [] uses 256 MB internally
 %           BatchSize: explicit voxel batch size (default: derived from MemoryLimitMB)
 %           ProgressLevel: 'summary' (default) or 'detailed'
-%           KMode: OAR SVD truncation mode, 'dynamic' (default) or 'static'
-%           KMax: maximum retained OAR SVD rank (default: 10)
-%           RetentionThreshold: dynamic retained singular-value energy in (0,1] (default: 1)
+%           RadiusMode: radius statistic, 'std' (default) or 'extreme'
+%           KMode: OAR covariance-factor truncation mode for RadiusMode='std',
+%               'dynamic' (default) or 'static'
+%           KMax: maximum retained OAR covariance-factor rank (default: 10)
+%           RetentionThreshold: dynamic retained covariance-factor energy
+%               in (0,1] (default: 1)
 %           CollectTiming: collect internal timing diagnostics in
 %               pln_interval.propOpt.dij_interval.timing (default: false)
 %

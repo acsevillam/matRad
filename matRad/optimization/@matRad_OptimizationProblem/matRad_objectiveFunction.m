@@ -43,6 +43,7 @@ useScen  = optiProb.BP.scenarios;
 scenProb = optiProb.BP.scenarioProb;
 useNominalCtScen = optiProb.BP.nominalCtScenarios;
 optiProb.validateIntervalConfiguration(cst,w);
+optiProb.validateProb2Configuration(cst,w);
 
 % retrieve matching 4D scenarios
 fullScen = cell(ndims(d),1);
@@ -108,6 +109,18 @@ for  i = 1:size(cst,1)
                         % only one variance term per VOI
                         if j == 1
                             f = f + p * w' * dOmega{i,1};
+                        end
+
+                    case 'PROB2' % scenario-free probabilistic optimization
+
+                        stats = optiProb.GetResultProbabilistic(w,dij,cst,i);
+
+                        if isa(objective,'DoseObjectives.matRad_MeanVariance')
+                            f = f + objective.penalty * ...
+                                objective.computeProb2ObjectiveFunction(stats);
+                        else
+                            f = f + objective.penalty * ...
+                                objective.computeDoseObjectiveFunction(stats.dExp);
                         end
 
                     case 'VWWC'  % voxel-wise worst case - takes minimum dose in TARGET and maximum in OAR
@@ -186,18 +199,14 @@ for  i = 1:size(cst,1)
                         end
 
                     case {'INTERVAL2','INTERVAL3'}
-                        [subIx,ixContour] = optiProb.getIntervalStructureVoxelIndices(cst,i);
+                        stats = optiProb.GetResultInterval(w,cst,i,objective);
 
                         if isequal(cst{i,3},'TARGET')
-                            f = f + objective.computeDoseObjectiveFunction(w,subIx, ...
+                            f = f + objective.computeDoseObjectiveFunction(w,stats.subIx, ...
                                 optiProb.theta1,optiProb.dij_interval);
-                        elseif strcmp(robustness,'INTERVAL2')
-                            d_i = optiProb.dij_interval.center(subIx,:)*w;
-                            f = f + objective.penalty*objective.computeDoseObjectiveFunction(d_i);
                         else
-                            [dCenter,dRadius] = optiProb.getOARDoseInterval(cst,i,ixContour,w);
                             f = f + objective.penalty*objective.computeDoseObjectiveFunction( ...
-                                dCenter + optiProb.theta2*dRadius);
+                                stats.doseForObjective);
                         end
 
                     case 'OWC'   % objective-wise worst case considers the worst individual objective function value
