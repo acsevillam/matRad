@@ -86,28 +86,36 @@ workflowConfig.precompute.robustPlans.robust_4.variants(1).label = 'p1=1 - p2=2'
 workflowConfig.precompute.robustPlans.robust_4.variants(1).p1 = 1;
 workflowConfig.precompute.robustPlans.robust_4.variants(1).p2 = 2;
 
-workflowConfig.precompute.robustPlans.robust_5.label = 'INTERVAL2';
-workflowConfig.precompute.robustPlans.robust_5.objectiveSetName = 'Interval2';
+workflowConfig.precompute.robustPlans.robust_5.label = 'MeanVariance';
+workflowConfig.precompute.robustPlans.robust_5.objectiveSetName = 'MeanVariance';
 workflowConfig.precompute.robustPlans.robust_5.scenario.mode = 'wcScen';
 workflowConfig.precompute.robustPlans.robust_5.scenario.ctActive = true;
 workflowConfig.precompute.robustPlans.robust_5.scenario.setupActive = true;
 workflowConfig.precompute.robustPlans.robust_5.scenario.shiftSD = [5 10 5];
 workflowConfig.precompute.robustPlans.robust_5.scenario.wcSigma = 1.0;
-workflowConfig.precompute.robustPlans.robust_5.variants(1).id = 'theta_10';
-workflowConfig.precompute.robustPlans.robust_5.variants(1).label = 'theta1=10';
-workflowConfig.precompute.robustPlans.robust_5.variants(1).theta1 = 10;
 
-workflowConfig.precompute.robustPlans.robust_6.label = 'INTERVAL3';
-workflowConfig.precompute.robustPlans.robust_6.objectiveSetName = 'Interval3';
+workflowConfig.precompute.robustPlans.robust_6.label = 'INTERVAL2';
+workflowConfig.precompute.robustPlans.robust_6.objectiveSetName = 'Interval2';
 workflowConfig.precompute.robustPlans.robust_6.scenario.mode = 'wcScen';
 workflowConfig.precompute.robustPlans.robust_6.scenario.ctActive = true;
 workflowConfig.precompute.robustPlans.robust_6.scenario.setupActive = true;
 workflowConfig.precompute.robustPlans.robust_6.scenario.shiftSD = [5 10 5];
 workflowConfig.precompute.robustPlans.robust_6.scenario.wcSigma = 1.0;
-workflowConfig.precompute.robustPlans.robust_6.variants(1).id = 'theta1_10_theta2_1';
-workflowConfig.precompute.robustPlans.robust_6.variants(1).label = 'theta1=10 - theta2=1';
+workflowConfig.precompute.robustPlans.robust_6.variants(1).id = 'theta_10';
+workflowConfig.precompute.robustPlans.robust_6.variants(1).label = 'theta1=10';
 workflowConfig.precompute.robustPlans.robust_6.variants(1).theta1 = 10;
-workflowConfig.precompute.robustPlans.robust_6.variants(1).theta2 = 1;
+
+workflowConfig.precompute.robustPlans.robust_7.label = 'INTERVAL3';
+workflowConfig.precompute.robustPlans.robust_7.objectiveSetName = 'Interval3';
+workflowConfig.precompute.robustPlans.robust_7.scenario.mode = 'wcScen';
+workflowConfig.precompute.robustPlans.robust_7.scenario.ctActive = true;
+workflowConfig.precompute.robustPlans.robust_7.scenario.setupActive = true;
+workflowConfig.precompute.robustPlans.robust_7.scenario.shiftSD = [5 10 5];
+workflowConfig.precompute.robustPlans.robust_7.scenario.wcSigma = 1.0;
+workflowConfig.precompute.robustPlans.robust_7.variants(1).id = 'theta1_10_theta2_1';
+workflowConfig.precompute.robustPlans.robust_7.variants(1).label = 'theta1=10 - theta2=1';
+workflowConfig.precompute.robustPlans.robust_7.variants(1).theta1 = 10;
+workflowConfig.precompute.robustPlans.robust_7.variants(1).theta2 = 1;
 
 workflowConfig.precompute.useCache = true;
 workflowConfig.precompute.writeCache = true;
