@@ -176,6 +176,13 @@ plnScenarioFreeInput.propOpt.scen4D = 'all';
 cstProb2 = cst;
 cstProb2{ixPTV,6}{1}.robustness = 'PROB2';
 cstProb2{ixOAR,6}{1}.robustness = 'PROB2';
+prob2MeanVarianceWeight = 30;
+prob2MeanVariancePenalty = cstProb2{ixPTV,6}{1}.penalty * prob2MeanVarianceWeight;
+cstProb2{ixPTV,6}{end+1} = struct(DoseObjectives.matRad_MeanVariance( ...
+    prob2MeanVariancePenalty));
+cstProb2{ixPTV,6}{end}.robustness = 'PROB2';
+prob2Label = sprintf('PROB2 (MeanVariance weight=%g)', ...
+    prob2MeanVarianceWeight);
 [plnProb2,dijProb2Context] = matRad_calcDoseProb2( ...
     ct,cstProb2,stf,plnScenarioFreeInput,dij,scenarioFreeCfg);
 resultGUIProb2 = matRad_fluenceOptimization(dijProb2Context,cstProb2,plnProb2);
@@ -231,7 +238,7 @@ planSamples(2).w = resultGUICOWC.w;
 planSamples(3).label = ccowcLabel;
 planSamples(3).cst = cstCCOWC;
 planSamples(3).w = resultGUICCOWC.w;
-planSamples(4).label = 'PROB2';
+planSamples(4).label = prob2Label;
 planSamples(4).cst = cstProb2;
 planSamples(4).w = resultGUIProb2.w;
 planSamples(5).label = interval2Label;
