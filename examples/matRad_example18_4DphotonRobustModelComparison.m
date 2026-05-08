@@ -15,9 +15,9 @@
 
 %% In this example we will
 % (i)   create a small artificial 4D photon phantom
-% (ii)  optimize nominal, COWC, c-COWC, and INTERVAL3 plans
+% (ii)  optimize nominal, COWC, c-COWC, PROB2, INTERVAL2, and INTERVAL3 plans
 % (iii) sample all plans on the same 4D CT scenario model
-% (iv)  compare DVH trustbands and robustness index 1 in 2x2 figures
+% (iv)  compare DVH trustbands and robustness index 1 in 2x3 figures
 
 %% Set matRad runtime configuration
 matRad_rc
@@ -162,20 +162,41 @@ cstCCOWC{ixPTV,6}{1}.robustness = 'c-COWC';
 cstCCOWC{ixOAR,6}{1}.robustness = 'c-COWC';
 resultGUICCOWC = matRad_fluenceOptimization(dij,cstCCOWC,plnCCOWC);
 
+%% Scenario-free precalculation setup
+scenarioFreeCfg = struct();
+scenarioFreeCfg.Quantity = quantityOpt;
+scenarioFreeCfg.refScen = ct.refScen;
+scenarioFreeCfg.ProgressLevel = 'summary'; % detailed
+scenarioFreeCfg.targetStructSel = cst(ixPTV,2);
+scenarioFreeCfg.OARStructSel = cst(ixOAR,2);
+plnScenarioFreeInput = pln;
+plnScenarioFreeInput.propOpt.scen4D = 'all';
+
+%% PROB2 optimization
+cstProb2 = cst;
+cstProb2{ixPTV,6}{1}.robustness = 'PROB2';
+cstProb2{ixOAR,6}{1}.robustness = 'PROB2';
+[plnProb2,dijProb2Context] = matRad_calcDoseProb2( ...
+    ct,cstProb2,stf,plnScenarioFreeInput,dij,scenarioFreeCfg);
+resultGUIProb2 = matRad_fluenceOptimization(dijProb2Context,cstProb2,plnProb2);
+
+%% INTERVAL2 optimization
+cstInterval2 = cst;
+cstInterval2{ixPTV,6}{1} = struct(DoseObjectives.matRad_SquaredBertoluzzaDeviation(50,60));
+[plnInterval2,dijInterval2Context] = matRad_calcDoseInterval2( ...
+    ct,cstInterval2,stf,plnScenarioFreeInput,dij,scenarioFreeCfg);
+
+plnInterval2.propOpt.theta1 = 30;
+interval2Label = sprintf('INTERVAL2 (theta1=%g)',plnInterval2.propOpt.theta1);
+cstInterval2{ixPTV,6}{1}.robustness = 'INTERVAL2';
+cstInterval2{ixOAR,6}{1}.robustness = 'INTERVAL2';
+resultGUIInterval2 = matRad_fluenceOptimization(dijInterval2Context,cstInterval2,plnInterval2);
+
 %% INTERVAL3 optimization
 cstInterval3 = cst;
 cstInterval3{ixPTV,6}{1} = struct(DoseObjectives.matRad_SquaredBertoluzzaDeviation(50,60));
-
-intervalCfg = struct();
-intervalCfg.Quantity = quantityOpt;
-intervalCfg.refScen = ct.refScen;
-intervalCfg.ProgressLevel = 'summary';
-intervalCfg.targetStructSel = cstInterval3(ixPTV,2);
-intervalCfg.OARStructSel = cstInterval3(ixOAR,2);
-plnIntervalInput = pln;
-plnIntervalInput.propOpt.scen4D = 'all';
-[plnInterval3,dijIntervalContext] = matRad_calcDoseInterval3( ...
-    ct,cstInterval3,stf,plnIntervalInput,dij,intervalCfg);
+[plnInterval3,dijInterval3Context] = matRad_calcDoseInterval3( ...
+    ct,cstInterval3,stf,plnScenarioFreeInput,dij,scenarioFreeCfg);
 
 plnInterval3.propOpt.theta1 = 30;
 plnInterval3.propOpt.theta2 = 1.0;
@@ -183,7 +204,7 @@ interval3Label = sprintf('INTERVAL3 (theta1=%g, theta2=%g)', ...
     plnInterval3.propOpt.theta1,plnInterval3.propOpt.theta2);
 cstInterval3{ixPTV,6}{1}.robustness = 'INTERVAL3';
 cstInterval3{ixOAR,6}{1}.robustness = 'INTERVAL3';
-resultGUIInterval3 = matRad_fluenceOptimization(dijIntervalContext,cstInterval3,plnInterval3);
+resultGUIInterval3 = matRad_fluenceOptimization(dijInterval3Context,cstInterval3,plnInterval3);
 
 %% Sampling setup
 plane = 3;
@@ -210,9 +231,15 @@ planSamples(2).w = resultGUICOWC.w;
 planSamples(3).label = ccowcLabel;
 planSamples(3).cst = cstCCOWC;
 planSamples(3).w = resultGUICCOWC.w;
-planSamples(4).label = interval3Label;
-planSamples(4).cst = cstInterval3;
-planSamples(4).w = resultGUIInterval3.w;
+planSamples(4).label = 'PROB2';
+planSamples(4).cst = cstProb2;
+planSamples(4).w = resultGUIProb2.w;
+planSamples(5).label = interval2Label;
+planSamples(5).cst = cstInterval2;
+planSamples(5).w = resultGUIInterval2.w;
+planSamples(6).label = interval3Label;
+planSamples(6).cst = cstInterval3;
+planSamples(6).w = resultGUIInterval3.w;
 
 %% Perform sampling
 for i = 1:numel(planSamples)
@@ -228,9 +255,12 @@ for i = 1:numel(planSamples)
 end
 
 %% Compare DVH trustbands
+numPlotRows = 2;
+numPlotCols = ceil(numel(planSamples)/numPlotRows);
+
 figure('Name','DVH trustbands from 4D sampling')
 for i = 1:numel(planSamples)
-    subplot(2,2,i);
+    subplot(numPlotRows,numPlotCols,i);
     matRad_showDVHFromSampling(planSamples(i).caSamp,[],planSamples(i).cst, ...
         planSamples(i).plnSamp,1:planSamples(i).plnSamp.multScen.totNumScen, ...
         dvhDoseWindow,'trustband',1,1,'scenWeights',planSamples(i).meta.scenWeights);
@@ -249,7 +279,7 @@ robustnessColorMap = [colormap1; colormap2(mMap2+1:end-1,:)];
 
 figure('Name','Robustness index 1 from 4D sampling')
 for i = 1:numel(planSamples)
-    subplot(2,2,i);
+    subplot(numPlotRows,numPlotCols,i);
     robustnessAnalysis = planSamples(i).doseStat.robustnessAnalysis;
 
     if ~isempty(robustnessAnalysis.index1.robustnessCube)

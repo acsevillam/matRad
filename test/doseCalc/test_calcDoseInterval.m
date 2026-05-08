@@ -13,10 +13,16 @@ function test_interval2_physical_dose_center_and_radius
     assertElementsAlmostEqual(full(dijInterval.center(1:4,:)), ...
         [2.5 0; 0 3.5; 1.75 1; 0 4],'absolute',1e-12);
     assertElementsAlmostEqual(full(dijInterval.radius),diag([7 13]),'absolute',1e-12);
+    assertEqual(dijInterval.radiusMode,'std');
+    assertEqual(dijInterval.intervalMode,'INTERVAL2');
+    assertEqual(dijInterval.targetSubIx,[1;2]);
+    assertEqual(dijInterval.OARSubIx,[3;4]);
     assertEqual(dijInterval.quantity,'physicalDose');
     assertEqual(dijInterval.quantityField,'physicalDose');
+    assertEqual(dijInterval.optimizationQuantity,'physicalDose');
     assertEqual(dijInterval.refScen,1);
     assertElementsAlmostEqual(dijInterval.scenarioWeights,[0.25;0.75],'absolute',1e-12);
+    assertFalse(isfield(dijInterval,'OARRadiusFactor'));
     assertTrue(isfield(plnOut.propOpt,'dij_interval'));
     assertEqual(dijIntervalContext.totalNumOfBixels,2);
     assertEqual(dijIntervalContext.numOfScenarios,1);
@@ -73,6 +79,13 @@ function test_interval_rejects_invalid_progress_level
     assertExceptionThrown(@() matRad_calcDoseInterval2(ct,cst,[],pln,dij,cfg), ...
         'matRad:Error');
 
+function test_interval_rejects_invalid_radius_mode
+    [ct,cst,pln,dij,cfg] = singleCtFixture();
+    cfg.RadiusMode = 'range';
+
+    assertExceptionThrown(@() matRad_calcDoseInterval2(ct,cst,[],pln,dij,cfg), ...
+        'matRad:Error');
+
 function test_interval2_batch_size_does_not_change_result
     [ct,cst,pln,dij,cfg] = singleCtFixture();
     cfg.BatchSize = 1;
@@ -87,6 +100,46 @@ function test_interval2_batch_size_does_not_change_result
         full(dijIntervalFull.center),'absolute',1e-12);
     assertElementsAlmostEqual(full(dijIntervalBatch.radius), ...
         full(dijIntervalFull.radius),'absolute',1e-12);
+
+function test_interval_rows_follow_overlap_priorities
+    [ct,cst,pln,dij,cfg] = singleCtFixture();
+    cst{1,5}.Priority = 1;
+    cst{2,5}.Priority = 2;
+    cst{1,6} = {struct()};
+    cst{2,4}{1} = [2;3;4];
+    cst{2,6} = {struct()};
+
+    [plnOut,~] = calcInterval3(ct,cst,[],pln,dij,cfg);
+    dijInterval = plnOut.propOpt.dij_interval;
+
+    assertEqual(dijInterval.targetSubIx,[1;2]);
+    assertEqual(dijInterval.OARSubIx,[3;4]);
+
+function test_interval2_explicit_std_matches_default_radius_mode
+    [ct,cst,pln,dij,cfg] = singleCtFixture();
+
+    [plnDefault,~] = calcInterval2(ct,cst,[],pln,dij,cfg);
+    cfg.RadiusMode = 'std';
+    [plnStd,~] = calcInterval2(ct,cst,[],pln,dij,cfg);
+
+    assertElementsAlmostEqual(full(plnStd.propOpt.dij_interval.center), ...
+        full(plnDefault.propOpt.dij_interval.center),'absolute',1e-12);
+    assertElementsAlmostEqual(full(plnStd.propOpt.dij_interval.radius), ...
+        full(plnDefault.propOpt.dij_interval.radius),'absolute',1e-12);
+    assertEqual(plnStd.propOpt.dij_interval.radiusMode,'std');
+
+function test_interval2_extreme_target_radius
+    [ct,cst,pln,dij,cfg] = singleCtFixture();
+    cfg.RadiusMode = 'extreme';
+
+    [plnOut,~] = calcInterval2(ct,cst,[],pln,dij,cfg);
+    dijInterval = plnOut.propOpt.dij_interval;
+
+    assertEqual(dijInterval.radiusMode,'extreme');
+    assertElementsAlmostEqual(full(dijInterval.center(1:4,:)), ...
+        [2.5 0; 0 3.5; 1.75 1; 0 4],'absolute',1e-12);
+    assertElementsAlmostEqual(full(dijInterval.radius), ...
+        diag([8.5 14.5]),'absolute',1e-12);
 
 function test_interval2_collect_timing_reports_target_and_oar_components
     [ct,cst,pln,dij,cfg] = singleCtFixture();
@@ -104,11 +157,11 @@ function test_interval2_collect_timing_reports_target_and_oar_components
     assertTimingStageIsValid(timing.target);
     assertTimingStageIsValid(timing.oar);
     assertTrue(timing.target.radiusMultiplySeconds >= 0);
-    assertEqual(timing.target.svdSeconds,0);
+    assertEqual(timing.target.factorSeconds,0);
     assertEqual(timing.oar.radiusMultiplySeconds,0);
-    assertEqual(timing.oar.svdSeconds,0);
+    assertEqual(timing.oar.factorSeconds,0);
 
-function test_interval3_oar_covariance_svd
+function test_interval3_oar_covariance_factor
     [ct,cst,pln,dij,cfg] = singleCtFixture();
     cfg.KMode = 'static';
     cfg.KMax = 2;
@@ -116,13 +169,37 @@ function test_interval3_oar_covariance_svd
     [plnOut,~] = calcInterval3(ct,cst,[],pln,dij,cfg);
     dijInterval = plnOut.propOpt.dij_interval;
 
-    covRow3 = full(dijInterval.U{1}*dijInterval.S{1}*dijInterval.V{1}');
-    covRow4 = full(dijInterval.U{2}*dijInterval.S{2}*dijInterval.V{2}');
+    covRow3 = full(reconstructOARRadiusCovariance(dijInterval,1));
+    covRow4 = full(reconstructOARRadiusCovariance(dijInterval,2));
     assertElementsAlmostEqual(covRow3,[0.1875 0; 0 0],'absolute',1e-10);
     assertElementsAlmostEqual(covRow4,[0 0; 0 3],'absolute',1e-10);
+    assertEqual(dijInterval.radiusMode,'std');
     assertEqual(dijInterval.OARSubIx,[3;4]);
+    assertEqual(dijInterval.OARRadiusRank,[1;1]);
+    assertFalse(isfield(dijInterval,'U'));
+    assertFalse(isfield(dijInterval,'S'));
+    assertFalse(isfield(dijInterval,'V'));
+    assertFalse(isfield(dijInterval,'k'));
 
-function test_interval3_dynamic_svd_respects_kmax
+function test_interval3_extreme_oar_radius_factor
+    [ct,cst,pln,dij,cfg] = singleCtFixture();
+    cfg.RadiusMode = 'extreme';
+    cfg.KMode = 'static';
+    cfg.KMax = 2;
+
+    [plnOut,~] = calcInterval3(ct,cst,[],pln,dij,cfg);
+    dijInterval = plnOut.propOpt.dij_interval;
+
+    covRow3 = full(reconstructOARRadiusCovariance(dijInterval,1));
+    covRow4 = full(reconstructOARRadiusCovariance(dijInterval,2));
+    assertEqual(dijInterval.radiusMode,'extreme');
+    assertElementsAlmostEqual(full(dijInterval.radius), ...
+        diag([8.5 14.5]),'absolute',1e-12);
+    assertElementsAlmostEqual(covRow3,[0.5625 0; 0 0],'absolute',1e-10);
+    assertElementsAlmostEqual(covRow4,[0 0; 0 9],'absolute',1e-10);
+    assertEqual(dijInterval.OARRadiusRank,[1;1]);
+
+function test_interval3_dynamic_radius_factor_respects_kmax
     [ct,cst,pln,dij,cfg] = singleCtFixture();
     scenarioValues = zeros(3,5);
     pln.multScen = fixtureScenarioModel(ct,[1;1;1],scenarioValues, ...
@@ -138,12 +215,11 @@ function test_interval3_dynamic_svd_respects_kmax
     [plnOut,~] = calcInterval3(ct,cst,[],pln,dij,cfg);
     dijInterval = plnOut.propOpt.dij_interval;
 
-    assertEqual(dijInterval.k(1),1);
-    assertEqual(size(dijInterval.U{1},2),1);
-    assertEqual(size(dijInterval.S{1}),[1 1]);
-    assertEqual(size(dijInterval.V{1},2),1);
+    assertEqual(dijInterval.OARRadiusRank(1),1);
+    assertEqual(size(dijInterval.OARRadiusFactor{1},1),2);
+    assertEqual(size(dijInterval.OARRadiusFactor{1},2),1);
 
-function test_interval3_oar_svd_accepts_sufficient_memory_limit
+function test_interval3_oar_radius_factor_accepts_sufficient_memory_limit
     [ct,cst,pln,dij,cfg] = singleCtFixture();
     cfg.KMode = 'static';
     cfg.KMax = 2;
@@ -156,10 +232,10 @@ function test_interval3_oar_svd_accepts_sufficient_memory_limit
 
     assertElementsAlmostEqual(full(dijIntervalLimited.center), ...
         full(dijIntervalDefault.center),'absolute',1e-12);
-    assertElementsAlmostEqual(full(dijIntervalLimited.U{1}*dijIntervalLimited.S{1}*dijIntervalLimited.V{1}'), ...
-        full(dijIntervalDefault.U{1}*dijIntervalDefault.S{1}*dijIntervalDefault.V{1}'),'absolute',1e-12);
+    assertElementsAlmostEqual(full(reconstructOARRadiusCovariance(dijIntervalLimited,1)), ...
+        full(reconstructOARRadiusCovariance(dijIntervalDefault,1)),'absolute',1e-12);
 
-function test_interval3_oar_svd_memory_scales_with_scenario_matrix
+function test_interval3_oar_radius_factor_memory_scales_with_scenario_matrix
     [ct,cst,pln,~,cfg] = singleCtFixture();
     numBixels = 50;
     dij = baseDij(ct.cubeDim,numBixels);
@@ -181,14 +257,13 @@ function test_interval3_oar_svd_memory_scales_with_scenario_matrix
     centerRow = dijInterval.center(3,:);
     expectedCovariance = scenarioMatrix' * spdiags(dijInterval.scenarioWeights,0,2,2) * ...
         scenarioMatrix - centerRow' * centerRow;
-    reconstructedCovariance = dijInterval.U{1} * dijInterval.S{1} * ...
-        dijInterval.V{1}';
+    reconstructedCovariance = reconstructOARRadiusCovariance(dijInterval,1);
 
-    assertEqual(size(dijInterval.V{1},1),numBixels);
+    assertEqual(size(dijInterval.OARRadiusFactor{1},1),numBixels);
     assertElementsAlmostEqual(full(reconstructedCovariance), ...
         full(expectedCovariance),'absolute',1e-10);
 
-function test_interval3_dynamic_svd_rank_selection_handles_large_energy_values
+function test_interval3_dynamic_radius_factor_rank_selection_handles_large_energy_values
     [ct,cst,pln,dij,cfg] = singleCtFixture();
     cfg.KMode = 'dynamic';
     cfg.KMax = 2;
@@ -202,19 +277,17 @@ function test_interval3_dynamic_svd_rank_selection_handles_large_energy_values
     [plnOut,~] = calcInterval3(ct,cst,[],pln,dij,cfg);
     dijInterval = plnOut.propOpt.dij_interval;
 
-    assertEqual(dijInterval.k(1),1);
-    assertTrue(all(isfinite(nonzeros(dijInterval.U{1}))));
-    assertTrue(all(isfinite(nonzeros(dijInterval.S{1}))));
-    assertTrue(all(isfinite(nonzeros(dijInterval.V{1}))));
+    assertEqual(dijInterval.OARRadiusRank(1),1);
+    assertTrue(all(isfinite(nonzeros(dijInterval.OARRadiusFactor{1}))));
 
-function test_interval3_oar_svd_rejects_low_memory_limit
+function test_interval3_oar_radius_factor_rejects_low_memory_limit
     [ct,cst,pln,dij,cfg] = singleCtFixture();
     cfg.MemoryLimitMB = 1e-6;
 
     assertExceptionThrown(@() matRad_calcDoseInterval3(ct,cst,[],pln,dij,cfg), ...
         'matRad:Error');
 
-function test_interval2_low_memory_limit_does_not_apply_oar_svd_guard
+function test_interval2_low_memory_limit_does_not_apply_oar_radius_factor_guard
     [ct,cst,pln,dij,cfg] = singleCtFixture();
     cfg.MemoryLimitMB = 1e-6;
 
@@ -239,10 +312,10 @@ function test_interval3_batch_size_does_not_change_result_when_memory_allows
 
     assertElementsAlmostEqual(full(dijIntervalBatch.center), ...
         full(dijIntervalFull.center),'absolute',1e-12);
-    assertElementsAlmostEqual(full(dijIntervalBatch.U{2}*dijIntervalBatch.S{2}*dijIntervalBatch.V{2}'), ...
-        full(dijIntervalFull.U{2}*dijIntervalFull.S{2}*dijIntervalFull.V{2}'),'absolute',1e-12);
+    assertElementsAlmostEqual(full(reconstructOARRadiusCovariance(dijIntervalBatch,2)), ...
+        full(reconstructOARRadiusCovariance(dijIntervalFull,2)),'absolute',1e-12);
 
-function test_interval3_parallel_oar_center_svd_matches_serial
+function test_interval3_parallel_oar_center_radius_factor_matches_serial
     [ct,cst,pln,dij,cfg] = singleCtFixture();
     cfg.KMode = 'static';
     cfg.KMax = 2;
@@ -259,18 +332,17 @@ function test_interval3_parallel_oar_center_svd_matches_serial
 
     assertElementsAlmostEqual(full(dijIntervalParallel.center), ...
         full(dijIntervalSerial.center),'absolute',1e-12);
-    assertElementsAlmostEqual(dijIntervalParallel.k,dijIntervalSerial.k, ...
+    assertElementsAlmostEqual(dijIntervalParallel.OARRadiusRank, ...
+        dijIntervalSerial.OARRadiusRank, ...
         'absolute',1e-12);
-    for i = 1:numel(dijIntervalSerial.U)
-        serialCovariance = dijIntervalSerial.U{i} * dijIntervalSerial.S{i} * ...
-            dijIntervalSerial.V{i}';
-        parallelCovariance = dijIntervalParallel.U{i} * dijIntervalParallel.S{i} * ...
-            dijIntervalParallel.V{i}';
+    for i = 1:numel(dijIntervalSerial.OARRadiusFactor)
+        serialCovariance = reconstructOARRadiusCovariance(dijIntervalSerial,i);
+        parallelCovariance = reconstructOARRadiusCovariance(dijIntervalParallel,i);
         assertElementsAlmostEqual(full(parallelCovariance),full(serialCovariance), ...
             'absolute',1e-12);
     end
 
-function test_interval3_collect_timing_reports_oar_svd_components
+function test_interval3_collect_timing_reports_oar_radius_factor_components
     [ct,cst,pln,dij,cfg] = singleCtFixture();
     cfg.KMode = 'static';
     cfg.KMax = 2;
@@ -285,7 +357,7 @@ function test_interval3_collect_timing_reports_oar_svd_components
     assertTimingStageIsValid(timing.target);
     assertTimingStageIsValid(timing.oar);
     assertTrue(timing.target.radiusMultiplySeconds >= 0);
-    assertTrue(timing.oar.svdSeconds >= 0);
+    assertTrue(timing.oar.factorSeconds >= 0);
     assertEqual(timing.oar.radiusMultiplySeconds,0);
     assertTrue(timing.oar.serialAssemblySeconds >= 0);
 
@@ -298,10 +370,8 @@ function test_interval3_zero_oar_covariance_is_valid_zero_rank
     [plnOut,~] = calcInterval3(ct,cst,[],pln,dij,cfg);
     dijInterval = plnOut.propOpt.dij_interval;
 
-    assertEqual(dijInterval.k(1),0);
-    assertEqual(size(dijInterval.U{1}),[2 0]);
-    assertEqual(size(dijInterval.S{1}),[0 0]);
-    assertEqual(size(dijInterval.V{1}),[2 0]);
+    assertEqual(dijInterval.OARRadiusRank(1),0);
+    assertEqual(size(dijInterval.OARRadiusFactor{1}),[2 0]);
 
 function test_interval2_multict_defaults_to_first_ct_scenario
     [ct,cst,pln,dij,cfg] = multiCtFixture(1);
@@ -400,6 +470,10 @@ function test_interval2_multict_uses_dij_ct_grid_when_ct_axes_are_missing
 
     assertElementsAlmostEqual(full(dijInterval.center(:,1)),expectedCenter,'absolute',1e-12);
 
+function covariance = reconstructOARRadiusCovariance(dijInterval,intervalIx)
+    factor = dijInterval.OARRadiusFactor{intervalIx};
+    covariance = factor * factor';
+
 function [plnInterval,dijIntervalContext] = calcInterval2(ct,cst,stf,pln,dij,cfg)
     [plnInterval,dijIntervalContext] = matRad_calcDoseInterval2(ct,cst,stf,pln,dij,cfg);
 
@@ -412,7 +486,7 @@ function assertTimingStageIsValid(stageTiming)
     assertTrue(stageTiming.batchSize >= 0);
     assertTrue(stageTiming.numBatches >= 0);
     timingFields = {'extractMapSeconds','centerAccumSeconds', ...
-        'radiusMultiplySeconds','svdSeconds','parallelSetupSeconds', ...
+        'radiusMultiplySeconds','factorSeconds','parallelSetupSeconds', ...
         'parallelComputeWallSeconds','serialAssemblySeconds','wallSeconds'};
     for fieldIx = 1:numel(timingFields)
         value = stageTiming.(timingFields{fieldIx});

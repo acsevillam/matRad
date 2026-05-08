@@ -136,6 +136,27 @@ function test_interval3_oar_gradient_matches_central_difference
 
     assertElementsAlmostEqual(g,gNum,'absolute',1e-6);
 
+function test_interval3_oar_extreme_factor_gradient_matches_central_difference
+
+    [optiProb,dij,cst,w] = buildIntervalOARExtremeRadiusProblem();
+
+    f = @(x) optiProb.matRad_objectiveFunction(x,dij,cst);
+    g = optiProb.matRad_objectiveGradient(w,dij,cst);
+    gNum = centralDifference(f,w);
+
+    assertElementsAlmostEqual(g,gNum,'absolute',1e-6);
+
+function test_get_result_interval_matches_interval3_oar_dose
+
+    [optiProb,~,cst,w,expectedDose] = buildIntervalOARRadiusProblem();
+    objective = cst{1,6}{1};
+
+    stats = optiProb.GetResultInterval(w,cst,1,objective);
+
+    assertElementsAlmostEqual(stats.doseForObjective,expectedDose,'absolute',1e-12);
+    assertElementsAlmostEqual(stats.gradDoseForObjective, ...
+        stats.centerRows + optiProb.theta2*stats.gradRadius,'absolute',1e-12);
+
 function test_interval3_oar_uses_reference_scenario_contour
 
     [optiProb,dij,cst,w,expectedDose] = buildReferenceContourOARRadiusProblem();
@@ -171,7 +192,7 @@ function test_interval_target_rejects_non_bertoluzza_objective
 
     assertExceptionThrown(@() optiProb.matRad_objectiveFunction(w,dij,cst),'matRad:Error');
 
-function test_interval3_oar_rejects_missing_svd_fields
+function test_interval3_oar_rejects_missing_radius_factor_fields
 
     [optiProb,dij,cst,w] = buildIntervalOARCenterProblem('INTERVAL3');
 
@@ -181,9 +202,8 @@ function test_interval3_oar_rejects_uncovered_voxel
 
     [optiProb,dij,cst,w] = buildIntervalOARRadiusProblem();
     optiProb.dij_interval.OARSubIx = 1;
-    optiProb.dij_interval.U = optiProb.dij_interval.U(1);
-    optiProb.dij_interval.S = optiProb.dij_interval.S(1);
-    optiProb.dij_interval.V = optiProb.dij_interval.V(1);
+    optiProb.dij_interval.OARRadiusFactor = optiProb.dij_interval.OARRadiusFactor(1);
+    optiProb.dij_interval.OARRadiusRank = optiProb.dij_interval.OARRadiusRank(1);
 
     assertExceptionThrown(@() optiProb.matRad_objectiveFunction(w,dij,cst),'matRad:Error');
 
@@ -198,9 +218,8 @@ function test_interval_rejects_quantity_mismatch
 function test_interval3_oar_accepts_zero_rank_radius
 
     [optiProb,dij,cst,w] = buildIntervalOARRadiusProblem();
-    optiProb.dij_interval.U{1} = sparse(2,0);
-    optiProb.dij_interval.S{1} = sparse(0,0);
-    optiProb.dij_interval.V{1} = sparse(2,0);
+    optiProb.dij_interval.OARRadiusFactor{1} = sparse(2,0);
+    optiProb.dij_interval.OARRadiusRank(1) = 0;
 
     f = optiProb.matRad_objectiveFunction(w,dij,cst);
 
@@ -309,12 +328,14 @@ function [optiProb,dij,cst,w,expectedDose] = buildIntervalOARRadiusProblem()
     optiProb.dij_interval.center = sparse([1 0; 0 1; 0 0]);
     optiProb.dij_interval.radius = sparse(2,2);
     optiProb.dij_interval.OARSubIx = [1;2];
-    optiProb.dij_interval.U = {speye(2),speye(2)};
-    optiProb.dij_interval.S = {sparse(diag([4 1])),sparse(diag([1 9]))};
-    optiProb.dij_interval.V = {speye(2),speye(2)};
+    optiProb.dij_interval.OARRadiusFactor = {sparse(diag([2 1])), ...
+        sparse(diag([1 3]))};
+    optiProb.dij_interval.OARRadiusRank = [2;2];
+    optiProb.dij_interval.radiusMode = 'std';
 
     dCenter = optiProb.dij_interval.center([1;2],:)*w;
-    dRadius = [sqrt(w'*diag([4 1])*w); sqrt(w'*diag([1 9])*w)];
+    dRadius = [norm(optiProb.dij_interval.OARRadiusFactor{1}'*w); ...
+        norm(optiProb.dij_interval.OARRadiusFactor{2}'*w)];
     expectedDose = dCenter + optiProb.theta2*dRadius;
 
     dij.physicalDose = {sparse(3,2)};
@@ -330,6 +351,19 @@ function [optiProb,dij,cst,w,expectedDose] = buildIntervalOARRadiusProblem()
     cst{1,5}.alphaX = [];
     cst{1,5}.betaX = [];
     cst{1,6} = {objective};
+
+function [optiProb,dij,cst,w,expectedDose] = buildIntervalOARExtremeRadiusProblem()
+
+    [optiProb,dij,cst,w,~] = buildIntervalOARRadiusProblem();
+    optiProb.dij_interval.radiusMode = 'extreme';
+    optiProb.dij_interval.OARRadiusFactor = {sparse(1,1,1.5,2,1), ...
+        sparse(2,1,3,2,1)};
+    optiProb.dij_interval.OARRadiusRank = [1;1];
+
+    dCenter = optiProb.dij_interval.center([1;2],:)*w;
+    dRadius = [norm(optiProb.dij_interval.OARRadiusFactor{1}'*w); ...
+        norm(optiProb.dij_interval.OARRadiusFactor{2}'*w)];
+    expectedDose = dCenter + optiProb.theta2*dRadius;
 
 function [optiProb,dij,cst,w,expectedDose] = buildReferenceContourOARRadiusProblem()
 

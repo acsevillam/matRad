@@ -241,6 +241,7 @@ linIxDIJ = find(~cellfun(@isempty,dij.physicalDose(scen4D,:,:)))';
 linIxDIJ_nominalCT = find(~cellfun(@isempty,dij.physicalDose(scen4D,1,1)))';
 
 FLAG_CALC_PROB = false;
+FLAG_PROB2     = false;
 FLAG_ROB_OPT   = false;
 
 
@@ -249,10 +250,17 @@ for i = 1:size(cst,1)
         if strcmp(cst{i,6}{j}.robustness,'PROB') && numel(linIxDIJ) > 1
             FLAG_CALC_PROB = true;
         end
+        if strcmp(cst{i,6}{j}.robustness,'PROB2')
+            FLAG_PROB2 = true;
+        end
         if ~strcmp(cst{i,6}{j}.robustness,'none') && numel(linIxDIJ) > 1
             FLAG_ROB_OPT = true;
         end
     end
+end
+
+if FLAG_PROB2 && (~isfield(pln,'propOpt') || ~isfield(pln.propOpt,'dij_prob2'))
+    matRad_cfg.dispError('PROB2 optimization requires pln.propOpt.dij_prob2. Run matRad_calcDoseProb2 first.');
 end
 
 if FLAG_CALC_PROB
@@ -261,7 +269,9 @@ end
 
 
 % set optimization options
-if ~FLAG_ROB_OPT || FLAG_CALC_PROB     % if multiple robust objectives are defined for one structure then remove FLAG_CALC_PROB from the if clause
+if FLAG_PROB2
+    ixForOpt = 1;
+elseif ~FLAG_ROB_OPT || FLAG_CALC_PROB     % if multiple robust objectives are defined for one structure then remove FLAG_CALC_PROB from the if clause
     ixForOpt = scen4D;
 else
     ixForOpt = linIxDIJ;
@@ -323,10 +333,15 @@ if isfield(pln,'propOpt')
         optiProb.dij_interval = pln.propOpt.dij_interval;
     end
 
+    if isfield(pln.propOpt,'dij_prob2')
+        optiProb.dij_prob2 = pln.propOpt.dij_prob2;
+    end
+
     optiProb.validateCheapCOWCParameters(numel(ixForOpt));
 end
 
 optiProb.validateIntervalConfiguration(cst,wInit);
+optiProb.validateProb2Configuration(cst,wInit);
 
 %Get Bounds
 if ~isfield(pln.propOpt,'boundMU')

@@ -34,6 +34,8 @@ classdef matRad_OptimizationProblem < handle
         theta2 = 0.95; %OAR interval radius weight for INTERVAL3 objectives
         dij_interval = struct(); %Interval dose influence data for INTERVAL2/INTERVAL3 objectives
         intervalCache = struct(); %Cache for INTERVAL3 OAR interval dose data
+        dij_prob2 = struct(); %Scenario-free probabilistic data for PROB2 objectives
+        prob2Cache = struct(); %Cache for PROB2 expected dose and variance data
 
         minimumW = NaN;
         maximumW = NaN;
@@ -122,6 +124,32 @@ classdef matRad_OptimizationProblem < handle
             if needsOARInterval
                 optiProb.validateOARIntervalData(cst,w);
             end
+        end
+
+        function validateProb2Configuration(optiProb,cst,w)
+            [hasProb2,needsOmega] = optiProb.getProb2Requirements(cst);
+
+            if ~hasProb2
+                return;
+            end
+
+            optiProb.validateProb2Data(w);
+
+            if needsOmega
+                for i = 1:size(cst,1)
+                    if optiProb.structureNeedsProb2Omega(cst,i)
+                        optiProb.validateProb2OmegaData(cst,i,w);
+                    end
+                end
+            end
+        end
+
+        function stats = GetResultProbabilistic(optiProb,w,dij,cst,structureIdx) %#ok<INUSD>
+            stats = optiProb.getProb2DoseStats(w,cst,structureIdx);
+        end
+
+        function stats = GetResultInterval(optiProb,w,cst,structureIdx,objective)
+            stats = optiProb.getIntervalDoseStats(w,cst,structureIdx,objective);
         end
         
         function lb = lowerBounds(optiProb,w)
@@ -246,66 +274,274 @@ classdef matRad_OptimizationProblem < handle
         end
 
         function [dCenter,dRadius,fluenceGradientCenter,fluenceGradientRadius] = getOARDoseInterval(optiProb,cst,structureIdx,contourIx,w)
-            optiProb.refreshIntervalCache(w);
-            [subIx,refContourIx] = optiProb.getIntervalStructureVoxelIndices(cst,structureIdx);
-            if ~isempty(contourIx) && contourIx ~= refContourIx
-                matRad_cfg = MatRad_Config.instance();
-                matRad_cfg.dispError('INTERVAL3 OAR contour index must match dij_interval.refScen!');
+            if nargin < 4 || isempty(contourIx)
+                contourIx = [];
             end
-            contourIx = refContourIx;
-
-            fieldName = sprintf('s%d_c%d',structureIdx,contourIx);
-            if isfield(optiProb.intervalCache,fieldName)
-                cachedInterval = optiProb.intervalCache.(fieldName);
-                dCenter = cachedInterval.dCenter;
-                dRadius = cachedInterval.dRadius;
-                fluenceGradientCenter = cachedInterval.fluenceGradientCenter;
-                fluenceGradientRadius = cachedInterval.fluenceGradientRadius;
-                return;
-            end
-
-            Dc = optiProb.dij_interval.center;
-            dCenter = Dc(subIx,:)*w;
-            fluenceGradientCenter = Dc(subIx,:);
-
-            [~,intervalIx] = ismember(subIx,optiProb.dij_interval.OARSubIx(:));
-            dRadius = zeros(numel(subIx),1);
-            fluenceGradientRadius = zeros(numel(subIx),numel(w));
-            epsilon = 1e-12;
-            matRad_cfg = MatRad_Config.instance();
-
-            for ix = 1:numel(subIx)
-                U = optiProb.dij_interval.U{intervalIx(ix)};
-                S = optiProb.dij_interval.S{intervalIx(ix)};
-                V = optiProb.dij_interval.V{intervalIx(ix)};
-
-                radiusGradientTmp = U*(S*(V'*w));
-                radiusSquared = w'*radiusGradientTmp;
-
-                if radiusSquared < 0 && abs(radiusSquared) < epsilon
-                    radiusSquared = 0;
-                elseif radiusSquared < 0
-                    matRad_cfg.dispError('INTERVAL3 OAR radius matrix must be positive semidefinite!');
-                end
-
-                dRadius(ix) = sqrt(radiusSquared);
-
-                if dRadius(ix) > epsilon
-                    fluenceGradientRadius(ix,:) = radiusGradientTmp' / dRadius(ix);
-                end
-            end
-
-            cachedInterval.dCenter = dCenter;
-            cachedInterval.dRadius = dRadius;
-            cachedInterval.fluenceGradientCenter = fluenceGradientCenter;
-            cachedInterval.fluenceGradientRadius = fluenceGradientRadius;
-            optiProb.intervalCache.(fieldName) = cachedInterval;
+            dummyObjective.robustness = 'INTERVAL3';
+            stats = optiProb.getIntervalDoseStats(w,cst,structureIdx, ...
+                dummyObjective,contourIx);
+            dCenter = stats.centerDose;
+            dRadius = stats.radiusDose;
+            fluenceGradientCenter = stats.centerRows;
+            fluenceGradientRadius = stats.gradRadius;
         end
 
         function refreshIntervalCache(optiProb,w)
             if ~isfield(optiProb.intervalCache,'w') || ~isequal(optiProb.intervalCache.w,w)
                 optiProb.intervalCache = struct();
                 optiProb.intervalCache.w = w;
+            end
+        end
+
+        function refreshProb2Cache(optiProb,w)
+            if ~isfield(optiProb.prob2Cache,'w') || ~isequal(optiProb.prob2Cache.w,w)
+                optiProb.prob2Cache = struct();
+                optiProb.prob2Cache.w = w;
+            end
+        end
+
+        function stats = getProb2DoseStats(optiProb,w,cst,structureIdx)
+            optiProb.refreshProb2Cache(w);
+            [subIx,contourIx] = optiProb.getProb2StructureVoxelIndices(cst,structureIdx);
+            fieldName = sprintf('s%d_c%d',structureIdx,contourIx);
+
+            if isfield(optiProb.prob2Cache,fieldName)
+                stats = optiProb.prob2Cache.(fieldName);
+                return;
+            end
+
+            optiProb.validateProb2Data(w);
+            expected = optiProb.dij_prob2.expected;
+            expectedRows = expected(subIx,:);
+
+            stats = struct();
+            stats.subIx = subIx;
+            stats.contourIx = contourIx;
+            stats.expectedRows = expectedRows;
+            stats.dExp = expectedRows*w;
+            stats.Omega = optiProb.getProb2OmegaForStructure(cst,structureIdx,subIx);
+            stats.omegaW = [];
+            stats.meanVariance = [];
+            stats.gradMeanVariance = [];
+
+            if ~isempty(stats.Omega)
+                stats.omegaW = stats.Omega*w;
+                stats.meanVariance = full(w'*stats.omegaW) / numel(subIx);
+                stats.meanVariance = optiProb.validateProb2MeanVariance( ...
+                    stats.meanVariance,w,stats.omegaW);
+                stats.gradMeanVariance = 2.*stats.omegaW ./ numel(subIx);
+            end
+
+            optiProb.prob2Cache.(fieldName) = stats;
+        end
+
+        function stats = getIntervalDoseStats(optiProb,w,cst,structureIdx,objective,contourIx)
+            if nargin < 6
+                contourIx = [];
+            end
+
+            robustness = objective.robustness;
+            [subIx,refContourIx] = optiProb.getIntervalStructureVoxelIndices(cst,structureIdx);
+            if ~isempty(contourIx) && contourIx ~= refContourIx
+                matRad_cfg = MatRad_Config.instance();
+                matRad_cfg.dispError('INTERVAL contour index must match dij_interval.refScen!');
+            end
+            contourIx = refContourIx;
+
+            stats = struct();
+            stats.subIx = subIx;
+            stats.contourIx = contourIx;
+            stats.centerRows = optiProb.dij_interval.center(subIx,:);
+            stats.centerDose = stats.centerRows*w;
+            stats.radiusDose = [];
+            stats.gradRadius = [];
+            stats.doseForObjective = stats.centerDose;
+            stats.gradDoseForObjective = stats.centerRows;
+            stats.radiusMatrix = [];
+
+            if isequal(cst{structureIdx,3},'TARGET')
+                if isfield(optiProb.dij_interval,'radius')
+                    stats.radiusMatrix = optiProb.dij_interval.radius;
+                end
+                return;
+            end
+
+            if strcmp(robustness,'INTERVAL2')
+                return;
+            end
+
+            optiProb.refreshIntervalCache(w);
+            fieldName = sprintf('s%d_c%d_interval3',structureIdx,contourIx);
+            if isfield(optiProb.intervalCache,fieldName)
+                cachedInterval = optiProb.intervalCache.(fieldName);
+                stats.radiusDose = cachedInterval.radiusDose;
+                stats.gradRadius = cachedInterval.gradRadius;
+                stats.doseForObjective = stats.centerDose + ...
+                    optiProb.theta2.*stats.radiusDose;
+                stats.gradDoseForObjective = stats.centerRows + ...
+                    optiProb.theta2.*stats.gradRadius;
+                return;
+            end
+
+            [~,intervalIx] = ismember(subIx,optiProb.dij_interval.OARSubIx(:));
+            if any(intervalIx == 0)
+                matRad_cfg = MatRad_Config.instance();
+                matRad_cfg.dispError('INTERVAL3 OAR objectives require all OAR voxels in dij_interval.OARSubIx!');
+            end
+
+            radiusDose = zeros(numel(subIx),1);
+            gradRadius = zeros(numel(subIx),numel(w));
+            epsilon = 1e-12;
+            matRad_cfg = MatRad_Config.instance();
+
+            for ix = 1:numel(subIx)
+                F = optiProb.dij_interval.OARRadiusFactor{intervalIx(ix)};
+                z = F'*w;
+                radiusDose(ix) = norm(z);
+
+                if radiusDose(ix) > epsilon
+                    gradRadius(ix,:) = (F*z)' ./ radiusDose(ix);
+                end
+            end
+
+            stats.radiusDose = radiusDose;
+            stats.gradRadius = gradRadius;
+            stats.doseForObjective = stats.centerDose + ...
+                optiProb.theta2.*stats.radiusDose;
+            stats.gradDoseForObjective = stats.centerRows + ...
+                optiProb.theta2.*stats.gradRadius;
+
+            cachedInterval.radiusDose = stats.radiusDose;
+            cachedInterval.gradRadius = stats.gradRadius;
+            optiProb.intervalCache.(fieldName) = cachedInterval;
+        end
+
+        function validateProb2Data(optiProb,w)
+            matRad_cfg = MatRad_Config.instance();
+
+            if ~isfield(optiProb.dij_prob2,'expected')
+                matRad_cfg.dispError('PROB2 optimization requires dij_prob2.expected!');
+            end
+
+            if nargin >= 2 && ~isempty(w) && ...
+                    size(optiProb.dij_prob2.expected,2) ~= numel(w)
+                matRad_cfg.dispError('dij_prob2.expected dimensions are inconsistent with the fluence vector!');
+            end
+
+            optiProb.validateProb2Quantity();
+        end
+
+        function validateProb2Quantity(optiProb)
+            if ~isfield(optiProb.dij_prob2,'quantity') || isempty(optiProb.dij_prob2.quantity) || ...
+                    isempty(optiProb.quantityOpt)
+                return;
+            end
+
+            prob2Quantity = char(optiProb.dij_prob2.quantity);
+            optimizationQuantity = char(optiProb.quantityOpt);
+
+            if strcmpi(prob2Quantity,optimizationQuantity)
+                return;
+            end
+
+            matRad_cfg = MatRad_Config.instance();
+            matRad_cfg.dispError(['dij_prob2 quantity ''%s'' is inconsistent with ', ...
+                'optimization quantity ''%s''.'],prob2Quantity,optimizationQuantity);
+        end
+
+        function validateProb2OmegaData(optiProb,cst,structureIdx,w)
+            [subIx,~] = optiProb.getProb2StructureVoxelIndices(cst,structureIdx);
+            Omega = optiProb.getProb2OmegaForStructure(cst,structureIdx,subIx);
+            matRad_cfg = MatRad_Config.instance();
+
+            if isempty(Omega)
+                matRad_cfg.dispError('PROB2 mean variance requires dij_prob2.Omega{%d}!',structureIdx);
+            end
+
+            if nargin >= 4 && ~isempty(w) && ...
+                    (size(Omega,1) ~= numel(w) || size(Omega,2) ~= numel(w))
+                matRad_cfg.dispError('dij_prob2.Omega{%d} dimensions are inconsistent with the fluence vector!',structureIdx);
+            end
+        end
+
+        function meanVariance = validateProb2MeanVariance(~,meanVariance,w,omegaW)
+            epsilon = 1e-10 * max(1,norm(w) * norm(omegaW));
+            if meanVariance < 0 && abs(meanVariance) <= epsilon
+                meanVariance = 0;
+            elseif meanVariance < 0
+                matRad_cfg = MatRad_Config.instance();
+                matRad_cfg.dispError('PROB2 Omega matrix must be positive semidefinite for the current fluence vector!');
+            end
+        end
+
+        function Omega = getProb2OmegaForStructure(optiProb,cst,structureIdx,subIx)
+            Omega = [];
+            if ~isfield(optiProb.dij_prob2,'Omega') || ...
+                    numel(optiProb.dij_prob2.Omega) < structureIdx || ...
+                    isempty(optiProb.dij_prob2.Omega{structureIdx})
+                return;
+            end
+
+            if isfield(optiProb.dij_prob2,'voiSubIx') && ...
+                    numel(optiProb.dij_prob2.voiSubIx) >= structureIdx && ...
+                    ~isempty(optiProb.dij_prob2.voiSubIx{structureIdx}) && ...
+                    ~isequal(optiProb.dij_prob2.voiSubIx{structureIdx}(:),subIx(:))
+                matRad_cfg = MatRad_Config.instance();
+                matRad_cfg.dispError('dij_prob2.voiSubIx{%d} does not match the selected cst voxels.',structureIdx);
+            end
+
+            if isempty(cst{structureIdx,4})
+                return;
+            end
+            Omega = optiProb.dij_prob2.Omega{structureIdx};
+        end
+
+        function [hasProb2,needsOmega] = getProb2Requirements(optiProb,cst)
+            hasProb2 = false;
+            needsOmega = false;
+
+            for i = 1:size(cst,1)
+                if isempty(cst{i,4}) || ...
+                        ~(isequal(cst{i,3},'OAR') || isequal(cst{i,3},'TARGET'))
+                    continue;
+                end
+
+                for j = 1:numel(cst{i,6})
+                    optiFunc = cst{i,6}{j};
+                    if ~isa(optiFunc,'matRad_DoseOptimizationFunction') || ...
+                            ~strcmp(optiFunc.robustness,'PROB2')
+                        continue;
+                    end
+
+                    optiProb.getProb2StructureVoxelIndices(cst,i);
+                    hasProb2 = true;
+
+                    if isa(optiFunc,'DoseObjectives.matRad_MeanVariance') || ...
+                            isa(optiFunc,'DoseConstraints.matRad_MinMaxMeanVariance')
+                        needsOmega = true;
+                    end
+                end
+            end
+        end
+
+        function needsOmega = structureNeedsProb2Omega(~,cst,structureIdx)
+            needsOmega = false;
+
+            if isempty(cst{structureIdx,4}) || ...
+                    ~(isequal(cst{structureIdx,3},'OAR') || ...
+                    isequal(cst{structureIdx,3},'TARGET'))
+                return;
+            end
+
+            for j = 1:numel(cst{structureIdx,6})
+                optiFunc = cst{structureIdx,6}{j};
+                if isa(optiFunc,'matRad_DoseOptimizationFunction') && ...
+                        strcmp(optiFunc.robustness,'PROB2') && ...
+                        (isa(optiFunc,'DoseObjectives.matRad_MeanVariance') || ...
+                        isa(optiFunc,'DoseConstraints.matRad_MinMaxMeanVariance'))
+                    needsOmega = true;
+                    return;
+                end
             end
         end
 
@@ -377,7 +613,7 @@ classdef matRad_OptimizationProblem < handle
 
         function validateOARIntervalData(optiProb,cst,w)
             matRad_cfg = MatRad_Config.instance();
-            requiredFields = {'OARSubIx','U','S','V'};
+            requiredFields = {'OARSubIx','OARRadiusFactor','OARRadiusRank'};
 
             for f = 1:numel(requiredFields)
                 if ~isfield(optiProb.dij_interval,requiredFields{f})
@@ -386,12 +622,11 @@ classdef matRad_OptimizationProblem < handle
             end
 
             OARSubIx = optiProb.dij_interval.OARSubIx(:);
-            if ~iscell(optiProb.dij_interval.U) || ~iscell(optiProb.dij_interval.S) || ...
-               ~iscell(optiProb.dij_interval.V) || ...
-               numel(optiProb.dij_interval.U) ~= numel(OARSubIx) || ...
-               numel(optiProb.dij_interval.S) ~= numel(OARSubIx) || ...
-               numel(optiProb.dij_interval.V) ~= numel(OARSubIx)
-                matRad_cfg.dispError('INTERVAL3 OAR SVD fields must be cell arrays matching dij_interval.OARSubIx!');
+            if ~iscell(optiProb.dij_interval.OARRadiusFactor) || ...
+               numel(optiProb.dij_interval.OARRadiusFactor) ~= numel(OARSubIx) || ...
+               numel(optiProb.dij_interval.OARRadiusRank) ~= numel(OARSubIx)
+                matRad_cfg.dispError(['INTERVAL3 OAR radius fields must match ', ...
+                    'dij_interval.OARSubIx!']);
             end
 
             for i = 1:size(cst,1)
@@ -419,13 +654,22 @@ classdef matRad_OptimizationProblem < handle
                 end
 
                 for ix = intervalIx(:)'
-                    U = optiProb.dij_interval.U{ix};
-                    S = optiProb.dij_interval.S{ix};
-                    V = optiProb.dij_interval.V{ix};
+                    F = optiProb.dij_interval.OARRadiusFactor{ix};
+                    rank = optiProb.dij_interval.OARRadiusRank(ix);
 
-                    if size(U,1) ~= numel(w) || size(V,1) ~= numel(w) || ...
-                       size(S,1) ~= size(S,2) || size(U,2) ~= size(S,1) || size(V,2) ~= size(S,2)
-                        matRad_cfg.dispError('INTERVAL3 OAR SVD dimensions are inconsistent with the fluence vector!');
+                    if ~isnumeric(rank) || ~isscalar(rank) || ~isfinite(rank) || ...
+                       rank < 0 || fix(rank) ~= rank
+                        matRad_cfg.dispError('INTERVAL3 OAR radius rank must be a non-negative integer!');
+                    end
+
+                    if ~isnumeric(F) || size(F,1) ~= numel(w) || ...
+                       size(F,2) ~= rank
+                        matRad_cfg.dispError(['INTERVAL3 OAR radius factor dimensions ', ...
+                            'are inconsistent with the fluence vector!']);
+                    end
+
+                    if any(~isfinite(nonzeros(F)))
+                        matRad_cfg.dispError('INTERVAL3 OAR radius factor contains non-finite values!');
                     end
                 end
             end
@@ -452,6 +696,35 @@ classdef matRad_OptimizationProblem < handle
                isempty(cst{structureIdx,4}{contourIx})
                 matRad_cfg.dispError(['INTERVAL objectives require non-empty structure ', ...
                     'voxel indices for reference CT scenario %d.'],contourIx);
+            end
+
+            subIx = cst{structureIdx,4}{contourIx}(:);
+        end
+
+        function [subIx,contourIx] = getProb2StructureVoxelIndices(optiProb,cst,structureIdx)
+            matRad_cfg = MatRad_Config.instance();
+            contourIx = 1;
+
+            if isfield(optiProb.dij_prob2,'refScen') && ...
+                    ~isempty(optiProb.dij_prob2.refScen)
+                contourIx = optiProb.dij_prob2.refScen;
+            end
+
+            if ~isnumeric(contourIx) || ~isscalar(contourIx) || ...
+                    ~isfinite(contourIx) || contourIx < 1 || ...
+                    fix(contourIx) ~= contourIx
+                matRad_cfg.dispError('dij_prob2.refScen must be a positive integer scalar!');
+            end
+            contourIx = double(contourIx);
+
+            if size(cst,2) < 4 || structureIdx > size(cst,1) || ...
+                    isempty(cst{structureIdx,4}) || ...
+                    ~iscell(cst{structureIdx,4}) || ...
+                    numel(cst{structureIdx,4}) < contourIx || ...
+                    isempty(cst{structureIdx,4}{contourIx})
+                matRad_cfg.dispError(['PROB2 objectives require non-empty ', ...
+                    'structure voxel indices for reference CT scenario %d.'], ...
+                    contourIx);
             end
 
             subIx = cst{structureIdx,4}{contourIx}(:);
