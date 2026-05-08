@@ -193,7 +193,8 @@ if isempty(batchTiming)
 end
 
 timingFields = {'extractMapSeconds','centerAccumSeconds', ...
-    'radiusMultiplySeconds','factorSeconds','wallSeconds'};
+    'radiusMultiplySeconds','factorSeconds','centeredRowsSeconds', ...
+    'wallSeconds'};
 for f = 1:numel(timingFields)
     fieldName = timingFields{f};
     stageTiming.(fieldName) = stageTiming.(fieldName) + ...
@@ -220,7 +221,7 @@ for b = 1:numBatches
     rows = batches{b};
     logBatchProgress(matRad_cfg,cfg,'Target interval',b,numBatches);
     logBatchStart(matRad_cfg,cfg,'Target interval',b,numBatches,numel(rows));
-    [~,meanRows,batchStatsTiming,secondMoment,extremeDeltaRows] = computeScenarioDoseBatchStats( ...
+    [~,meanRows,batchStatsTiming,secondMoment,extremeDeltaRows] = computeIntervalScenarioDoseBatchStats( ...
         quantity,scenarioDijIx,scenarioWeights,scenarioMaps,rows,numBixels, ...
         cfg,matRad_cfg,'Target interval',b,numBatches,true,true);
     if cfg.CollectTiming
@@ -270,7 +271,7 @@ for b = 1:numBatches
     rows = batches{b};
     logBatchProgress(matRad_cfg,cfg,'OAR center',b,numBatches);
     logBatchStart(matRad_cfg,cfg,'OAR center',b,numBatches,numel(rows));
-    [~,meanRows,batchStatsTiming] = computeScenarioDoseBatchStats( ...
+    [~,meanRows,batchStatsTiming] = computeIntervalScenarioDoseBatchStats( ...
         quantity,scenarioDijIx,scenarioWeights,scenarioMaps,rows,numBixels, ...
         cfg,matRad_cfg,'OAR center',b,numBatches,true,false);
     if cfg.CollectTiming
@@ -289,9 +290,14 @@ end
 matRad_cfg.dispInfo('matRad: OAR interval center accumulation finished.\n');
 end
 
-function [scenarioRows,meanRows,batchTiming,secondMoment,extremeDeltaRows] = computeScenarioDoseBatchStats( ...
+function [scenarioRows,meanRows,batchTiming,secondMoment,extremeDeltaRows,centeredRows] = computeIntervalScenarioDoseBatchStats( ...
     quantity,scenarioDijIx,scenarioWeights,scenarioMaps,rows,numBixels, ...
-    cfg,matRad_cfg,stageName,batchIx,numBatches,enableProgress,computeRadiusStats)
+    cfg,matRad_cfg,stageName,batchIx,numBatches,enableProgress, ...
+    computeRadiusStats,computeCenteredRows)
+if nargin < 14
+    computeCenteredRows = false;
+end
+
 if cfg.CollectTiming
     batchTiming = matRad_initializeDoseIntervalTiming('batch',numel(rows));
 else
@@ -301,6 +307,7 @@ end
 options = struct();
 options.StoreScenarioRows = true;
 options.ComputeSecondMoment = computeRadiusStats && strcmp(cfg.RadiusMode,'std');
+options.ComputeCenteredRows = computeCenteredRows;
 options.ComputeExtremeDelta = computeRadiusStats && strcmp(cfg.RadiusMode,'extreme');
 options.CollectTiming = cfg.CollectTiming;
 if enableProgress
@@ -317,12 +324,14 @@ scenarioRows = stats.scenarioRows;
 meanRows = stats.meanRows;
 secondMoment = stats.secondMoment;
 extremeDeltaRows = stats.extremeDeltaRows;
+centeredRows = stats.centeredRows;
 
 if cfg.CollectTiming
     batchTiming.extractMapSeconds = helperTiming.extractMapSeconds;
     batchTiming.centerAccumSeconds = helperTiming.centerAccumSeconds;
     batchTiming.radiusMultiplySeconds = helperTiming.secondMomentSeconds + ...
         helperTiming.extremeDeltaSeconds;
+    batchTiming.centeredRowsSeconds = helperTiming.centeredRowsSeconds;
 end
 end
 
@@ -476,9 +485,9 @@ function [centerBlock,rankBlock,factorBlock,batchTiming] = ...
 if cfg.CollectTiming
     batchTimer = tic;
 end
-[scenarioRows,centerBlock,batchTiming] = computeScenarioDoseBatchStats( ...
+[~,centerBlock,batchTiming,~,~,centeredRows] = computeIntervalScenarioDoseBatchStats( ...
     quantity,scenarioDijIx,scenarioWeights,scenarioMaps,rows,numBixels, ...
-    cfg,matRad_cfg,stageName,batchIx,numBatches,enableProgress,false);
+    cfg,matRad_cfg,stageName,batchIx,numBatches,enableProgress,false,true);
 
 rankBlock = zeros(numel(rows),1);
 factorBlock = cell(numel(rows),1);
@@ -488,18 +497,17 @@ for localIx = 1:numel(rows)
             localIx,numel(rows));
     end
 
-    scenarioMatrixRows = cell(numel(scenarioDijIx),1);
+    centeredMatrixRows = cell(numel(scenarioDijIx),1);
     for s = 1:numel(scenarioDijIx)
-        scenarioMatrixRows{s} = scenarioRows{s}(localIx,:);
+        centeredMatrixRows{s} = centeredRows{s}(localIx,:);
     end
-    scenarioMatrix = vertcat(scenarioMatrixRows{:});
+    centeredScenarioMatrix = vertcat(centeredMatrixRows{:});
 
-    centerRow = centerBlock(localIx,:);
     if cfg.CollectTiming
         sectionTimer = tic;
     end
-    [factor,rank] = buildWeightedScenarioRadiusFactor(scenarioMatrix, ...
-        centerRow,scenarioWeights,cfg,numBixels);
+    [factor,rank] = buildWeightedScenarioRadiusFactor( ...
+        centeredScenarioMatrix,scenarioWeights,cfg,numBixels);
     if cfg.CollectTiming
         batchTiming.factorSeconds = batchTiming.factorSeconds + ...
             toc(sectionTimer);
@@ -760,19 +768,19 @@ for b = 1:numBatches
 end
 end
 
-function [factor,rank] = buildWeightedScenarioRadiusFactor(scenarioMatrix, ...
-    centerRow,scenarioWeights,cfg,numBixels)
+function [factor,rank] = buildWeightedScenarioRadiusFactor(centeredScenarioMatrix, ...
+    scenarioWeights,cfg,numBixels)
 if strcmp(cfg.RadiusMode,'extreme')
-    [factor,rank] = buildExtremeScenarioRadiusFactor(scenarioMatrix, ...
-        centerRow,scenarioWeights,numBixels);
+    [factor,rank] = buildExtremeScenarioRadiusFactor( ...
+        centeredScenarioMatrix,scenarioWeights,numBixels);
 else
-    [factor,rank] = buildStdScenarioRadiusFactor(scenarioMatrix, ...
-        centerRow,scenarioWeights,cfg,numBixels);
+    [factor,rank] = buildStdScenarioRadiusFactor(centeredScenarioMatrix, ...
+        scenarioWeights,cfg,numBixels);
 end
 end
 
-function [factor,rank] = buildStdScenarioRadiusFactor(scenarioMatrix, ...
-    centerRow,scenarioWeights,cfg,numBixels)
+function [factor,rank] = buildStdScenarioRadiusFactor(centeredScenarioMatrix, ...
+    scenarioWeights,cfg,numBixels)
 tolerance = 1e-12;
 
 kMax = min(cfg.KMax,numBixels);
@@ -783,19 +791,16 @@ end
 
 positiveWeightIx = scenarioWeights(:) > 0;
 scenarioWeights = scenarioWeights(positiveWeightIx);
-scenarioMatrix = scenarioMatrix(positiveWeightIx,:);
+centeredScenarioMatrix = centeredScenarioMatrix(positiveWeightIx,:);
 
-activeBixels = unique([find(any(scenarioMatrix,1)) find(centerRow)]);
+activeBixels = find(any(centeredScenarioMatrix,1));
 if isempty(activeBixels)
     [factor,rank] = zeroRankRadiusFactor(numBixels);
     return;
 end
 
-scenarioMatrix = scenarioMatrix(:,activeBixels);
-centerRow = centerRow(:,activeBixels);
-numScenarios = size(scenarioMatrix,1);
-
-centeredScenarioMatrix = scenarioMatrix - repmat(centerRow,numScenarios,1);
+centeredScenarioMatrix = centeredScenarioMatrix(:,activeBixels);
+numScenarios = size(centeredScenarioMatrix,1);
 weightedScenarioMatrix = spdiags(sqrt(scenarioWeights),0, ...
     numScenarios,numScenarios) * centeredScenarioMatrix;
 
@@ -848,19 +853,18 @@ factor = sparse(double(numBixels),double(rank));
 factor(activeBixels,:) = sparse(factorActive);
 end
 
-function [factor,rank] = buildExtremeScenarioRadiusFactor(scenarioMatrix, ...
-    centerRow,scenarioWeights,numBixels)
+function [factor,rank] = buildExtremeScenarioRadiusFactor(centeredScenarioMatrix, ...
+    scenarioWeights,numBixels)
 tolerance = 1e-12;
 
 positiveWeightIx = scenarioWeights(:) > 0;
-scenarioMatrix = scenarioMatrix(positiveWeightIx,:);
-if isempty(scenarioMatrix)
+centeredScenarioMatrix = centeredScenarioMatrix(positiveWeightIx,:);
+if isempty(centeredScenarioMatrix)
     [factor,rank] = zeroRankRadiusFactor(numBixels);
     return;
 end
 
-centeredRows = abs(scenarioMatrix - repmat(centerRow,size(scenarioMatrix,1),1));
-delta = max(centeredRows,[],1);
+delta = max(abs(centeredScenarioMatrix),[],1);
 delta(abs(delta) <= tolerance) = 0;
 activeBixels = find(delta);
 

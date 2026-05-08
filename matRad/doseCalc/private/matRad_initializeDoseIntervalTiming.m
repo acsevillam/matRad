@@ -78,6 +78,7 @@ timing.extractMapSeconds = 0;
 timing.centerAccumSeconds = 0;
 timing.radiusMultiplySeconds = 0;
 timing.factorSeconds = 0;
+timing.centeredRowsSeconds = 0;
 timing.parallelSetupSeconds = 0;
 timing.parallelComputeWallSeconds = 0;
 timing.serialAssemblySeconds = 0;

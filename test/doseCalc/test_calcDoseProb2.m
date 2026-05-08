@@ -68,6 +68,27 @@ function test_prob2_const_rbe_scales_expected_and_omega
     assertEqual(dijProb2.quantity,'RBExD');
     assertEqual(dijProb2Context.RBE,1);
 
+function test_prob2_omega_matches_centered_scenario_accumulation
+    [ct,cst,pln,dij,cfg] = singleCtFixture();
+    dij.totalNumOfBixels = 3;
+    dij.physicalDose{1} = sparse([1 0 5; 0 2 7; 1 1 3; 0 1 9]);
+    dij.physicalDose{2} = sparse([3 0 5; 0 4 7; 2 1 3; 0 5 9]);
+
+    [plnOut,~] = matRad_calcDoseProb2(ct,cst,[],pln,dij,cfg);
+    dijProb2 = plnOut.propOpt.dij_prob2;
+    targetRows = cst{1,4}{1};
+    expectedRows = dijProb2.expected(targetRows,:);
+    scenarioRows = {dij.physicalDose{1}(targetRows,:), ...
+        dij.physicalDose{2}(targetRows,:)};
+    expectedOmega = manualCenteredOmega(scenarioRows, ...
+        dijProb2.scenarioWeights,expectedRows,dij.totalNumOfBixels);
+
+    assertEqual(size(dijProb2.Omega{1}),[3 3]);
+    assertElementsAlmostEqual(full(dijProb2.Omega{1}), ...
+        full(expectedOmega),'absolute',1e-12);
+    assertEqual(nnz(dijProb2.Omega{1}(:,3)),0);
+    assertEqual(nnz(dijProb2.Omega{1}(3,:)),0);
+
 function test_prob2_rejects_unsupported_quantity
     [ct,cst,pln,dij,cfg] = singleCtFixture();
     cfg.Quantity = 'effect';
@@ -120,3 +141,11 @@ function scenarioModel = fixtureScenarioModel(ct,ctScenIds,scenarioValues,linear
     scenForProb = [ctScenIds(:) scenarioValues];
     scenarioModel.setScenarioRealizations(dimensions,scenarioValues,ctScenIds, ...
         scenarioWeights(:),scenarioWeights(:),scenForProb,linearMask,scenMask);
+
+function omega = manualCenteredOmega(scenarioRows,scenarioWeights,expectedRows,numBixels)
+    omega = sparse(numBixels,numBixels);
+    for s = 1:numel(scenarioRows)
+        centeredRows = scenarioRows{s} - expectedRows;
+        omega = omega + scenarioWeights(s).*(centeredRows' * centeredRows);
+    end
+    omega = sparse(0.5.*(omega + omega'));
