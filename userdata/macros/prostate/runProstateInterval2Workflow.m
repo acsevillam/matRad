@@ -49,14 +49,12 @@ workflowConfig.prepare.n_cores = 8;
 
 % Precompute stage.
 workflowConfig.precompute.doseResolution = [3 3 3];
-workflowConfig.precompute.reference.strategy = 'none';
 workflowConfig.precompute.reference.scenario.mode = 'nomScen';
 workflowConfig.precompute.reference.scenario.ctActive = false;
 workflowConfig.precompute.reference.scenario.ctReferenceScenId = 1;
 
 workflowConfig.precompute.robustPlans.robust_1.label = 'INTERVAL2';
-workflowConfig.precompute.robustPlans.robust_1.objectiveSetName = 'robust_1';
-workflowConfig.precompute.robustPlans.robust_1.strategy = 'INTERVAL2';
+workflowConfig.precompute.robustPlans.robust_1.objectiveSetName = 'Interval2';
 workflowConfig.precompute.robustPlans.robust_1.scenario.mode = 'wcScen';
 workflowConfig.precompute.robustPlans.robust_1.scenario.ctActive = true;
 workflowConfig.precompute.robustPlans.robust_1.scenario.setupActive = true;
@@ -77,7 +75,6 @@ workflowConfig.pullDose.step1Limit = 0.9;
 workflowConfig.pullDose.step1Start = 10;
 workflowConfig.pullDose.step2Enabled = false;
 workflowConfig.pullDose.maxIterations = 100;
-workflowConfig.pullDose.scale_factor = 1;
 
 % Optimize stage.
 workflowConfig.optimize.optimizer = 'IPOPT';
