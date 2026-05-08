@@ -25,7 +25,8 @@ function [stats,timing] = matRad_computeScenarioDoseBatchStats(quantity,scenario
 %                     (scenarioRows, scenarioWeights, meanRows,
 %                     secondMoment, centeredRows, extremeDeltaRows)
 %   timing:           struct with extractMapSeconds, centerAccumSeconds,
-%                     secondMomentSeconds, and extremeDeltaSeconds
+%                     secondMomentSeconds, centeredRowsSeconds, and
+%                     extremeDeltaSeconds
 %
 % References
 %   -
@@ -121,18 +122,26 @@ if options.ComputeCenteredRows || options.ComputeExtremeDelta
         sectionTimer = tic;
     end
     stats.centeredRows = cell(numScenarios,1);
-    if options.ComputeExtremeDelta
-        stats.extremeDeltaRows = sparse(numRows,numBixels);
-    end
 
     for s = 1:numScenarios
         stats.centeredRows{s} = stats.scenarioRows{s} - stats.meanRows;
-        if options.ComputeExtremeDelta
-            stats.extremeDeltaRows = max(stats.extremeDeltaRows, ...
-                abs(stats.centeredRows{s}));
-        end
     end
 
+    if options.CollectTiming
+        timing.centeredRowsSeconds = timing.centeredRowsSeconds + ...
+            toc(sectionTimer);
+    end
+end
+
+if options.ComputeExtremeDelta
+    if options.CollectTiming
+        sectionTimer = tic;
+    end
+    stats.extremeDeltaRows = sparse(numRows,numBixels);
+    for s = 1:numScenarios
+        stats.extremeDeltaRows = max(stats.extremeDeltaRows, ...
+            abs(stats.centeredRows{s}));
+    end
     if options.CollectTiming
         timing.extremeDeltaSeconds = timing.extremeDeltaSeconds + ...
             toc(sectionTimer);
@@ -145,6 +154,7 @@ timing = struct();
 timing.extractMapSeconds = 0;
 timing.centerAccumSeconds = 0;
 timing.secondMomentSeconds = 0;
+timing.centeredRowsSeconds = 0;
 timing.extremeDeltaSeconds = 0;
 end
 

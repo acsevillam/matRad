@@ -64,8 +64,7 @@ dij_prob2.expected = accumulateExpectedInfluence(quantity,ctx,cfg,matRad_cfg);
 
 voiRows = resolveProb2VoiRows(ctx.cstDoseGrid,cfg);
 dij_prob2.voiSubIx = voiRows;
-dij_prob2.Omega = accumulateVoiOmega(quantity,ctx,cfg,dij_prob2.expected, ...
-    voiRows,matRad_cfg);
+dij_prob2.Omega = accumulateVoiOmega(quantity,ctx,cfg,voiRows,matRad_cfg);
 
 pln_prob2 = pln;
 if ~isfield(pln_prob2,'propOpt') || ~isstruct(pln_prob2.propOpt)
@@ -127,14 +126,20 @@ for b = 1:numel(batches)
     rows = batches{b};
     logProb2BatchProgress(matRad_cfg,cfg,'Expected influence',b,numel(batches));
     options.StoreScenarioRows = false;
-    [stats,~] = matRad_computeScenarioDoseBatchStats(quantity, ...
-        ctx.scenarioDijIx,ctx.scenarioWeights,ctx.scenarioMaps,rows, ...
-        numBixels,matRad_cfg,options);
+    [stats,~] = computeProb2ScenarioDoseBatchStats(quantity,ctx,rows, ...
+        matRad_cfg,options);
     expected(rows,:) = stats.meanRows;
 end
 end
 
-function Omega = accumulateVoiOmega(quantity,ctx,cfg,expected,voiRows,matRad_cfg)
+function [stats,timing] = computeProb2ScenarioDoseBatchStats(quantity,ctx, ...
+    rows,matRad_cfg,options)
+[stats,timing] = matRad_computeScenarioDoseBatchStats(quantity, ...
+    ctx.scenarioDijIx,ctx.scenarioWeights,ctx.scenarioMaps,rows, ...
+    ctx.numBixels,matRad_cfg,options);
+end
+
+function Omega = accumulateVoiOmega(quantity,ctx,cfg,voiRows,matRad_cfg)
 Omega = cell(size(voiRows));
 numBixels = ctx.numBixels;
 
@@ -151,27 +156,40 @@ for i = 1:numel(voiRows)
     batchSize = resolveProb2BatchSize(numel(rows), ...
         numel(ctx.scenarioDijIx),numBixels,cfg);
     batches = makeProb2Batches(rows,batchSize);
-    sumDTD = sparse(numBixels,numBixels);
-    centerDTD = sparse(numBixels,numBixels);
-    options.StoreScenarioRows = false;
-    options.ComputeSecondMoment = true;
+    omega = sparse(numBixels,numBixels);
+    options.ComputeCenteredRows = true;
 
     for b = 1:numel(batches)
         batchRows = batches{b};
         logProb2BatchProgress(matRad_cfg,cfg,sprintf('Omega VOI %d',i), ...
             b,numel(batches));
 
-        [stats,~] = matRad_computeScenarioDoseBatchStats(quantity, ...
-            ctx.scenarioDijIx,ctx.scenarioWeights,ctx.scenarioMaps, ...
-            batchRows,numBixels,matRad_cfg,options);
-        sumDTD = sumDTD + stats.secondMoment;
+        [stats,~] = computeProb2ScenarioDoseBatchStats(quantity,ctx, ...
+            batchRows,matRad_cfg,options);
 
-        expectedRows = expected(batchRows,:);
-        centerDTD = centerDTD + expectedRows' * expectedRows;
+        omega = omega + accumulateCenteredOmegaBatch(stats.centeredRows, ...
+            stats.scenarioWeights,numBixels);
     end
 
-    omega = sumDTD - centerDTD;
     Omega{i} = sparse(0.5.*(omega + omega'));
+end
+end
+
+function omega = accumulateCenteredOmegaBatch(centeredRows,scenarioWeights, ...
+    numBixels)
+omega = sparse(numBixels,numBixels);
+
+for s = 1:numel(centeredRows)
+    centeredScenarioRows = centeredRows{s};
+    activeBixels = find(any(centeredScenarioRows,1));
+    if isempty(activeBixels)
+        continue;
+    end
+
+    centeredActive = centeredScenarioRows(:,activeBixels);
+    omega(activeBixels,activeBixels) = ...
+        omega(activeBixels,activeBixels) + ...
+        centeredActive' * (scenarioWeights(s).*centeredActive);
 end
 end
 
