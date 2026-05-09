@@ -1,6 +1,6 @@
-function runProstateInterval2Workflow(varargin)
-% runProstateInterval2Workflow Run a saved planWorkflow macro.
-% Usage: runProstateInterval2Workflow('caseID','3482','rootPath',userDataRoot,'cacheRootPath',fullfile(userDataRoot,'output','cache'),'randomSeed',[])
+function runPhotonProstateInterval2Workflow(varargin)
+% runPhotonProstateInterval2Workflow Run the photon prostate INTERVAL2 workflow.
+% Usage: runPhotonProstateInterval2Workflow('caseID','3482','rootPath',userDataRoot,'cacheRootPath',fullfile(userDataRoot,'output','cache'),'randomSeed',[])
 %
 % This macro was generated from the planWorkflow GUI on 2026-05-02 21:02:39.
 
@@ -14,7 +14,7 @@ if exist(helperFolder,'dir') == 7
     addpath(helperFolder);
 end
 if exist('ensurePlanWorkflowAvailable','file') == 2
-    ensurePlanWorkflowAvailable('runProstateInterval2Workflow');
+    ensurePlanWorkflowAvailable('runPhotonProstateInterval2Workflow');
 end
 
 userDataRoot = fileparts(macroRoot);

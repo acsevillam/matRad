@@ -1,6 +1,6 @@
-function runProstate1MctRobustPtvWorkflow(varargin)
-% runProstate1MctRobustPtvWorkflow Run the 1_mct prostate robust PTV workflow.
-% Usage: runProstate1MctRobustPtvWorkflow('rootPath',userDataRoot,'cacheRootPath',fullfile(userDataRoot,'output','cache'))
+function runPhotonProstate1MctRobustPtvWorkflow(varargin)
+% runPhotonProstate1MctRobustPtvWorkflow Run the photon 1_mct prostate robust PTV workflow.
+% Usage: runPhotonProstate1MctRobustPtvWorkflow('rootPath',userDataRoot,'cacheRootPath',fullfile(userDataRoot,'output','cache'))
 
 macroFolder = fileparts(mfilename('fullpath'));
 macroRoot = fileparts(macroFolder);
@@ -12,7 +12,7 @@ if exist(helperFolder,'dir') == 7
     addpath(helperFolder);
 end
 if exist('ensurePlanWorkflowAvailable','file') == 2
-    ensurePlanWorkflowAvailable('runProstate1MctRobustPtvWorkflow');
+    ensurePlanWorkflowAvailable('runPhotonProstate1MctRobustPtvWorkflow');
 end
 userDataRoot = fileparts(macroRoot);
 

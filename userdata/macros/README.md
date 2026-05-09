@@ -1,13 +1,14 @@
 # Workflow Macros
 
 This folder contains executable workflow entrypoints for the external userdata
-workspace, organized by anatomical site.
+workspace, organized by radiation mode.
 
 ## Layout
 
-- `prostate/`: prostate workflow macros.
-- `breast/`: breast workflow macros.
-- `h&n/`: head-and-neck workflow macros.
+- `photons/`: photon workflow macros.
+- `protons/`: proton workflow macros.
+- `shared/prostate/`: shared prostate workflow implementations used by
+  modality-specific wrappers.
 - `helpers/`: shared local helper functions used by macros.
 
 General macros:
@@ -15,24 +16,33 @@ General macros:
 - `openWorkflowMacroBuilder.m`: opens the planWorkflow GUI only, so templates
   and workflow macros can be exported without executing workflow stages.
 
-Current prostate macros:
+Current photon macros:
 
-- `prostate/runProstateInterval2Workflow.m`: prostate workflow using the
+- `photons/runPhotonProstate1MctRobustPtvWorkflow.m`: prostate workflow using the
+  `PTV_001` template and robust PTV optimization for the `1_mct` case.
+- `photons/runPhotonProstateInterval2Workflow.m`: prostate workflow using the
   `interval2_001` template and INTERVAL2 robust optimization.
-- `prostate/runProstateMultipleWorkflow.m`: prostate workflow using the
+- `photons/runPhotonProstateMultipleWorkflow.m`: prostate workflow using the
   `comparison_001` template with reference plus multiple robust plans.
 
-Current head-and-neck macros:
+Current proton macros:
 
-- `h&n/runHeadNeckInterval2Workflow.m`: H&N workflow using the
-  `interval2_001` template with `protons`, `Generic`/`constRBE`, and the
-  `2F` beam set.
+- `protons/runProtonProstateMultipleWorkflow.m`: prostate workflow using the
+  `comparison_001` template with `protons`, `Generic`/`constRBE`, `RBExD`, and
+  the `2F` beam set.
+
+Shared prostate implementations:
+
+- `shared/prostate/runProstateMultipleWorkflowCore.m`: shared prostate
+  multiple-plan workflow. It receives `workflowConfig.prepare` from the caller,
+  while the photon and proton wrappers provide their modality-specific prepare
+  settings.
 
 These macros use the active matRad checkout's `submodules/planWorkflow` package.
 Each macro declares all effective settings in `workflowConfig` up front before
 any `workflow.*` stage executes, using nested structs per stage such as
 `workflowConfig.prepare`, `workflowConfig.precompute`,
-`workflowConfig.dosePulling`, and `workflowConfig.sampling`. The stage methods
+`workflowConfig.pullDose`, and `workflowConfig.sampling`. The stage methods
 are called without config structs, and `workflow.gui()` is called before
 `workflow.prepare()` so the plan editor can modify the in-memory configuration
 when MATLAB is running with UI support. Stage-level config arguments remain
@@ -53,11 +63,11 @@ positional values in that order:
 cd(fullfile(userDataRoot,'macros'))
 openWorkflowMacroBuilder()
 
-cd(fullfile(userDataRoot,'macros','prostate'))
-runProstateInterval2Workflow('caseID','4136','rootPath','/tmp/userdata')
-runProstateInterval2Workflow(struct('caseID','4136'))
-runProstateInterval2Workflow('4136','/tmp/userdata','/tmp/cache')
+cd(fullfile(userDataRoot,'macros','photons'))
+runPhotonProstateInterval2Workflow('caseID','4136','rootPath','/tmp/userdata')
+runPhotonProstateInterval2Workflow(struct('caseID','4136'))
+runPhotonProstateInterval2Workflow('4136','/tmp/userdata','/tmp/cache')
 
-cd(fullfile(userDataRoot,'macros','h&n'))
-runHeadNeckInterval2Workflow('caseID','2')
+cd(fullfile(userDataRoot,'macros','protons'))
+runProtonProstateMultipleWorkflow('caseID','4136','rootPath','/tmp/userdata')
 ```
