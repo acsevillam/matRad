@@ -21,7 +21,8 @@ function ctx = matRad_resolveScenarioDoseInputs(ct,cst,pln,dij,cfg,calculationMo
 %   ctx:          validated context struct with quantity metadata, DIJ
 %                 scenario indices, CT scenario ids selected by
 %                 pln.propOpt.scen4D (default: 1), normalized scenario
-%                 weights, selected target/OAR rows and CT mapping metadata
+%                 weights, selected target/OAR rows, selected structure
+%                 voxels in the reference scenario, and CT mapping metadata
 %
 % References
 %   -
@@ -44,8 +45,10 @@ quantity = resolveQuantity(dij,pln,cfg,matRad_cfg);
 [scenarioDijIx,scenarioCtScenIds,scenarioWeights] = resolveScenarios(pln,dij,quantity.field,matRad_cfg);
 
 cstDoseGrid = prepareCstForScenarioDoseRows(cst,dij);
-targetRows = resolveStructureRows(cstDoseGrid,cfg.targetStructSel,'TARGET',cfg.refScen);
-oarRows = resolveStructureRows(cstDoseGrid,cfg.OARStructSel,'OAR',cfg.refScen);
+[targetRows,targetStructures] = resolveStructureRows(cstDoseGrid, ...
+    cfg.targetStructSel,'TARGET',cfg.refScen);
+[oarRows,oarStructures] = resolveStructureRows(cstDoseGrid, ...
+    cfg.OARStructSel,'OAR',cfg.refScen);
 
 ctx.cfg = cfg;
 ctx.quantity = quantity;
@@ -54,6 +57,10 @@ ctx.scenarioCtScenIds = scenarioCtScenIds;
 ctx.scenarioWeights = scenarioWeights;
 ctx.targetRows = targetRows;
 ctx.oarRows = oarRows;
+ctx.targetStructures = targetStructures(:);
+ctx.oarStructures = oarStructures(:);
+ctx.targetStructRows = getSelectedStructureRows(targetStructures);
+ctx.oarStructRows = getSelectedStructureRows(oarStructures);
 ctx.cstDoseGrid = cstDoseGrid;
 ctx.numVoxels = getNumDoseVoxels(dij,quantity.matrixCell,matRad_cfg);
 ctx.numBixels = getNumBixels(dij,quantity.matrixCell,scenarioDijIx,matRad_cfg);
@@ -393,7 +400,7 @@ if isfield(dij,'ctGrid') && isfield(dij,'doseGrid') && ...
 end
 end
 
-function rows = resolveStructureRows(cst,structureSelection,structureType,refScen)
+function [rows,structures] = resolveStructureRows(cst,structureSelection,structureType,refScen)
 if isempty(structureSelection)
     cstRows = matRad_resolveStructureSelection(cst,'all',[],structureType);
 else
@@ -401,10 +408,25 @@ else
 end
 
 rows = [];
-for i = cstRows
-    rows = [rows; getStructureVoxelIndices(cst,i,refScen)]; %#ok<AGROW>
+structures = struct('cstRow',cell(numel(cstRows),1), ...
+    'type',cell(numel(cstRows),1),'voxelIx',cell(numel(cstRows),1));
+for k = 1:numel(cstRows)
+    rowIx = cstRows(k);
+    voxels = unique(getStructureVoxelIndices(cst,rowIx,refScen),'stable');
+    structures(k).cstRow = rowIx;
+    structures(k).type = structureType;
+    structures(k).voxelIx = voxels(:);
+    rows = [rows; voxels(:)]; %#ok<AGROW>
 end
 rows = unique(rows(:),'stable');
+end
+
+function cstRows = getSelectedStructureRows(structures)
+if isempty(structures)
+    cstRows = zeros(0,1);
+else
+    cstRows = [structures.cstRow]';
+end
 end
 
 function voxels = getStructureVoxelIndices(cst,rowIx,refScen)

@@ -89,6 +89,142 @@ function test_prob2_omega_matches_centered_scenario_accumulation
     assertEqual(nnz(dijProb2.Omega{1}(:,3)),0);
     assertEqual(nnz(dijProb2.Omega{1}(3,:)),0);
 
+function test_prob2_streaming_inmemory_matches_existing
+    [ct,cst,pln,dij,cfg] = singleCtFixture();
+    [plnLegacy,~] = matRad_calcDoseProb2(ct,cst,[],pln,dij,cfg);
+
+    [plnStream,dijStreamContext] = matRad_calcDoseProb2Streaming(ct,cst,[],pln,dij,cfg);
+
+    assertProb2AlmostEqual(plnLegacy.propOpt.dij_prob2, ...
+        plnStream.propOpt.dij_prob2);
+    assertEqual(plnStream.propOpt.dij_prob2.precomputeMode,'streaming');
+    assertEqual(plnStream.propOpt.dij_prob2.secondPassStrategy,'disk');
+    assertEqual(dijStreamContext.numOfScenarios,1);
+    assertElementsAlmostEqual(full(dijStreamContext.physicalDose{1}), ...
+        full(plnLegacy.propOpt.dij_prob2.expected),'absolute',1e-12);
+
+function test_prob2_streaming_accepts_dij_without_cfg
+    [ct,cst,pln,dij,cfg] = singleCtFixture();
+    [plnLegacy,~] = matRad_calcDoseProb2(ct,cst,[],pln,dij,cfg);
+
+    [plnStream,~] = matRad_calcDoseProb2Streaming(ct,cst,[],pln,dij);
+
+    assertProb2AlmostEqual(plnLegacy.propOpt.dij_prob2, ...
+        plnStream.propOpt.dij_prob2);
+
+function test_prob2_streaming_rejects_duplicate_precomputed_dij_inputs
+    [ct,cst,pln,dij,cfg] = singleCtFixture();
+    cfg.PrecomputedDij = dij;
+
+    assertExceptionThrown(@() matRad_calcDoseProb2Streaming(ct,cst,[],pln,dij,cfg), ...
+        'matRad:Error');
+
+function test_prob2_streaming_recomputes_scenario_dij_without_dij_argument
+    [ct,cst,pln,stf] = photonTestDataFixture();
+    cfg.SecondPassStrategy = 'disk';
+    cfg.KeepCache = false;
+    cfg.BatchSize = 10000;
+    cfg.targetStructSel = 1;
+
+    [plnStream,dijStreamContext] = matRad_calcDoseProb2Streaming(ct,cst,stf,pln,cfg);
+    dijProb2 = plnStream.propOpt.dij_prob2;
+
+    assertEqual(size(dijProb2.expected,1),dijStreamContext.doseGrid.numOfVoxels);
+    assertEqual(size(dijProb2.expected,2),dijStreamContext.totalNumOfBixels);
+    assertTrue(nnz(dijProb2.expected) > 0);
+    assertFalse(isfield(dijProb2,'cacheDir'));
+    assertEqual(dijStreamContext.numOfScenarios,1);
+
+function test_prob2_streaming_recompute_matches_existing
+    [ct,cst,pln,dij,cfg] = singleCtFixture();
+    cfg.BatchSize = 1;
+    [plnLegacy,~] = matRad_calcDoseProb2(ct,cst,[],pln,dij,cfg);
+
+    cfg.SecondPassStrategy = 'recompute';
+    [plnStream,~] = matRad_calcDoseProb2Streaming(ct,cst,[],pln,dij,cfg);
+
+    assertProb2AlmostEqual(plnLegacy.propOpt.dij_prob2, ...
+        plnStream.propOpt.dij_prob2);
+    assertEqual(plnStream.propOpt.dij_prob2.secondPassStrategy,'recompute');
+
+function test_prob2_streaming_disk_cache_keeps_distinct_hash_folders
+    [ct,cst,pln,dij,cfg] = singleCtFixture();
+    cacheRoot = tempname();
+    cleanup = onCleanup(@() deleteDirIfExists(cacheRoot));
+    cfg.CacheRoot = cacheRoot;
+    cfg.KeepCache = true;
+
+    [plnStream1,~] = matRad_calcDoseProb2Streaming(ct,cst,[],pln,dij,cfg);
+    [plnStream2,~] = matRad_calcDoseProb2Streaming(ct,cst,[],pln,dij,cfg);
+
+    prob2_1 = plnStream1.propOpt.dij_prob2;
+    prob2_2 = plnStream2.propOpt.dij_prob2;
+    assertTrue(isfield(prob2_1,'cacheDir'));
+    assertTrue(isfield(prob2_2,'cacheDir'));
+    assertFalse(strcmp(prob2_1.cacheDir,prob2_2.cacheDir));
+    assertEqual(exist(prob2_1.cacheDir,'dir'),7);
+    assertEqual(exist(prob2_2.cacheDir,'dir'),7);
+    assertEqual(exist(fullfile(prob2_1.cacheDir,'metadata.mat'),'file'),2);
+    metadataData = load(fullfile(prob2_1.cacheDir,'metadata.mat'));
+    assertTrue(isfield(metadataData,'metadata'));
+    metadata = metadataData.metadata;
+    assertEqual(metadata.calculationName,'PROB2');
+    assertEqual(metadata.quantity,'physicalDose');
+    assertEqual(metadata.refScen,1);
+    assertEqual(metadata.scenarioDijIx,[1;2]);
+    assertEqual(metadata.scenarioCtScenIds,[1;1]);
+    assertElementsAlmostEqual(metadata.scenarioWeights,[0.25;0.75], ...
+        'absolute',1e-12);
+    assertTrue(~isempty(dir(fullfile(prob2_1.cacheDir,'scenario_*_voi_*_block_*.mat'))));
+
+function test_prob2_streaming_disk_cache_cleans_hash_folder_by_default
+    [ct,cst,pln,dij,cfg] = singleCtFixture();
+    cacheRoot = tempname();
+    cleanup = onCleanup(@() deleteDirIfExists(cacheRoot));
+    cfg.CacheRoot = cacheRoot;
+    cfg.KeepCache = false;
+
+    [plnStream,~] = matRad_calcDoseProb2Streaming(ct,cst,[],pln,dij,cfg);
+
+    assertFalse(isfield(plnStream.propOpt.dij_prob2,'cacheDir'));
+    assertEqual(numel(listCacheRunDirs(cacheRoot)),0);
+
+function test_prob2_streaming_multict_mapping_matches_existing
+    [ct,cst,pln,dij,cfg] = multiCtFixture();
+    pln.propOpt.scen4D = 'all';
+    [plnLegacy,~] = matRad_calcDoseProb2(ct,cst,[],pln,dij,cfg);
+
+    [plnStream,~] = matRad_calcDoseProb2Streaming(ct,cst,[],pln,dij,cfg);
+
+    assertProb2AlmostEqual(plnLegacy.propOpt.dij_prob2, ...
+        plnStream.propOpt.dij_prob2);
+    assertEqual(plnStream.propOpt.dij_prob2.scenarioCtScenIds,[1;2]);
+
+function test_prob2_streaming_rejects_invalid_second_pass_strategy
+    [ct,cst,pln,dij,cfg] = singleCtFixture();
+    cfg.SecondPassStrategy = 'memory';
+
+    assertExceptionThrown(@() matRad_calcDoseProb2Streaming(ct,cst,[],pln,dij,cfg), ...
+        'matRad:Error');
+
+function test_prob2_streaming_rejects_invalid_cache_root
+    [ct,cst,pln,dij,cfg] = singleCtFixture();
+    cfg.CacheRoot = 1;
+
+    assertExceptionThrown(@() matRad_calcDoseProb2Streaming(ct,cst,[],pln,dij,cfg), ...
+        'matRad:Error');
+
+function test_prob2_streaming_rejects_cache_root_file
+    [ct,cst,pln,dij,cfg] = singleCtFixture();
+    cfg.CacheRoot = tempname();
+    fid = fopen(cfg.CacheRoot,'w');
+    fwrite(fid,'not a folder');
+    fclose(fid);
+    cleanup = onCleanup(@() deleteFileIfExists(cfg.CacheRoot));
+
+    assertExceptionThrown(@() matRad_calcDoseProb2Streaming(ct,cst,[],pln,dij,cfg), ...
+        'matRad:Error');
+
 function test_prob2_rejects_unsupported_quantity
     [ct,cst,pln,dij,cfg] = singleCtFixture();
     cfg.Quantity = 'effect';
@@ -116,6 +252,59 @@ function [ct,cst,pln,dij,cfg] = singleCtFixture()
     dij.physicalDose{1} = sparse([1 0; 0 2; 1 1; 0 1]);
     dij.physicalDose{2} = sparse([3 0; 0 4; 2 1; 0 5]);
     cfg.BatchSize = 2;
+
+function [ct,cst,pln,dij,cfg] = multiCtFixture()
+    dim = [2 3 1];
+    [xGrid,~,~] = meshgrid(1:dim(2),1:dim(1),1:dim(3));
+    sourceRows = xGrid(:);
+
+    ct.numOfCtScen = 2;
+    ct.cubeDim = dim;
+    ct.resolution = struct('x',1,'y',1,'z',1);
+    ct.x = 1:dim(2);
+    ct.y = 1:dim(1);
+    ct.z = 1:dim(3);
+    ct.refScen = 1;
+    ct.dvfMetadata.dvfType = 'pull';
+    ct.dvfMetadata.dvfUnits = 'voxel';
+    ct.dvfMetadata.refScen = 1;
+    ct.dvfMetadata.referenceCtScen = 1;
+    ct.dvf = cell(2,1);
+    ct.dvf{1} = zeros([3 dim]);
+    ct.dvf{2} = zeros([3 dim]);
+    ct.dvf{2}(1,:,:,:) = 1;
+
+    cst = cell(2,6);
+    cst = addStructure(cst,1,'PTV','TARGET',[1;2;3]);
+    cst = addStructure(cst,2,'OAR','OAR',[4;5;6]);
+    cst{1,4} = cell(1,2);
+    cst{2,4} = cell(1,2);
+    cst{1,4}{1} = [1;2;3];
+    cst{2,4}{1} = [4;5;6];
+
+    pln.bioParam.quantityOpt = 'physicalDose';
+    pln.multScen = fixtureScenarioModel(ct,[1;2],zeros(2,5), ...
+        [1 1 1; 2 1 1],true(2,1,1),[0.5;0.5]);
+
+    dij = baseDij(dim,1);
+    dij.physicalDose = cell(2,1,1);
+    dij.physicalDose{1} = sparse(sourceRows);
+    dij.physicalDose{2} = sparse(sourceRows);
+    cfg.refScen = 1;
+    cfg.BatchSize = 2;
+
+function [ct,cst,pln,stf] = photonTestDataFixture()
+    testDataPath = fullfile(fileparts(mfilename('fullpath')), ...
+        '..','testData','photons_testData.mat');
+    data = load(testDataPath,'ct','cst','pln','stf');
+    ct = data.ct;
+    cst = data.cst;
+    pln = data.pln;
+    stf = data.stf;
+    pln.propDoseCalc.engine = 'SVDPB';
+    if ~isfield(pln,'multScen') || isempty(pln.multScen)
+        pln.multScen = matRad_NominalScenario();
+    end
 
 function dij = baseDij(dim,numBixels)
     dij.doseGrid.dimensions = dim;
@@ -149,3 +338,40 @@ function omega = manualCenteredOmega(scenarioRows,scenarioWeights,expectedRows,n
         omega = omega + scenarioWeights(s).*(centeredRows' * centeredRows);
     end
     omega = sparse(0.5.*(omega + omega'));
+
+function assertProb2AlmostEqual(expectedProb2,actualProb2)
+    assertElementsAlmostEqual(full(actualProb2.expected), ...
+        full(expectedProb2.expected),'absolute',1e-12);
+    assertEqual(size(actualProb2.Omega),size(expectedProb2.Omega));
+    for i = 1:numel(expectedProb2.Omega)
+        if isempty(expectedProb2.Omega{i})
+            assertTrue(isempty(actualProb2.Omega{i}));
+        else
+            assertElementsAlmostEqual(full(actualProb2.Omega{i}), ...
+                full(expectedProb2.Omega{i}),'absolute',1e-12);
+        end
+    end
+    assertEqual(actualProb2.voiSubIx,expectedProb2.voiSubIx);
+    assertEqual(actualProb2.quantity,expectedProb2.quantity);
+    assertEqual(actualProb2.quantityField,expectedProb2.quantityField);
+    assertElementsAlmostEqual(actualProb2.scenarioWeights, ...
+        expectedProb2.scenarioWeights,'absolute',1e-12);
+
+function dirs = listCacheRunDirs(cacheRoot)
+    dirs = {};
+    if exist(cacheRoot,'dir') ~= 7
+        return;
+    end
+    listing = dir(cacheRoot);
+    isRunDir = [listing.isdir] & ~ismember({listing.name},{'.','..'});
+    dirs = {listing(isRunDir).name};
+
+function deleteDirIfExists(path)
+    if exist(path,'dir') == 7
+        rmdir(path,'s');
+    end
+
+function deleteFileIfExists(path)
+    if exist(path,'file') == 2
+        delete(path);
+    end

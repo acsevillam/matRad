@@ -1,8 +1,8 @@
-function [pln_interval,dij_intervalContext] = matRad_calcDoseIntervalCore(ct,cst,stf,pln,dij,cfg,intervalMode)
-% matRad_calcDoseIntervalCore shared implementation for dose interval methods
+function [pln_interval,dij_intervalContext] = matRad_calcDoseInterval(ct,cst,stf,pln,dij,cfg)
+% matRad_calcDoseInterval calculates generic in-memory interval dose influence data
 %
 % call
-%   [pln_interval,dij_intervalContext] = matRad_calcDoseIntervalCore(ct,cst,stf,pln,dij,cfg,intervalMode)
+%   [pln_interval,dij_intervalContext] = matRad_calcDoseInterval(ct,cst,stf,pln,dij,cfg)
 %
 % input
 %   ct:           matRad ct struct; multi-CT inputs require pull DVFs when
@@ -14,8 +14,8 @@ function [pln_interval,dij_intervalContext] = matRad_calcDoseIntervalCore(ct,cst
 %                 scenarios used for the interval calculation (default: 1)
 %   dij:          robust dose influence struct; scenario cells are addressed
 %                 by DIJ linear scenario indices from pln.multScen
-%   cfg:          dose interval configuration struct
-%   intervalMode: interval method identifier, either 'INTERVAL2' or 'INTERVAL3'
+%   cfg:          dose interval configuration struct with required field
+%                 IntervalMode: 'INTERVAL2' or 'INTERVAL3'
 %
 % output
 %   pln_interval:        plan struct containing propOpt.dij_interval
@@ -38,7 +38,20 @@ function [pln_interval,dij_intervalContext] = matRad_calcDoseIntervalCore(ct,cst
 %
 % %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+if nargin < 6 || isempty(cfg)
+    cfg = struct();
+end
 matRad_cfg = MatRad_Config.instance();
+if ~isstruct(cfg)
+    matRad_cfg.dispError('Dose interval configuration must be a struct.');
+end
+if ~isfield(cfg,'IntervalMode') || isempty(cfg.IntervalMode)
+    matRad_cfg.dispError('cfg.IntervalMode must be ''INTERVAL2'' or ''INTERVAL3''.');
+end
+intervalMode = cfg.IntervalMode;
+intervalMode = normalizeIntervalMode(intervalMode,matRad_cfg);
+cfg.IntervalMode = intervalMode;
+
 timer = tic;
 
 ctx = matRad_resolveScenarioDoseInputs(ct,cst,pln,dij,cfg, ...
@@ -103,6 +116,20 @@ pln_interval.multScen = dij_intervalContext.scenarioModel;
 matRad_cfg.dispInfo('matRad: Finished %s dose interval calculation in %.2f s.\n', ...
     intervalMode,toc(timer));
 
+end
+
+function intervalMode = normalizeIntervalMode(intervalMode,matRad_cfg)
+if isstring(intervalMode) && isscalar(intervalMode)
+    intervalMode = char(intervalMode);
+end
+if ~ischar(intervalMode) || isempty(intervalMode)
+    matRad_cfg.dispError('intervalMode must be ''INTERVAL2'' or ''INTERVAL3''.');
+end
+
+intervalMode = upper(intervalMode);
+if ~any(strcmp(intervalMode,{'INTERVAL2','INTERVAL3'}))
+    matRad_cfg.dispError('intervalMode must be ''INTERVAL2'' or ''INTERVAL3''.');
+end
 end
 
 function dij_intervalContext = buildIntervalDijContext(dij,dij_interval,quantity,cfg)
