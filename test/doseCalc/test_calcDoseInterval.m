@@ -36,6 +36,20 @@ function test_interval2_physical_dose_center_and_radius
     assertElementsAlmostEqual(full(dijIntervalContext.physicalDose{1}), ...
         full(dijInterval.center),'absolute',1e-12);
 
+function test_interval_generic_entrypoint_uses_cfg_interval_mode
+    [ct,cst,pln,dij,cfg] = singleCtFixture();
+    [plnLegacy,~] = calcInterval2(ct,cst,[],pln,dij,cfg);
+
+    cfg.IntervalMode = 'INTERVAL2';
+    [plnGeneric,dijGenericContext] = matRad_calcDoseInterval(ct,cst,[],pln,dij,cfg);
+
+    assertElementsAlmostEqual(full(plnGeneric.propOpt.dij_interval.center), ...
+        full(plnLegacy.propOpt.dij_interval.center),'absolute',1e-12);
+    assertElementsAlmostEqual(full(plnGeneric.propOpt.dij_interval.radius), ...
+        full(plnLegacy.propOpt.dij_interval.radius),'absolute',1e-12);
+    assertEqual(plnGeneric.propOpt.dij_interval.intervalMode,'INTERVAL2');
+    assertEqual(dijGenericContext.numOfScenarios,1);
+
 function test_interval2_explicit_linear_quantity
     [ct,cst,pln,dij,cfg] = singleCtFixture();
     dij.mAlphaDose = cell(size(dij.physicalDose));
@@ -470,6 +484,206 @@ function test_interval2_multict_uses_dij_ct_grid_when_ct_axes_are_missing
 
     assertElementsAlmostEqual(full(dijInterval.center(:,1)),expectedCenter,'absolute',1e-12);
 
+function test_interval2_multict_maps_y_displacement_and_boundaries
+    [ct,cst,pln,dij,cfg,expectedCenter] = multiCtYDisplacementFixture();
+    pln.propOpt.scen4D = 'all';
+
+    [plnOut,~] = calcInterval2(ct,cst,[],pln,dij,cfg);
+
+    assertElementsAlmostEqual(full(plnOut.propOpt.dij_interval.center(:,1)), ...
+        expectedCenter,'absolute',1e-12);
+
+function test_interval2_multict_converts_millimeter_dvf_to_dose_voxels
+    [ct,cst,pln,dij,cfg,expectedCenter] = multiCtMillimeterDvfFixture();
+    pln.propOpt.scen4D = 'all';
+
+    [plnOut,~] = calcInterval2(ct,cst,[],pln,dij,cfg);
+
+    assertElementsAlmostEqual(full(plnOut.propOpt.dij_interval.center(:,1)), ...
+        expectedCenter,'absolute',1e-12);
+
+function test_interval2_streaming_inmemory_matches_existing_std
+    [ct,cst,pln,dij,cfg] = singleCtFixture();
+    [plnLegacy,~] = calcInterval2(ct,cst,[],pln,dij,cfg);
+
+    cfg.IntervalMode = 'INTERVAL2';
+    [plnStream,dijStreamContext] = matRad_calcDoseIntervalStreaming(ct,cst,[],pln,dij,cfg);
+
+    legacyInterval = plnLegacy.propOpt.dij_interval;
+    streamInterval = plnStream.propOpt.dij_interval;
+    assertElementsAlmostEqual(full(streamInterval.center), ...
+        full(legacyInterval.center),'absolute',1e-12);
+    assertElementsAlmostEqual(full(streamInterval.radius), ...
+        full(legacyInterval.radius),'absolute',1e-12);
+    assertEqual(streamInterval.precomputeMode,'streaming');
+    assertEqual(streamInterval.secondPassStrategy,'disk');
+    assertEqual(dijStreamContext.numOfScenarios,1);
+
+function test_interval2_streaming_wrapper_does_not_require_interval_mode
+    [ct,cst,pln,dij,cfg] = singleCtFixture();
+    [plnLegacy,~] = calcInterval2(ct,cst,[],pln,dij,cfg);
+
+    [plnStream,~] = matRad_calcDoseInterval2Streaming(ct,cst,[],pln,dij,cfg);
+
+    assertEqual(plnStream.propOpt.dij_interval.intervalMode,'INTERVAL2');
+    assertElementsAlmostEqual(full(plnStream.propOpt.dij_interval.center), ...
+        full(plnLegacy.propOpt.dij_interval.center),'absolute',1e-12);
+    assertElementsAlmostEqual(full(plnStream.propOpt.dij_interval.radius), ...
+        full(plnLegacy.propOpt.dij_interval.radius),'absolute',1e-12);
+
+function test_interval2_streaming_accepts_dij_without_cfg
+    [ct,cst,pln,dij,cfg] = singleCtFixture();
+    [plnLegacy,~] = calcInterval2(ct,cst,[],pln,dij,cfg);
+
+    [plnStream,~] = matRad_calcDoseInterval2Streaming(ct,cst,[],pln,dij);
+
+    assertElementsAlmostEqual(full(plnStream.propOpt.dij_interval.center), ...
+        full(plnLegacy.propOpt.dij_interval.center),'absolute',1e-12);
+    assertElementsAlmostEqual(full(plnStream.propOpt.dij_interval.radius), ...
+        full(plnLegacy.propOpt.dij_interval.radius),'absolute',1e-12);
+
+function test_interval2_streaming_recomputes_scenario_dij_without_dij_argument
+    [ct,cst,pln,stf] = photonTestDataFixture();
+    cfg.SecondPassStrategy = 'disk';
+    cfg.KeepCache = false;
+    cfg.BatchSize = 10000;
+    cfg.targetStructSel = 1;
+
+    [plnStream,dijStreamContext] = matRad_calcDoseInterval2Streaming(ct,cst,stf,pln,cfg);
+    dijInterval = plnStream.propOpt.dij_interval;
+
+    assertEqual(size(dijInterval.center,1),dijStreamContext.doseGrid.numOfVoxels);
+    assertEqual(size(dijInterval.center,2),dijStreamContext.totalNumOfBixels);
+    assertTrue(nnz(dijInterval.center) > 0);
+    assertTrue(nnz(dijInterval.radius) > 0);
+    assertFalse(isfield(dijInterval,'cacheDir'));
+    assertEqual(dijInterval.intervalMode,'INTERVAL2');
+    assertEqual(dijStreamContext.numOfScenarios,1);
+
+function test_interval_streaming_rejects_duplicate_precomputed_dij_inputs
+    [ct,cst,pln,dij,cfg] = singleCtFixture();
+    cfg.IntervalMode = 'INTERVAL2';
+    cfg.PrecomputedDij = dij;
+
+    assertExceptionThrown(@() matRad_calcDoseIntervalStreaming(ct,cst,[],pln,dij,cfg), ...
+        'matRad:Error');
+
+function test_interval2_streaming_recompute_extreme_matches_existing
+    [ct,cst,pln,dij,cfg] = singleCtFixture();
+    cfg.RadiusMode = 'extreme';
+    [plnLegacy,~] = calcInterval2(ct,cst,[],pln,dij,cfg);
+
+    cfg.IntervalMode = 'INTERVAL2';
+    cfg.SecondPassStrategy = 'recompute';
+    [plnStream,~] = matRad_calcDoseIntervalStreaming(ct,cst,[],pln,dij,cfg);
+
+    assertElementsAlmostEqual(full(plnStream.propOpt.dij_interval.center), ...
+        full(plnLegacy.propOpt.dij_interval.center),'absolute',1e-12);
+    assertElementsAlmostEqual(full(plnStream.propOpt.dij_interval.radius), ...
+        full(plnLegacy.propOpt.dij_interval.radius),'absolute',1e-12);
+
+function test_interval3_streaming_wrapper_does_not_require_interval_mode
+    [ct,cst,pln,dij,cfg] = singleCtFixture();
+    cfg.KMode = 'static';
+    cfg.KMax = 2;
+    [plnLegacy,~] = calcInterval3(ct,cst,[],pln,dij,cfg);
+
+    [plnStream,~] = matRad_calcDoseInterval3Streaming(ct,cst,[],pln,dij,cfg);
+
+    assertEqual(plnStream.propOpt.dij_interval.intervalMode,'INTERVAL3');
+    assertElementsAlmostEqual(full(plnStream.propOpt.dij_interval.center), ...
+        full(plnLegacy.propOpt.dij_interval.center),'absolute',1e-12);
+    assertElementsAlmostEqual(full(reconstructOARRadiusCovariance( ...
+        plnStream.propOpt.dij_interval,1)), ...
+        full(reconstructOARRadiusCovariance(plnLegacy.propOpt.dij_interval,1)), ...
+        'absolute',1e-12);
+
+function test_interval3_streaming_disk_cache_keeps_distinct_hash_folders
+    [ct,cst,pln,dij,cfg] = singleCtFixture();
+    cfg.RadiusMode = 'extreme';
+    cfg.KMode = 'static';
+    cfg.KMax = 2;
+    [plnLegacy,~] = calcInterval3(ct,cst,[],pln,dij,cfg);
+
+    cacheRoot = tempname();
+    cleanup = onCleanup(@() deleteDirIfExists(cacheRoot));
+    cfg.IntervalMode = 'INTERVAL3';
+    cfg.CacheRoot = cacheRoot;
+    cfg.KeepCache = true;
+
+    [plnStream1,~] = matRad_calcDoseIntervalStreaming(ct,cst,[],pln,dij,cfg);
+    [plnStream2,~] = matRad_calcDoseIntervalStreaming(ct,cst,[],pln,dij,cfg);
+
+    interval1 = plnStream1.propOpt.dij_interval;
+    interval2 = plnStream2.propOpt.dij_interval;
+    assertTrue(isfield(interval1,'cacheDir'));
+    assertTrue(isfield(interval2,'cacheDir'));
+    assertFalse(strcmp(interval1.cacheDir,interval2.cacheDir));
+    assertEqual(exist(interval1.cacheDir,'dir'),7);
+    assertEqual(exist(interval2.cacheDir,'dir'),7);
+    assertEqual(exist(fullfile(interval1.cacheDir,'metadata.mat'),'file'),2);
+    metadataData = load(fullfile(interval1.cacheDir,'metadata.mat'));
+    assertTrue(isfield(metadataData,'metadata'));
+    metadata = metadataData.metadata;
+    assertEqual(metadata.calculationName,'dose interval');
+    assertEqual(metadata.intervalMode,'INTERVAL3');
+    assertEqual(metadata.radiusMode,'extreme');
+    assertEqual(metadata.quantity,'physicalDose');
+    assertEqual(metadata.refScen,1);
+    assertEqual(metadata.scenarioDijIx,[1;2]);
+    assertEqual(metadata.scenarioCtScenIds,[1;1]);
+    assertElementsAlmostEqual(metadata.scenarioWeights,[0.25;0.75], ...
+        'absolute',1e-12);
+    assertTrue(~isempty(dir(fullfile(interval1.cacheDir,'scenario_*_oar_block_*.mat'))));
+
+    legacyInterval = plnLegacy.propOpt.dij_interval;
+    assertElementsAlmostEqual(full(interval1.center), ...
+        full(legacyInterval.center),'absolute',1e-12);
+    assertElementsAlmostEqual(full(interval1.radius), ...
+        full(legacyInterval.radius),'absolute',1e-12);
+    assertElementsAlmostEqual(full(reconstructOARRadiusCovariance(interval1,1)), ...
+        full(reconstructOARRadiusCovariance(legacyInterval,1)),'absolute',1e-12);
+
+function test_interval3_streaming_disk_cache_cleans_hash_folder_by_default
+    [ct,cst,pln,dij,cfg] = singleCtFixture();
+    cacheRoot = tempname();
+    cleanup = onCleanup(@() deleteDirIfExists(cacheRoot));
+    cfg.IntervalMode = 'INTERVAL3';
+    cfg.CacheRoot = cacheRoot;
+    cfg.KeepCache = false;
+    cfg.KMode = 'static';
+    cfg.KMax = 2;
+
+    [plnStream,~] = matRad_calcDoseIntervalStreaming(ct,cst,[],pln,dij,cfg);
+
+    assertFalse(isfield(plnStream.propOpt.dij_interval,'cacheDir'));
+    assertEqual(numel(listCacheRunDirs(cacheRoot)),0);
+
+function test_interval2_streaming_multict_mapping_matches_existing
+    [ct,cst,pln,dij,cfg,expectedCenter] = multiCtFixture(1);
+    pln.propOpt.scen4D = 'all';
+    cfg.IntervalMode = 'INTERVAL2';
+
+    [plnStream,~] = matRad_calcDoseIntervalStreaming(ct,cst,[],pln,dij,cfg);
+
+    assertElementsAlmostEqual(full(plnStream.propOpt.dij_interval.center(:,1)), ...
+        expectedCenter,'absolute',1e-12);
+    assertEqual(plnStream.propOpt.dij_interval.scenarioCtScenIds,[1;2]);
+
+function test_interval_streaming_requires_interval_mode
+    [ct,cst,pln,~,cfg] = singleCtFixture();
+
+    assertExceptionThrown(@() matRad_calcDoseIntervalStreaming(ct,cst,[],pln,cfg), ...
+        'matRad:Error');
+
+function test_interval_streaming_rejects_invalid_cache_root
+    [ct,cst,pln,~,cfg] = singleCtFixture();
+    cfg.IntervalMode = 'INTERVAL2';
+    cfg.CacheRoot = 1;
+
+    assertExceptionThrown(@() matRad_calcDoseIntervalStreaming(ct,cst,[],pln,cfg), ...
+        'matRad:Error');
+
 function covariance = reconstructOARRadiusCovariance(dijInterval,intervalIx)
     factor = dijInterval.OARRadiusFactor{intervalIx};
     covariance = factor * factor';
@@ -497,6 +711,20 @@ function assertTimingStageIsValid(stageTiming)
         assertTrue(value >= 0);
     end
 
+function dirs = listCacheRunDirs(cacheRoot)
+    dirs = {};
+    if exist(cacheRoot,'dir') ~= 7
+        return;
+    end
+    listing = dir(cacheRoot);
+    isRunDir = [listing.isdir] & ~ismember({listing.name},{'.','..'});
+    dirs = {listing(isRunDir).name};
+
+function deleteDirIfExists(path)
+    if exist(path,'dir') == 7
+        rmdir(path,'s');
+    end
+
 function [ct,cst,pln,dij,cfg] = singleCtFixture()
     ct.numOfCtScen = 1;
     ct.cubeDim = [2 2 1];
@@ -517,6 +745,19 @@ function [ct,cst,pln,dij,cfg] = singleCtFixture()
     dij.physicalDose{1} = sparse([1 0; 0 2; 1 1; 0 1]);
     dij.physicalDose{2} = sparse([3 0; 0 4; 2 1; 0 5]);
     cfg.BatchSize = 2;
+
+function [ct,cst,pln,stf] = photonTestDataFixture()
+    testDataPath = fullfile(fileparts(mfilename('fullpath')), ...
+        '..','testData','photons_testData.mat');
+    data = load(testDataPath,'ct','cst','pln','stf');
+    ct = data.ct;
+    cst = data.cst;
+    pln = data.pln;
+    stf = data.stf;
+    pln.propDoseCalc.engine = 'SVDPB';
+    if ~isfield(pln,'multScen') || isempty(pln.multScen)
+        pln.multScen = matRad_NominalScenario();
+    end
 
 function [ct,cst,pln,dij,cfg,expectedCenter] = multiCtFixture(refScen)
     dim = [2 3 1];
@@ -562,6 +803,68 @@ function [ct,cst,pln,dij,cfg,expectedCenter] = multiCtFixture(refScen)
     cfg.BatchSize = 2;
 
     expectedCenter = 0.5*sourceRows + 0.5*mappedRows;
+
+function [ct,cst,pln,dij,cfg,expectedCenter] = multiCtYDisplacementFixture()
+    dim = [3 2 1];
+    [~,yGrid,~] = meshgrid(1:dim(2),1:dim(1),1:dim(3));
+    sourceRows = yGrid(:);
+    mappedRows = zeros(dim);
+    mappedRows(2:end,:,:) = yGrid(1:end-1,:,:);
+    mappedRows = mappedRows(:);
+
+    [ct,cst,pln,dij,cfg] = multiCtMappingBaseFixture(dim,sourceRows);
+    ct.dvf{2}(2,:,:,:) = 1;
+
+    expectedCenter = 0.5*sourceRows + 0.5*mappedRows;
+
+function [ct,cst,pln,dij,cfg,expectedCenter] = multiCtMillimeterDvfFixture()
+    dim = [2 3 1];
+    [xGrid,~,~] = meshgrid(1:dim(2),1:dim(1),1:dim(3));
+    sourceRows = xGrid(:);
+    mappedRows = zeros(dim);
+    mappedRows(:,2:end,:) = xGrid(:,1:end-1,:);
+    mappedRows = mappedRows(:);
+
+    [ct,cst,pln,dij,cfg] = multiCtMappingBaseFixture(dim,sourceRows);
+    ct.resolution = struct('x',2,'y',1,'z',1);
+    ct.dvfMetadata.dvfUnits = 'mm';
+    ct.dvf{2}(1,:,:,:) = 2;
+    dij.doseGrid.resolution = struct('x',2,'y',1,'z',1);
+    dij.ctGrid = dij.doseGrid;
+
+    expectedCenter = 0.5*sourceRows + 0.5*mappedRows;
+
+function [ct,cst,pln,dij,cfg] = multiCtMappingBaseFixture(dim,sourceRows)
+    ct.numOfCtScen = 2;
+    ct.cubeDim = dim;
+    ct.resolution = struct('x',1,'y',1,'z',1);
+    ct.x = 1:dim(2);
+    ct.y = 1:dim(1);
+    ct.z = 1:dim(3);
+    ct.refScen = 1;
+    ct.dvfMetadata.dvfType = 'pull';
+    ct.dvfMetadata.dvfUnits = 'voxel';
+    ct.dvfMetadata.refScen = 1;
+    ct.dvfMetadata.referenceCtScen = 1;
+    ct.dvf = cell(2,1);
+    ct.dvf{1} = zeros([3 dim]);
+    ct.dvf{2} = zeros([3 dim]);
+
+    cst = cell(1,6);
+    cst = addStructure(cst,1,'PTV','TARGET',(1:prod(dim))');
+    cst{1,4} = cell(1,2);
+    cst{1,4}{1} = (1:prod(dim))';
+
+    pln.bioParam.quantityOpt = 'physicalDose';
+    pln.multScen = fixtureScenarioModel(ct,[1;2],zeros(2,5), ...
+        [1 1 1; 2 1 1],true(2,1,1),[0.5;0.5]);
+
+    dij = baseDij(dim,1);
+    dij.physicalDose = cell(2,1,1);
+    dij.physicalDose{1} = sparse(sourceRows);
+    dij.physicalDose{2} = sparse(sourceRows);
+    cfg.refScen = 1;
+    cfg.BatchSize = 2;
 
 function [ct,cst,pln,dij,cfg,expectedCenter] = multiCtResamplingFixture()
     ctDim = [2 4 2];

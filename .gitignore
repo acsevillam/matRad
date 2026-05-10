@@ -6,3 +6,4 @@ coverage.json
 *.asv
 build/
 .DS_Store
+cache/

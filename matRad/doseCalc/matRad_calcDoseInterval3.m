@@ -60,8 +60,9 @@ function [pln_interval,dij_intervalContext] = matRad_calcDoseInterval3(ct,cst,st
 if nargin < 6
     cfg = struct();
 end
+cfg.IntervalMode = 'INTERVAL3';
 
 [pln_interval,dij_intervalContext] = ...
-    matRad_calcDoseIntervalCore(ct,cst,stf,pln,dij,cfg,'INTERVAL3');
+    matRad_calcDoseInterval(ct,cst,stf,pln,dij,cfg);
 
 end
