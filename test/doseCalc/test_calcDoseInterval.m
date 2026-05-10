@@ -34,7 +34,9 @@ function test_interval2_physical_dose_center_and_radius
     assertEqual(plnOut.multScen.numScenarios(),1);
     assertEqual(plnOut.multScen.getDijScenarioIndex(1),1);
     assertElementsAlmostEqual(full(dijIntervalContext.physicalDose{1}), ...
-        full(dijInterval.center),'absolute',1e-12);
+        full(dij.physicalDose{1}),'absolute',1e-12);
+    assertTrue(any(abs(full(dijIntervalContext.physicalDose{1}(:)) - ...
+        full(dijInterval.center(:))) > 1e-12));
 
 function test_interval_generic_entrypoint_uses_cfg_interval_mode
     [ct,cst,pln,dij,cfg] = singleCtFixture();

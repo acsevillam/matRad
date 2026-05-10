@@ -110,7 +110,8 @@ if ~isfield(pln_interval,'propOpt') || ~isstruct(pln_interval.propOpt)
     pln_interval.propOpt = struct();
 end
 pln_interval.propOpt.dij_interval = dij_interval;
-dij_intervalContext = buildIntervalDijContext(dij,dij_interval,quantity,cfg);
+dij_intervalContext = buildIntervalDijContext(ct,cst,stf,pln,dij, ...
+    dij_interval,quantity,cfg);
 pln_interval.multScen = dij_intervalContext.scenarioModel;
 
 matRad_cfg.dispInfo('matRad: Finished %s dose interval calculation in %.2f s.\n', ...
@@ -132,57 +133,13 @@ if ~any(strcmp(intervalMode,{'INTERVAL2','INTERVAL3'}))
 end
 end
 
-function dij_intervalContext = buildIntervalDijContext(dij,dij_interval,quantity,cfg)
-metadataFields = {'doseGrid','ctGrid','totalNumOfBixels','numOfBeams', ...
-    'beamNum','rayNum','bixelNum','numParticlesPerMU','minMU','maxMU', ...
-    'RBE','RBE_models','ax','bx','doseWeightingThreshold','machine','meta'};
-dij_intervalContext = struct();
-for f = 1:numel(metadataFields)
-    fieldName = metadataFields{f};
-    if isfield(dij,fieldName)
-        dij_intervalContext.(fieldName) = dij.(fieldName);
-    end
-end
-
+function dij_intervalContext = buildIntervalDijContext(ct,cst,stf,pln,dij, ...
+    dij_interval,quantity,cfg)
 numBixels = size(dij_interval.center,2);
-dij_intervalContext.totalNumOfBixels = numBixels;
-if ~isfield(dij_intervalContext,'beamNum') || ...
-        numel(dij_intervalContext.beamNum) ~= numBixels
-    dij_intervalContext.beamNum = ones(numBixels,1);
-else
-    dij_intervalContext.beamNum = dij_intervalContext.beamNum(:);
-end
-if ~isfield(dij_intervalContext,'numOfBeams') || ...
-        isempty(dij_intervalContext.numOfBeams)
-    dij_intervalContext.numOfBeams = max(dij_intervalContext.beamNum);
-end
-
-dij_intervalContext.physicalDose = cell(1,1,1);
-dij_intervalContext.physicalDose{1} = dij_interval.center;
-if ~strcmp(quantity.field,'physicalDose')
-    dij_intervalContext.(quantity.field) = cell(1,1,1);
-    dij_intervalContext.(quantity.field){1} = dij_interval.center;
-end
-dij_intervalContext.numOfScenarios = 1;
-dij_intervalContext.scenarioModel = buildIntervalOptimizationScenarioModel( ...
-    cfg.refScen);
+dij_intervalContext = matRad_buildNominalDijContext( ...
+    ct,cst,stf,pln,cfg,numBixels,dij);
 dij_intervalContext.intervalQuantity = quantity.name;
 dij_intervalContext.intervalQuantityField = quantity.field;
-end
-
-function scenarioModel = buildIntervalOptimizationScenarioModel(refScen)
-components = matRad_createScenarioComponents([0 0 0],0,0,{'ct'});
-scenarioValues = zeros(1,numel(components));
-ctScenIds = refScen;
-scenProb = 1;
-scenWeight = 1;
-scenForProb = [ctScenIds scenarioValues];
-linearMask = [1 1 1];
-scenMask = true(1,1,1);
-
-scenarioModel = matRad_NominalScenario();
-scenarioModel.setScenarioRealizations(components,scenarioValues,ctScenIds, ...
-    scenProb,scenWeight,scenForProb,linearMask,scenMask);
 end
 
 function dij_interval = initializeIntervalStruct(numVoxels,numBixels,targetRows,oarRows, ...
