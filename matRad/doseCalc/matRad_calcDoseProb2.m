@@ -1,4 +1,4 @@
-function [pln_prob2,dij_prob2Context] = matRad_calcDoseProb2(ct,cst,~,pln,dij,cfg)
+function [pln_prob2,dij_prob2Context] = matRad_calcDoseProb2(ct,cst,stf,pln,dij,cfg)
 % matRad_calcDoseProb2 calculates scenario-free probabilistic influence data
 %
 % call
@@ -71,7 +71,8 @@ if ~isfield(pln_prob2,'propOpt') || ~isstruct(pln_prob2.propOpt)
     pln_prob2.propOpt = struct();
 end
 pln_prob2.propOpt.dij_prob2 = dij_prob2;
-dij_prob2Context = buildProb2DijContext(dij,dij_prob2,quantity,cfg);
+dij_prob2Context = buildProb2DijContext(ct,cst,stf,pln,dij, ...
+    dij_prob2,quantity,cfg);
 pln_prob2.multScen = dij_prob2Context.scenarioModel;
 
 matRad_cfg.dispInfo('matRad: Finished PROB2 calculation in %.2f s.\n', ...
@@ -232,60 +233,16 @@ end
 voxels = unique(voxels(:),'stable');
 end
 
-function dij_prob2Context = buildProb2DijContext(dij,dij_prob2,quantity,cfg)
-metadataFields = {'doseGrid','ctGrid','totalNumOfBixels','numOfBeams', ...
-    'beamNum','rayNum','bixelNum','numParticlesPerMU','minMU','maxMU', ...
-    'RBE','RBE_models','ax','bx','doseWeightingThreshold','machine','meta'};
-dij_prob2Context = struct();
-for f = 1:numel(metadataFields)
-    fieldName = metadataFields{f};
-    if isfield(dij,fieldName)
-        dij_prob2Context.(fieldName) = dij.(fieldName);
-    end
-end
-
+function dij_prob2Context = buildProb2DijContext(ct,cst,stf,pln,dij, ...
+    dij_prob2,quantity,cfg)
 numBixels = size(dij_prob2.expected,2);
-dij_prob2Context.totalNumOfBixels = numBixels;
-if ~isfield(dij_prob2Context,'beamNum') || ...
-        numel(dij_prob2Context.beamNum) ~= numBixels
-    dij_prob2Context.beamNum = ones(numBixels,1);
-else
-    dij_prob2Context.beamNum = dij_prob2Context.beamNum(:);
-end
-if ~isfield(dij_prob2Context,'numOfBeams') || ...
-        isempty(dij_prob2Context.numOfBeams)
-    dij_prob2Context.numOfBeams = max(dij_prob2Context.beamNum);
-end
-
-dij_prob2Context.physicalDose = cell(1,1,1);
-dij_prob2Context.physicalDose{1} = dij_prob2.expected;
-if ~strcmp(quantity.field,'physicalDose')
-    dij_prob2Context.(quantity.field) = cell(1,1,1);
-    dij_prob2Context.(quantity.field){1} = dij_prob2.expected;
-end
+dij_prob2Context = matRad_buildNominalDijContext( ...
+    ct,cst,stf,pln,cfg,numBixels,dij);
 if strcmpi(quantity.name,'RBExD') && isfield(dij_prob2Context,'RBE')
     dij_prob2Context.RBE = 1;
 end
-dij_prob2Context.numOfScenarios = 1;
-dij_prob2Context.scenarioModel = buildProb2OptimizationScenarioModel( ...
-    cfg.refScen);
 dij_prob2Context.probabilisticQuantity = quantity.name;
 dij_prob2Context.probabilisticQuantityField = quantity.field;
-end
-
-function scenarioModel = buildProb2OptimizationScenarioModel(refScen)
-components = matRad_createScenarioComponents([0 0 0],0,0,{'ct'});
-scenarioValues = zeros(1,numel(components));
-ctScenIds = refScen;
-scenProb = 1;
-scenWeight = 1;
-scenForProb = [ctScenIds scenarioValues];
-linearMask = [1 1 1];
-scenMask = true(1,1,1);
-
-scenarioModel = matRad_NominalScenario();
-scenarioModel.setScenarioRealizations(components,scenarioValues,ctScenIds, ...
-    scenProb,scenWeight,scenForProb,linearMask,scenMask);
 end
 
 function batchSize = resolveProb2BatchSize(numRows,numScenarios,numBixels,cfg)

@@ -125,7 +125,7 @@ try
         pln_prob2.propOpt = struct();
     end
     pln_prob2.propOpt.dij_prob2 = dij_prob2;
-    dij_prob2Context = buildProb2StreamingDijContext(dijForResolve, ...
+    dij_prob2Context = buildProb2StreamingDijContext(ct,cst,stf,pln, ...
         dij_prob2,quantity,cfg);
     pln_prob2.multScen = dij_prob2Context.scenarioModel;
 
@@ -191,43 +191,18 @@ for i = 1:numel(selectedStructures)
 end
 end
 
-function dij_prob2Context = buildProb2StreamingDijContext(dij,dij_prob2,quantity,cfg)
-metadataFields = {'doseGrid','ctGrid','totalNumOfBixels','numOfBeams', ...
-    'beamNum','rayNum','bixelNum','numParticlesPerMU','minMU','maxMU', ...
-    'RBE','RBE_models','ax','bx','doseWeightingThreshold','machine','meta'};
-dij_prob2Context = struct();
-for f = 1:numel(metadataFields)
-    fieldName = metadataFields{f};
-    if isfield(dij,fieldName)
-        dij_prob2Context.(fieldName) = dij.(fieldName);
-    end
-end
-
+function dij_prob2Context = buildProb2StreamingDijContext(ct,cst,stf,pln, ...
+    dij_prob2,quantity,cfg)
 numBixels = size(dij_prob2.expected,2);
-dij_prob2Context.totalNumOfBixels = numBixels;
-if ~isfield(dij_prob2Context,'beamNum') || ...
-        numel(dij_prob2Context.beamNum) ~= numBixels
-    dij_prob2Context.beamNum = ones(numBixels,1);
-else
-    dij_prob2Context.beamNum = dij_prob2Context.beamNum(:);
+robustDij = [];
+if isfield(cfg,'PrecomputedDij')
+    robustDij = cfg.PrecomputedDij;
 end
-if ~isfield(dij_prob2Context,'numOfBeams') || ...
-        isempty(dij_prob2Context.numOfBeams)
-    dij_prob2Context.numOfBeams = max(dij_prob2Context.beamNum);
-end
-
-dij_prob2Context.physicalDose = cell(1,1,1);
-dij_prob2Context.physicalDose{1} = dij_prob2.expected;
-if ~strcmp(quantity.field,'physicalDose')
-    dij_prob2Context.(quantity.field) = cell(1,1,1);
-    dij_prob2Context.(quantity.field){1} = dij_prob2.expected;
-end
+dij_prob2Context = matRad_buildNominalDijContext( ...
+    ct,cst,stf,pln,cfg,numBixels,robustDij);
 if strcmpi(quantity.name,'RBExD') && isfield(dij_prob2Context,'RBE')
     dij_prob2Context.RBE = 1;
 end
-dij_prob2Context.numOfScenarios = 1;
-dij_prob2Context.scenarioModel = matRad_buildStreamingOptimizationScenarioModel( ...
-    cfg.refScen);
 dij_prob2Context.probabilisticQuantity = quantity.name;
 dij_prob2Context.probabilisticQuantityField = quantity.field;
 end

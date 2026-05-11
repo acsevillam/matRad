@@ -22,9 +22,13 @@ function test_prob2_physical_dose_expected_and_omega
     assertElementsAlmostEqual(dijProb2.scenarioWeights,[0.25;0.75], ...
         'absolute',1e-12);
     assertElementsAlmostEqual(full(dijProb2Context.physicalDose{1}), ...
-        expected,'absolute',1e-12);
+        full(dij.physicalDose{1}),'absolute',1e-12);
+    assertTrue(any(abs(full(dijProb2Context.physicalDose{1}(:)) - ...
+        expected(:)) > 1e-12));
     assertEqual(dijProb2Context.numOfScenarios,1);
     assertTrue(isa(dijProb2Context.scenarioModel,'matRad_NominalScenario'));
+    assertEqual(dijProb2Context.probabilisticQuantity,'physicalDose');
+    assertEqual(dijProb2Context.probabilisticQuantityField,'physicalDose');
 
 function test_prob2_batch_size_does_not_change_result
     [ct,cst,pln,dij,cfg] = singleCtFixture();
@@ -101,7 +105,9 @@ function test_prob2_streaming_inmemory_matches_existing
     assertEqual(plnStream.propOpt.dij_prob2.secondPassStrategy,'disk');
     assertEqual(dijStreamContext.numOfScenarios,1);
     assertElementsAlmostEqual(full(dijStreamContext.physicalDose{1}), ...
-        full(plnLegacy.propOpt.dij_prob2.expected),'absolute',1e-12);
+        full(dij.physicalDose{1}),'absolute',1e-12);
+    assertTrue(any(abs(full(dijStreamContext.physicalDose{1}(:)) - ...
+        full(plnLegacy.propOpt.dij_prob2.expected(:))) > 1e-12));
 
 function test_prob2_streaming_accepts_dij_without_cfg
     [ct,cst,pln,dij,cfg] = singleCtFixture();

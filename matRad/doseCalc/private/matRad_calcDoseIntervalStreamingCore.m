@@ -129,7 +129,7 @@ try
         pln_interval.propOpt = struct();
     end
     pln_interval.propOpt.dij_interval = dij_interval;
-    dij_intervalContext = buildIntervalStreamingDijContext(dijForResolve, ...
+    dij_intervalContext = buildIntervalStreamingDijContext(ct,cst,stf,pln, ...
         dij_interval,quantity,cfg);
     pln_interval.multScen = dij_intervalContext.scenarioModel;
 
@@ -341,40 +341,15 @@ for b = 1:numel(oarBatches)
 end
 end
 
-function dij_intervalContext = buildIntervalStreamingDijContext(dij,dij_interval,quantity,cfg)
-metadataFields = {'doseGrid','ctGrid','totalNumOfBixels','numOfBeams', ...
-    'beamNum','rayNum','bixelNum','numParticlesPerMU','minMU','maxMU', ...
-    'RBE','RBE_models','ax','bx','doseWeightingThreshold','machine','meta'};
-dij_intervalContext = struct();
-for f = 1:numel(metadataFields)
-    fieldName = metadataFields{f};
-    if isfield(dij,fieldName)
-        dij_intervalContext.(fieldName) = dij.(fieldName);
-    end
-end
-
+function dij_intervalContext = buildIntervalStreamingDijContext(ct,cst,stf, ...
+    pln,dij_interval,quantity,cfg)
 numBixels = size(dij_interval.center,2);
-dij_intervalContext.totalNumOfBixels = numBixels;
-if ~isfield(dij_intervalContext,'beamNum') || ...
-        numel(dij_intervalContext.beamNum) ~= numBixels
-    dij_intervalContext.beamNum = ones(numBixels,1);
-else
-    dij_intervalContext.beamNum = dij_intervalContext.beamNum(:);
+robustDij = [];
+if isfield(cfg,'PrecomputedDij')
+    robustDij = cfg.PrecomputedDij;
 end
-if ~isfield(dij_intervalContext,'numOfBeams') || ...
-        isempty(dij_intervalContext.numOfBeams)
-    dij_intervalContext.numOfBeams = max(dij_intervalContext.beamNum);
-end
-
-dij_intervalContext.physicalDose = cell(1,1,1);
-dij_intervalContext.physicalDose{1} = dij_interval.center;
-if ~strcmp(quantity.field,'physicalDose')
-    dij_intervalContext.(quantity.field) = cell(1,1,1);
-    dij_intervalContext.(quantity.field){1} = dij_interval.center;
-end
-dij_intervalContext.numOfScenarios = 1;
-dij_intervalContext.scenarioModel = matRad_buildStreamingOptimizationScenarioModel( ...
-    cfg.refScen);
+dij_intervalContext = matRad_buildNominalDijContext( ...
+    ct,cst,stf,pln,cfg,numBixels,robustDij);
 dij_intervalContext.intervalQuantity = quantity.name;
 dij_intervalContext.intervalQuantityField = quantity.field;
 end
