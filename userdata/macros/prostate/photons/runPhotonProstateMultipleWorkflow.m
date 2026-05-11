@@ -3,7 +3,7 @@ function runPhotonProstateMultipleWorkflow(varargin)
 % Usage: runPhotonProstateMultipleWorkflow('caseID','3482','rootPath',userDataRoot,'cacheRootPath',fullfile(userDataRoot,'output','cache'),'randomSeed',[])
 
 macroFolder = fileparts(mfilename('fullpath'));
-macroRoot = fileparts(macroFolder);
+macroRoot = findMacroRoot(macroFolder);
 sharedFolder = fullfile(macroRoot,'shared','prostate');
 if exist(sharedFolder,'dir') ~= 7
     error('planWorkflow:macros:MissingSharedMacro', ...
@@ -29,5 +29,22 @@ prepareConfig.resolution = [3 3 3];
 prepareConfig.n_cores = 8;
 
 runProstateMultipleWorkflowCore(prepareConfig,varargin{:});
+
+end
+
+function macroRoot = findMacroRoot(startFolder)
+
+macroRoot = startFolder;
+while true
+    if exist(fullfile(macroRoot,'helpers'),'dir') == 7
+        return;
+    end
+    parentFolder = fileparts(macroRoot);
+    if strcmp(parentFolder,macroRoot)
+        error('planWorkflow:macros:MacroRootNotFound', ...
+            'Could not locate userdata/macros root from %s.',startFolder);
+    end
+    macroRoot = parentFolder;
+end
 
 end

@@ -1,12 +1,13 @@
 # Workflow Macros
 
 This folder contains executable workflow entrypoints for the external userdata
-workspace, organized by radiation mode.
+workspace, organized first by anatomy and then by radiation mode.
 
 ## Layout
 
-- `photons/`: photon workflow macros.
-- `protons/`: proton workflow macros.
+- `breast/photons/`: photon breast workflow macros.
+- `prostate/photons/`: photon prostate workflow macros.
+- `prostate/protons/`: proton prostate workflow macros.
 - `shared/prostate/`: shared prostate workflow implementations used by
   modality-specific wrappers.
 - `helpers/`: shared local helper functions used by macros.
@@ -16,18 +17,23 @@ General macros:
 - `openWorkflowMacroBuilder.m`: opens the planWorkflow GUI only, so templates
   and workflow macros can be exported without executing workflow stages.
 
-Current photon macros:
+Current breast photon macros:
 
-- `photons/runPhotonProstate1MctRobustPtvWorkflow.m`: prostate workflow using the
-  `PTV_001` template and robust PTV optimization for the `1_mct` case.
-- `photons/runPhotonProstateInterval2Workflow.m`: prostate workflow using the
+- `breast/photons/runPhotonBreastInterval2Workflow.m`: breast workflow using the
   `interval2_001` template and INTERVAL2 robust optimization.
-- `photons/runPhotonProstateMultipleWorkflow.m`: prostate workflow using the
+
+Current prostate photon macros:
+
+- `prostate/photons/runPhotonProstate1MctRobustPtvWorkflow.m`: prostate workflow using the
+  `PTV_001` template and robust PTV optimization for the `1_mct` case.
+- `prostate/photons/runPhotonProstateInterval2Workflow.m`: prostate workflow using the
+  `interval2_001` template and INTERVAL2 robust optimization.
+- `prostate/photons/runPhotonProstateMultipleWorkflow.m`: prostate workflow using the
   `comparison_001` template with reference plus multiple robust plans.
 
-Current proton macros:
+Current prostate proton macros:
 
-- `protons/runProtonProstateMultipleWorkflow.m`: prostate workflow using the
+- `prostate/protons/runProtonProstateMultipleWorkflow.m`: prostate workflow using the
   `comparison_001` template with `protons`, `Generic`/`constRBE`, `RBExD`, and
   the `2F` beam set.
 
@@ -63,11 +69,14 @@ positional values in that order:
 cd(fullfile(userDataRoot,'macros'))
 openWorkflowMacroBuilder()
 
-cd(fullfile(userDataRoot,'macros','photons'))
+cd(fullfile(userDataRoot,'macros','breast','photons'))
+runPhotonBreastInterval2Workflow('caseID','4136','rootPath','/tmp/userdata')
+
+cd(fullfile(userDataRoot,'macros','prostate','photons'))
 runPhotonProstateInterval2Workflow('caseID','4136','rootPath','/tmp/userdata')
 runPhotonProstateInterval2Workflow(struct('caseID','4136'))
 runPhotonProstateInterval2Workflow('4136','/tmp/userdata','/tmp/cache')
 
-cd(fullfile(userDataRoot,'macros','protons'))
+cd(fullfile(userDataRoot,'macros','prostate','protons'))
 runProtonProstateMultipleWorkflow('caseID','4136','rootPath','/tmp/userdata')
 ```
