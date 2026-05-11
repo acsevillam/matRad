@@ -22,7 +22,10 @@ function [pln_prob2,dij_prob2Context] = matRad_calcDoseProb2Streaming(ct,cst,stf
 %           KeepCache: keep the hash cache folder after the run (default false)
 %
 % output
-%   pln_prob2:        plan struct containing propOpt.dij_prob2
+%   pln_prob2:        plan struct containing propOpt.dij_prob2. The
+%                     propOpt.dij_prob2.streamingSize field summarizes
+%                     compact result bytes and peak streaming auxiliary
+%                     bytes used during precomputation.
 %   dij_prob2Context: lightweight single-scenario dij context for
 %                     probabilistic fluence optimization
 %
@@ -49,6 +52,7 @@ try
     scenarioInfo = matRad_resolveStreamingScenarioSelection(ct,pln,cfg,matRad_cfg);
     [provider,dijForResolve] = matRad_initializeScenarioRowProvider( ...
         ct,cst,stf,pln,cfg,scenarioInfo,matRad_cfg,'PROB2');
+    provider.sizeTelemetry = matRad_initializeScenarioDoseSizeTelemetry();
 
     ctx = matRad_resolveScenarioDoseInputs(ct,cst,pln,dijForResolve,cfg, ...
         'PROB2',matRad_cfg);
@@ -119,6 +123,8 @@ try
     if needsDiskCache && cfg.KeepCache
         dij_prob2.cacheDir = cacheContext.runDir;
     end
+    dij_prob2.streamingSize = matRad_buildScenarioDoseStreamingSize( ...
+        dij_prob2,provider,cfg);
 
     pln_prob2 = pln;
     if ~isfield(pln_prob2,'propOpt') || ~isstruct(pln_prob2.propOpt)
@@ -241,8 +247,10 @@ for s = 1:numScenarios
                 batch = batches{b};
                 rows = matRad_getScenarioDoseProviderRows(source, ...
                     ctx.scenarioMaps{s},batch.rows,matRad_cfg);
-                matRad_writeScenarioDoseCacheBlock(provider.cacheContext,s, ...
+                blockBytes = matRad_writeScenarioDoseCacheBlock(provider.cacheContext,s, ...
                     prob2StreamingVoiCacheKind(voiIx),b,batch.rows,rows);
+                provider = matRad_updateScenarioDoseDiskCachePeak(provider, ...
+                    blockBytes);
             end
         end
     end
@@ -289,6 +297,8 @@ for voiIx = 1:numel(voiRows)
                 rows = matRad_getScenarioDoseProviderRows(source, ...
                     ctx.scenarioMaps{s},batch.rows,matRad_cfg);
                 centeredRows = {rows - dij_prob2.expected(batch.rows,:)};
+                provider = matRad_updateScenarioDoseMemoryPeak(provider, ...
+                    source,rows,centeredRows);
                 omega = omega + accumulateProb2StreamingCenteredOmegaBatch(centeredRows, ...
                     ctx.scenarioWeights(s),numBixels);
             end

@@ -1,5 +1,5 @@
-function bytes = matRad_writeScenarioDoseCacheBlock(cacheContext,scenarioIx,kind,blockIx,rowIx,rows)
-% matRad_writeScenarioDoseCacheBlock writes a sparse row cache block
+function telemetry = matRad_initializeScenarioDoseSizeTelemetry()
+% matRad_initializeScenarioDoseSizeTelemetry initializes streaming size counters
 %
 % %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
@@ -14,13 +14,7 @@ function bytes = matRad_writeScenarioDoseCacheBlock(cacheContext,scenarioIx,kind
 %
 % %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-fileName = cacheBlockFile(cacheContext,scenarioIx,kind,blockIx);
-save(fileName,'scenarioIx','kind','blockIx','rowIx','rows','-v7');
-fileInfo = dir(fileName);
-bytes = double(fileInfo.bytes);
-end
-
-function fileName = cacheBlockFile(cacheContext,scenarioIx,kind,blockIx)
-fileName = fullfile(cacheContext.runDir, ...
-    sprintf('scenario_%04d_%s_block_%04d.mat',scenarioIx,kind,blockIx));
+telemetry = struct();
+telemetry.diskCachePeakBytes = 0;
+telemetry.memoryTemporaryPeakBytes = 0;
 end

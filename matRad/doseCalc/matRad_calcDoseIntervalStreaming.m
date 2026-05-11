@@ -21,7 +21,10 @@ function [pln_interval,dij_intervalContext] = matRad_calcDoseIntervalStreaming(c
 %           KeepCache: keep the hash cache folder after the run (default false)
 %
 % output
-%   pln_interval:        plan struct containing propOpt.dij_interval
+%   pln_interval:        plan struct containing propOpt.dij_interval. The
+%                        propOpt.dij_interval.streamingSize field summarizes
+%                        compact result bytes and peak streaming auxiliary
+%                        bytes used during precomputation.
 %   dij_intervalContext: lightweight single-scenario dij context for
 %                        interval fluence optimization
 %

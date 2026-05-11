@@ -1,5 +1,5 @@
-function bytes = matRad_writeScenarioDoseCacheBlock(cacheContext,scenarioIx,kind,blockIx,rowIx,rows)
-% matRad_writeScenarioDoseCacheBlock writes a sparse row cache block
+function provider = matRad_updateScenarioDoseDiskCachePeak(provider,blockBytes)
+% matRad_updateScenarioDoseDiskCachePeak accumulates written cache bytes
 %
 % %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
@@ -14,13 +14,10 @@ function bytes = matRad_writeScenarioDoseCacheBlock(cacheContext,scenarioIx,kind
 %
 % %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-fileName = cacheBlockFile(cacheContext,scenarioIx,kind,blockIx);
-save(fileName,'scenarioIx','kind','blockIx','rowIx','rows','-v7');
-fileInfo = dir(fileName);
-bytes = double(fileInfo.bytes);
+if ~isfield(provider,'sizeTelemetry') || isempty(provider.sizeTelemetry)
+    provider.sizeTelemetry = matRad_initializeScenarioDoseSizeTelemetry();
 end
 
-function fileName = cacheBlockFile(cacheContext,scenarioIx,kind,blockIx)
-fileName = fullfile(cacheContext.runDir, ...
-    sprintf('scenario_%04d_%s_block_%04d.mat',scenarioIx,kind,blockIx));
+provider.sizeTelemetry.diskCachePeakBytes = ...
+    provider.sizeTelemetry.diskCachePeakBytes + double(blockBytes);
 end

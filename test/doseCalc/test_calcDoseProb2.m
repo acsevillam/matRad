@@ -139,6 +139,7 @@ function test_prob2_streaming_recomputes_scenario_dij_without_dij_argument
     assertEqual(size(dijProb2.expected,2),dijStreamContext.totalNumOfBixels);
     assertTrue(nnz(dijProb2.expected) > 0);
     assertFalse(isfield(dijProb2,'cacheDir'));
+    assertStreamingSizeDisk(dijProb2);
     assertEqual(dijStreamContext.numOfScenarios,1);
 
 function test_prob2_streaming_recompute_matches_existing
@@ -152,6 +153,7 @@ function test_prob2_streaming_recompute_matches_existing
     assertProb2AlmostEqual(plnLegacy.propOpt.dij_prob2, ...
         plnStream.propOpt.dij_prob2);
     assertEqual(plnStream.propOpt.dij_prob2.secondPassStrategy,'recompute');
+    assertStreamingSizeRecompute(plnStream.propOpt.dij_prob2);
 
 function test_prob2_streaming_disk_cache_keeps_distinct_hash_folders
     [ct,cst,pln,dij,cfg] = singleCtFixture();
@@ -167,6 +169,8 @@ function test_prob2_streaming_disk_cache_keeps_distinct_hash_folders
     prob2_2 = plnStream2.propOpt.dij_prob2;
     assertTrue(isfield(prob2_1,'cacheDir'));
     assertTrue(isfield(prob2_2,'cacheDir'));
+    assertStreamingSizeDisk(prob2_1);
+    assertStreamingSizeDisk(prob2_2);
     assertFalse(strcmp(prob2_1.cacheDir,prob2_2.cacheDir));
     assertEqual(exist(prob2_1.cacheDir,'dir'),7);
     assertEqual(exist(prob2_2.cacheDir,'dir'),7);
@@ -192,7 +196,9 @@ function test_prob2_streaming_disk_cache_cleans_hash_folder_by_default
 
     [plnStream,~] = matRad_calcDoseProb2Streaming(ct,cst,[],pln,dij,cfg);
 
-    assertFalse(isfield(plnStream.propOpt.dij_prob2,'cacheDir'));
+    dijProb2 = plnStream.propOpt.dij_prob2;
+    assertFalse(isfield(dijProb2,'cacheDir'));
+    assertStreamingSizeDisk(dijProb2);
     assertEqual(numel(listCacheRunDirs(cacheRoot)),0);
 
 function test_prob2_streaming_multict_mapping_matches_existing
@@ -362,6 +368,33 @@ function assertProb2AlmostEqual(expectedProb2,actualProb2)
     assertEqual(actualProb2.quantityField,expectedProb2.quantityField);
     assertElementsAlmostEqual(actualProb2.scenarioWeights, ...
         expectedProb2.scenarioWeights,'absolute',1e-12);
+
+function assertStreamingSizeTotal(dij)
+    assertTrue(isfield(dij,'streamingSize'));
+    sizeData = dij.streamingSize;
+    assertTrue(sizeData.compactBytes > 0);
+    assertTrue(sizeData.auxiliaryPeakBytes >= 0);
+    assertElementsAlmostEqual(sizeData.totalPrecomputingBytes, ...
+        sizeData.compactBytes + sizeData.auxiliaryPeakBytes, ...
+        'absolute',1e-12);
+
+function assertStreamingSizeDisk(dij)
+    assertStreamingSizeTotal(dij);
+    sizeData = dij.streamingSize;
+    assertTrue(sizeData.diskCachePeakBytes > 0);
+    assertEqual(sizeData.auxiliaryPeakBytes, ...
+        sizeData.diskCachePeakBytes);
+    assertEqual(sizeData.auxiliaryPeakKind,'diskCache');
+    assertEqual(sizeData.secondPassStrategy,'disk');
+
+function assertStreamingSizeRecompute(dij)
+    assertStreamingSizeTotal(dij);
+    sizeData = dij.streamingSize;
+    assertTrue(sizeData.memoryTemporaryPeakBytes > 0);
+    assertEqual(sizeData.auxiliaryPeakBytes, ...
+        sizeData.memoryTemporaryPeakBytes);
+    assertEqual(sizeData.auxiliaryPeakKind,'memoryTemporary');
+    assertEqual(sizeData.secondPassStrategy,'recompute');
 
 function dirs = listCacheRunDirs(cacheRoot)
     dirs = {};
