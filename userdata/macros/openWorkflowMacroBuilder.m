@@ -55,6 +55,7 @@ workflowConfig.precompute.reference.scenario.ctReferenceScenId = 1;
 workflowConfig.precompute.robustPlans.robust_1.label = 'INTERVAL2';
 workflowConfig.precompute.robustPlans.robust_1.objectiveSetName = 'robust_1';
 workflowConfig.precompute.robustPlans.robust_1.strategy = 'INTERVAL2';
+workflowConfig.precompute.robustPlans.robust_1.dosePrecompute.useStreaming = true;
 workflowConfig.precompute.robustPlans.robust_1.scenario.mode = 'wcScen';
 workflowConfig.precompute.robustPlans.robust_1.scenario.ctActive = true;
 workflowConfig.precompute.robustPlans.robust_1.scenario.setupActive = true;
