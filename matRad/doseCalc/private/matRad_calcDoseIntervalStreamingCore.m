@@ -46,6 +46,7 @@ try
     scenarioInfo = matRad_resolveStreamingScenarioSelection(ct,pln,cfg,matRad_cfg);
     [provider,dijForResolve] = matRad_initializeScenarioRowProvider( ...
         ct,cst,stf,pln,cfg,scenarioInfo,matRad_cfg,'dose interval');
+    provider.sizeTelemetry = matRad_initializeScenarioDoseSizeTelemetry();
 
     ctx = matRad_resolveScenarioDoseInputs(ct,cst,pln,dijForResolve,cfg, ...
         intervalMode,matRad_cfg);
@@ -112,7 +113,7 @@ try
     end
 
     if needsOARSecondPass
-        dij_interval = accumulateIntervalStreamingOARRadiusFactors( ...
+        [dij_interval,provider] = accumulateIntervalStreamingOARRadiusFactors( ...
             dij_interval,provider,ctx,quantity,cfg,oarBatches,matRad_cfg);
     end
 
@@ -123,6 +124,8 @@ try
     if needsDiskCache && cfg.KeepCache
         dij_interval.cacheDir = cacheContext.runDir;
     end
+    dij_interval.streamingSize = matRad_buildScenarioDoseStreamingSize( ...
+        dij_interval,provider,cfg);
 
     pln_interval = pln;
     if ~isfield(pln_interval,'propOpt') || ~isstruct(pln_interval.propOpt)
@@ -228,8 +231,10 @@ for s = 1:numScenarios
                 (scenarioWeight .* rows);
         end
         if cacheTargetRows
-            matRad_writeScenarioDoseCacheBlock(provider.cacheContext,s, ...
+            blockBytes = matRad_writeScenarioDoseCacheBlock(provider.cacheContext,s, ...
                 intervalStreamingTargetCacheKind(),b,batch.rows,rows);
+            provider = matRad_updateScenarioDoseDiskCachePeak(provider, ...
+                blockBytes);
         end
     end
 
@@ -242,8 +247,10 @@ for s = 1:numScenarios
         oarCenter(batch.localIx,:) = oarCenter(batch.localIx,:) + ...
             scenarioWeight .* rows;
         if cacheOARRows
-            matRad_writeScenarioDoseCacheBlock(provider.cacheContext,s, ...
+            blockBytes = matRad_writeScenarioDoseCacheBlock(provider.cacheContext,s, ...
                 intervalStreamingOARCacheKind(),b,batch.rows,rows);
+            provider = matRad_updateScenarioDoseDiskCachePeak(provider, ...
+                blockBytes);
         end
     end
 
@@ -285,6 +292,10 @@ for s = 1:numScenarios
                 batch.rows,matRad_cfg);
         end
         centerRows = dij_interval.center(batch.rows,:);
+        if strcmp(cfg.SecondPassStrategy,'recompute')
+            provider = matRad_updateScenarioDoseMemoryPeak(provider,source, ...
+                rows,centerRows,targetDeltaRows);
+        end
         targetDeltaRows(batch.localIx,:) = max(targetDeltaRows(batch.localIx,:), ...
             abs(rows - centerRows));
     end
@@ -320,8 +331,13 @@ for b = 1:numel(oarBatches)
             [provider,source] = matRad_beginScenarioDoseRowsProvider(provider,ctx,quantity,s,matRad_cfg);
             scenarioRows{s} = matRad_getScenarioDoseProviderRows(source,ctx.scenarioMaps{s}, ...
                 batch.rows,matRad_cfg);
+            provider = matRad_updateScenarioDoseMemoryPeak(provider,source, ...
+                scenarioRows{s});
             [provider,source] = matRad_endScenarioDoseRowsProvider(provider,source);
         end
+    end
+    if strcmp(cfg.SecondPassStrategy,'recompute')
+        provider = matRad_updateScenarioDoseMemoryPeak(provider,scenarioRows);
     end
 
     for localIx = 1:numel(batch.rows)
@@ -331,6 +347,10 @@ for b = 1:numel(oarBatches)
             centeredMatrixRows{s} = scenarioRows{s}(localIx,:) - centerRow;
         end
         centeredScenarioMatrix = vertcat(centeredMatrixRows{:});
+        if strcmp(cfg.SecondPassStrategy,'recompute')
+            provider = matRad_updateScenarioDoseMemoryPeak(provider, ...
+                scenarioRows,centerRow,centeredScenarioMatrix);
+        end
         [factor,rank] = buildIntervalStreamingRadiusFactor( ...
             centeredScenarioMatrix,ctx.scenarioWeights,cfg,ctx.numBixels);
         dij_interval.OARRadiusRank(intervalOffset + localIx) = rank;

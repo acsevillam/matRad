@@ -559,6 +559,7 @@ function test_interval2_streaming_recomputes_scenario_dij_without_dij_argument
     assertTrue(nnz(dijInterval.center) > 0);
     assertTrue(nnz(dijInterval.radius) > 0);
     assertFalse(isfield(dijInterval,'cacheDir'));
+    assertStreamingSizeTotal(dijInterval);
     assertEqual(dijInterval.intervalMode,'INTERVAL2');
     assertEqual(dijStreamContext.numOfScenarios,1);
 
@@ -583,6 +584,7 @@ function test_interval2_streaming_recompute_extreme_matches_existing
         full(plnLegacy.propOpt.dij_interval.center),'absolute',1e-12);
     assertElementsAlmostEqual(full(plnStream.propOpt.dij_interval.radius), ...
         full(plnLegacy.propOpt.dij_interval.radius),'absolute',1e-12);
+    assertStreamingSizeRecompute(plnStream.propOpt.dij_interval);
 
 function test_interval3_streaming_wrapper_does_not_require_interval_mode
     [ct,cst,pln,dij,cfg] = singleCtFixture();
@@ -620,6 +622,8 @@ function test_interval3_streaming_disk_cache_keeps_distinct_hash_folders
     interval2 = plnStream2.propOpt.dij_interval;
     assertTrue(isfield(interval1,'cacheDir'));
     assertTrue(isfield(interval2,'cacheDir'));
+    assertStreamingSizeDisk(interval1);
+    assertStreamingSizeDisk(interval2);
     assertFalse(strcmp(interval1.cacheDir,interval2.cacheDir));
     assertEqual(exist(interval1.cacheDir,'dir'),7);
     assertEqual(exist(interval2.cacheDir,'dir'),7);
@@ -658,7 +662,9 @@ function test_interval3_streaming_disk_cache_cleans_hash_folder_by_default
 
     [plnStream,~] = matRad_calcDoseIntervalStreaming(ct,cst,[],pln,dij,cfg);
 
-    assertFalse(isfield(plnStream.propOpt.dij_interval,'cacheDir'));
+    dijInterval = plnStream.propOpt.dij_interval;
+    assertFalse(isfield(dijInterval,'cacheDir'));
+    assertStreamingSizeDisk(dijInterval);
     assertEqual(numel(listCacheRunDirs(cacheRoot)),0);
 
 function test_interval2_streaming_multict_mapping_matches_existing
@@ -933,3 +939,30 @@ function scenarioModel = fixtureScenarioModel(ct,ctScenIds,scenarioValues,linear
     scenForProb = [ctScenIds(:) scenarioValues];
     scenarioModel.setScenarioRealizations(dimensions,scenarioValues,ctScenIds, ...
         scenarioWeights(:),scenarioWeights(:),scenForProb,linearMask,scenMask);
+
+function assertStreamingSizeTotal(dij)
+    assertTrue(isfield(dij,'streamingSize'));
+    sizeData = dij.streamingSize;
+    assertTrue(sizeData.compactBytes > 0);
+    assertTrue(sizeData.auxiliaryPeakBytes >= 0);
+    assertElementsAlmostEqual(sizeData.totalPrecomputingBytes, ...
+        sizeData.compactBytes + sizeData.auxiliaryPeakBytes, ...
+        'absolute',1e-12);
+
+function assertStreamingSizeDisk(dij)
+    assertStreamingSizeTotal(dij);
+    sizeData = dij.streamingSize;
+    assertTrue(sizeData.diskCachePeakBytes > 0);
+    assertEqual(sizeData.auxiliaryPeakBytes, ...
+        sizeData.diskCachePeakBytes);
+    assertEqual(sizeData.auxiliaryPeakKind,'diskCache');
+    assertEqual(sizeData.secondPassStrategy,'disk');
+
+function assertStreamingSizeRecompute(dij)
+    assertStreamingSizeTotal(dij);
+    sizeData = dij.streamingSize;
+    assertTrue(sizeData.memoryTemporaryPeakBytes > 0);
+    assertEqual(sizeData.auxiliaryPeakBytes, ...
+        sizeData.memoryTemporaryPeakBytes);
+    assertEqual(sizeData.auxiliaryPeakKind,'memoryTemporary');
+    assertEqual(sizeData.secondPassStrategy,'recompute');

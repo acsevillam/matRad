@@ -1,5 +1,5 @@
-function bytes = matRad_writeScenarioDoseCacheBlock(cacheContext,scenarioIx,kind,blockIx,rowIx,rows)
-% matRad_writeScenarioDoseCacheBlock writes a sparse row cache block
+function bytes = matRad_variableBytes(value) %#ok<INUSD>
+% matRad_variableBytes returns MATLAB workspace bytes for a value.
 %
 % %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
@@ -14,13 +14,6 @@ function bytes = matRad_writeScenarioDoseCacheBlock(cacheContext,scenarioIx,kind
 %
 % %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-fileName = cacheBlockFile(cacheContext,scenarioIx,kind,blockIx);
-save(fileName,'scenarioIx','kind','blockIx','rowIx','rows','-v7');
-fileInfo = dir(fileName);
-bytes = double(fileInfo.bytes);
-end
-
-function fileName = cacheBlockFile(cacheContext,scenarioIx,kind,blockIx)
-fileName = fullfile(cacheContext.runDir, ...
-    sprintf('scenario_%04d_%s_block_%04d.mat',scenarioIx,kind,blockIx));
+variableInfo = whos('value');
+bytes = double(variableInfo.bytes);
 end
