@@ -22,8 +22,8 @@ function [pln_prob2,dij_prob2Context] = matRad_calcDoseProb2Streaming(ct,cst,stf
 %           KeepCache: keep the hash cache folder after the run (default false)
 %
 % output
-%   pln_prob2:        plan struct containing propOpt.dij_prob2. The
-%                     propOpt.dij_prob2.streamingSize field summarizes
+%   pln_prob2:        plan struct containing selected-VOI propOpt.dij_prob2.
+%                     The propOpt.dij_prob2.streamingSize field summarizes
 %                     compact result bytes and peak streaming auxiliary
 %                     bytes used during precomputation.
 %   dij_prob2Context: lightweight single-scenario dij context for
@@ -77,9 +77,9 @@ try
         '%d, %d voxels, %d bixels.\n'], ...
         cfg.refScen,ctx.numVoxels,ctx.numBixels);
 
-    rowsAll = (1:ctx.numVoxels)';
-    allBatches = matRad_makeScenarioDoseRowBatches(rowsAll, ...
-        matRad_resolveScenarioDoseBatchSize(numel(rowsAll), ...
+    expectedRows = resolveProb2StreamingExpectedRows(ctx);
+    expectedBatches = matRad_makeScenarioDoseRowBatches(expectedRows, ...
+        matRad_resolveScenarioDoseBatchSize(numel(expectedRows), ...
         numel(ctx.scenarioDijIx),ctx.numBixels,cfg));
     voiRows = resolveProb2StreamingVoiRows(ctx);
     voiBatches = makeProb2StreamingVoiBatches(voiRows,ctx,cfg);
@@ -95,7 +95,7 @@ try
     end
 
     firstPassWork = struct();
-    firstPassWork.primaryBatches = allBatches;
+    firstPassWork.primaryBatches = expectedBatches;
     firstPassWork.secondaryBatches = voiBatches;
     firstPassWork.cachePrimaryRows = false;
     firstPassWork.cacheSecondaryRows = needsDiskCache;
@@ -182,6 +182,10 @@ dij_prob2.scenarioWeights = ctx.scenarioWeights(:);
 dij_prob2.probabilisticMode = 'PROB2';
 end
 
+function rows = resolveProb2StreamingExpectedRows(ctx)
+rows = unique([ctx.targetRows(:); ctx.oarRows(:)],'stable');
+end
+
 function voiRows = resolveProb2StreamingVoiRows(ctx)
 voiRows = cell(size(ctx.cstDoseGrid,1),1);
 selectedStructures = [ctx.targetStructures(:); ctx.oarStructures(:)];
@@ -219,9 +223,11 @@ numScenarios = numel(ctx.scenarioDijIx);
 expectedBatches = firstPassWork.primaryBatches;
 voiBatches = firstPassWork.secondaryBatches;
 cacheVoiRows = firstPassWork.cacheSecondaryRows;
+numExpectedRows = sum(cellfun(@(batch) numel(batch.rows),expectedBatches));
 
 matRad_cfg.dispInfo(['matRad: Streaming PROB2 first pass over %d ', ...
-    'scenario(s) and %d dose voxels.\n'],numScenarios,ctx.numVoxels);
+    'scenario(s) and %d selected dose voxels.\n'], ...
+    numScenarios,numExpectedRows);
 
 for s = 1:numScenarios
     matRad_cfg.dispInfo('matRad: Streaming PROB2 first pass scenario %d/%d.\n', ...
