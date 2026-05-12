@@ -117,6 +117,20 @@ function test_interval2_batch_size_does_not_change_result
     assertElementsAlmostEqual(full(dijIntervalBatch.radius), ...
         full(dijIntervalFull.radius),'absolute',1e-12);
 
+function test_interval2_response_is_consistent_with_selected_vois
+    [ct,cst,pln,dij,cfg] = partialSelectionFixture();
+
+    [plnOut,~] = calcInterval2(ct,cst,[],pln,dij,cfg);
+    dijInterval = plnOut.propOpt.dij_interval;
+
+    expectedCenter = [2.5 0; 0 3.5; 1.75 1; 0 0];
+    assertElementsAlmostEqual(full(dijInterval.center),expectedCenter, ...
+        'absolute',1e-12);
+    assertElementsAlmostEqual(full(dijInterval.radius),diag([7 13]), ...
+        'absolute',1e-12);
+    assertEqual(dijInterval.targetSubIx,[1;2]);
+    assertEqual(dijInterval.OARSubIx,3);
+
 function test_interval_rows_follow_overlap_priorities
     [ct,cst,pln,dij,cfg] = singleCtFixture();
     cst{1,5}.Priority = 1;
@@ -176,6 +190,26 @@ function test_interval2_collect_timing_reports_target_and_oar_components
     assertEqual(timing.target.factorSeconds,0);
     assertEqual(timing.oar.radiusMultiplySeconds,0);
     assertEqual(timing.oar.factorSeconds,0);
+
+function test_interval3_response_is_consistent_with_selected_vois
+    [ct,cst,pln,dij,cfg] = partialSelectionFixture();
+    cfg.KMode = 'static';
+    cfg.KMax = 2;
+
+    [plnOut,~] = calcInterval3(ct,cst,[],pln,dij,cfg);
+    dijInterval = plnOut.propOpt.dij_interval;
+
+    expectedCenter = [2.5 0; 0 3.5; 1.75 1; 0 0];
+    assertElementsAlmostEqual(full(dijInterval.center),expectedCenter, ...
+        'absolute',1e-12);
+    assertElementsAlmostEqual(full(dijInterval.radius),diag([7 13]), ...
+        'absolute',1e-12);
+    assertEqual(dijInterval.targetSubIx,[1;2]);
+    assertEqual(dijInterval.OARSubIx,3);
+    assertEqual(numel(dijInterval.OARRadiusFactor),1);
+    assertElementsAlmostEqual(full(reconstructOARRadiusCovariance( ...
+        dijInterval,1)),[0.1875 0; 0 0],'absolute',1e-10);
+    assertEqual(dijInterval.OARRadiusRank,1);
 
 function test_interval3_oar_covariance_factor
     [ct,cst,pln,dij,cfg] = singleCtFixture();
@@ -521,6 +555,29 @@ function test_interval2_streaming_inmemory_matches_existing_std
     assertEqual(streamInterval.secondPassStrategy,'disk');
     assertEqual(dijStreamContext.numOfScenarios,1);
 
+function test_interval2_streaming_partial_selection_matches_inmemory
+    [ct,cst,pln,dij,cfg] = partialSelectionFixture();
+    cfg.BatchSize = 1;
+    [plnLegacy,~] = calcInterval2(ct,cst,[],pln,dij,cfg);
+
+    [plnStreamDisk,~] = matRad_calcDoseInterval2Streaming(ct,cst,[],pln,dij,cfg);
+
+    assertElementsAlmostEqual(full(plnStreamDisk.propOpt.dij_interval.center), ...
+        full(plnLegacy.propOpt.dij_interval.center),'absolute',1e-12);
+    assertElementsAlmostEqual(full(plnStreamDisk.propOpt.dij_interval.radius), ...
+        full(plnLegacy.propOpt.dij_interval.radius),'absolute',1e-12);
+    assertEqual(plnStreamDisk.propOpt.dij_interval.secondPassStrategy,'disk');
+
+    cfg.SecondPassStrategy = 'recompute';
+    [plnStreamRecompute,~] = matRad_calcDoseInterval2Streaming(ct,cst,[],pln,dij,cfg);
+
+    assertElementsAlmostEqual(full(plnStreamRecompute.propOpt.dij_interval.center), ...
+        full(plnLegacy.propOpt.dij_interval.center),'absolute',1e-12);
+    assertElementsAlmostEqual(full(plnStreamRecompute.propOpt.dij_interval.radius), ...
+        full(plnLegacy.propOpt.dij_interval.radius),'absolute',1e-12);
+    assertEqual(plnStreamRecompute.propOpt.dij_interval.secondPassStrategy, ...
+        'recompute');
+
 function test_interval2_streaming_wrapper_does_not_require_interval_mode
     [ct,cst,pln,dij,cfg] = singleCtFixture();
     [plnLegacy,~] = calcInterval2(ct,cst,[],pln,dij,cfg);
@@ -684,12 +741,32 @@ function test_interval_streaming_requires_interval_mode
     assertExceptionThrown(@() matRad_calcDoseIntervalStreaming(ct,cst,[],pln,cfg), ...
         'matRad:Error');
 
+function test_interval_streaming_rejects_invalid_second_pass_strategy
+    [ct,cst,pln,dij,cfg] = singleCtFixture();
+    cfg.IntervalMode = 'INTERVAL2';
+    cfg.SecondPassStrategy = 'memory';
+
+    assertExceptionThrown(@() matRad_calcDoseIntervalStreaming(ct,cst,[],pln,dij,cfg), ...
+        'matRad:Error');
+
 function test_interval_streaming_rejects_invalid_cache_root
     [ct,cst,pln,~,cfg] = singleCtFixture();
     cfg.IntervalMode = 'INTERVAL2';
     cfg.CacheRoot = 1;
 
     assertExceptionThrown(@() matRad_calcDoseIntervalStreaming(ct,cst,[],pln,cfg), ...
+        'matRad:Error');
+
+function test_interval_streaming_rejects_cache_root_file
+    [ct,cst,pln,dij,cfg] = singleCtFixture();
+    cfg.IntervalMode = 'INTERVAL3';
+    cfg.CacheRoot = tempname();
+    fid = fopen(cfg.CacheRoot,'w');
+    fwrite(fid,'not a folder');
+    fclose(fid);
+    cleanup = onCleanup(@() deleteFileIfExists(cfg.CacheRoot));
+
+    assertExceptionThrown(@() matRad_calcDoseIntervalStreaming(ct,cst,[],pln,dij,cfg), ...
         'matRad:Error');
 
 function covariance = reconstructOARRadiusCovariance(dijInterval,intervalIx)
@@ -733,6 +810,11 @@ function deleteDirIfExists(path)
         rmdir(path,'s');
     end
 
+function deleteFileIfExists(path)
+    if exist(path,'file') == 2
+        delete(path);
+    end
+
 function [ct,cst,pln,dij,cfg] = singleCtFixture()
     ct.numOfCtScen = 1;
     ct.cubeDim = [2 2 1];
@@ -753,6 +835,13 @@ function [ct,cst,pln,dij,cfg] = singleCtFixture()
     dij.physicalDose{1} = sparse([1 0; 0 2; 1 1; 0 1]);
     dij.physicalDose{2} = sparse([3 0; 0 4; 2 1; 0 5]);
     cfg.BatchSize = 2;
+
+function [ct,cst,pln,dij,cfg] = partialSelectionFixture()
+    [ct,cst,pln,dij,cfg] = singleCtFixture();
+    cst{2,4}{1} = 3;
+    cst(3,1:6) = cell(1,6);
+    cst = addStructure(cst,3,'Spare OAR','OAR',4);
+    cfg.OARStructSel = 2;
 
 function [ct,cst,pln,stf] = photonTestDataFixture()
     testDataPath = fullfile(fileparts(mfilename('fullpath')), ...

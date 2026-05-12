@@ -21,7 +21,8 @@ function [pln_prob2,dij_prob2Context] = matRad_calcDoseProb2(ct,cst,stf,pln,dij,
 %
 % output
 %   pln_prob2:         plan struct; pln_prob2.propOpt.dij_prob2 contains
-%                      expected dose influence and VOI variance matrices
+%                      selected-VOI expected dose influence and VOI
+%                      variance matrices
 %   dij_prob2Context:  lightweight dij context passed to
 %                      matRad_fluenceOptimization
 %
@@ -60,9 +61,11 @@ matRad_cfg.dispInfo(['matRad: PROB2 reference CT scenario %d, %d voxels, ', ...
     '%d bixels.\n'],cfg.refScen,ctx.numVoxels,ctx.numBixels);
 
 dij_prob2 = initializeProb2Struct(ctx,quantity);
-dij_prob2.expected = accumulateExpectedInfluence(quantity,ctx,cfg,matRad_cfg);
+expectedRows = resolveProb2ExpectedRows(ctx);
+dij_prob2.expected = accumulateExpectedInfluence(quantity,ctx,cfg, ...
+    expectedRows,matRad_cfg);
 
-voiRows = resolveProb2VoiRows(ctx.cstDoseGrid,cfg);
+voiRows = resolveProb2VoiRows(ctx);
 dij_prob2.voiSubIx = voiRows;
 dij_prob2.Omega = accumulateVoiOmega(quantity,ctx,cfg,voiRows,matRad_cfg);
 
@@ -110,18 +113,18 @@ dij_prob2.scenarioWeights = ctx.scenarioWeights(:);
 dij_prob2.probabilisticMode = 'PROB2';
 end
 
-function expected = accumulateExpectedInfluence(quantity,ctx,cfg,matRad_cfg)
+function expected = accumulateExpectedInfluence(quantity,ctx,cfg,rowsAll, ...
+    matRad_cfg)
 numVoxels = ctx.numVoxels;
 numBixels = ctx.numBixels;
-rowsAll = (1:numVoxels)';
 batchSize = resolveProb2BatchSize(numel(rowsAll), ...
     numel(ctx.scenarioDijIx),numBixels,cfg);
 batches = makeProb2Batches(rowsAll,batchSize);
 expected = sparse(numVoxels,numBixels);
 
 matRad_cfg.dispInfo(['matRad: Accumulating PROB2 expected influence for ', ...
-    '%d voxels in %d batches of up to %d voxels.\n'], ...
-    numVoxels,numel(batches),batchSize);
+    '%d selected voxels in %d batches of up to %d voxels.\n'], ...
+    numel(rowsAll),numel(batches),batchSize);
 
 for b = 1:numel(batches)
     rows = batches{b};
@@ -194,43 +197,23 @@ for s = 1:numel(centeredRows)
 end
 end
 
-function voiRows = resolveProb2VoiRows(cstDoseGrid,cfg)
-voiRows = cell(size(cstDoseGrid,1),1);
-
-targetRows = resolveSelectedStructureRows(cstDoseGrid,cfg.targetStructSel, ...
-    'TARGET');
-oarRows = resolveSelectedStructureRows(cstDoseGrid,cfg.OARStructSel,'OAR');
-selectedRows = unique([targetRows(:); oarRows(:)],'stable');
-
-for i = selectedRows(:)'
-    voiRows{i} = getProb2StructureVoxelIndices(cstDoseGrid,i,cfg.refScen);
-end
+function rows = resolveProb2ExpectedRows(ctx)
+rows = unique([ctx.targetRows(:); ctx.oarRows(:)],'stable');
 end
 
-function cstRows = resolveSelectedStructureRows(cst,structureSelection,structureType)
-if isempty(structureSelection)
-    cstRows = matRad_resolveStructureSelection(cst,'all',[],structureType);
-else
-    cstRows = matRad_resolveStructureSelection(cst,'include', ...
-        structureSelection,structureType);
-end
-end
+function voiRows = resolveProb2VoiRows(ctx)
+voiRows = cell(size(ctx.cstDoseGrid,1),1);
+selectedStructures = [ctx.targetStructures(:); ctx.oarStructures(:)];
 
-function voxels = getProb2StructureVoxelIndices(cst,rowIx,refScen)
-voxels = [];
-if size(cst,2) < 4 || isempty(cst{rowIx,4})
-    return;
+for i = 1:numel(selectedStructures)
+    rowIx = selectedStructures(i).cstRow;
+    voxels = selectedStructures(i).voxelIx(:);
+    if isempty(voiRows{rowIx})
+        voiRows{rowIx} = voxels;
+    else
+        voiRows{rowIx} = unique([voiRows{rowIx}; voxels],'stable');
+    end
 end
-
-contours = cst{rowIx,4};
-if iscell(contours) && numel(contours) >= refScen && ~isempty(contours{refScen})
-    voxels = contours{refScen}(:);
-elseif iscell(contours) && ~isempty(contours{1})
-    voxels = contours{1}(:);
-elseif isnumeric(contours)
-    voxels = contours(:);
-end
-voxels = unique(voxels(:),'stable');
 end
 
 function dij_prob2Context = buildProb2DijContext(ct,cst,stf,pln,dij, ...

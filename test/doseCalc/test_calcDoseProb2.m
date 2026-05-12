@@ -43,6 +43,23 @@ function test_prob2_batch_size_does_not_change_result
     assertElementsAlmostEqual(full(plnBatch.propOpt.dij_prob2.Omega{2}), ...
         full(plnFull.propOpt.dij_prob2.Omega{2}),'absolute',1e-12);
 
+function test_prob2_response_is_consistent_with_selected_vois
+    [ct,cst,pln,dij,cfg] = partialSelectionFixture();
+
+    [plnOut,~] = matRad_calcDoseProb2(ct,cst,[],pln,dij,cfg);
+    dijProb2 = plnOut.propOpt.dij_prob2;
+
+    expected = [2.5 0; 0 3.5; 1.75 1; 0 0];
+    assertElementsAlmostEqual(full(dijProb2.expected),expected,'absolute',1e-12);
+    assertEqual(dijProb2.voiSubIx{1},[1;2]);
+    assertEqual(dijProb2.voiSubIx{2},3);
+    assertTrue(isempty(dijProb2.voiSubIx{3}));
+    assertElementsAlmostEqual(full(dijProb2.Omega{1}),diag([0.75 0.75]), ...
+        'absolute',1e-12);
+    assertElementsAlmostEqual(full(dijProb2.Omega{2}), ...
+        [0.1875 0; 0 0],'absolute',1e-12);
+    assertTrue(isempty(dijProb2.Omega{3}));
+
 function test_prob2_voi_rows_follow_overlap_priorities
     [ct,cst,pln,dij,cfg] = singleCtFixture();
     cst{1,5}.Priority = 1;
@@ -108,6 +125,25 @@ function test_prob2_streaming_inmemory_matches_existing
         full(dij.physicalDose{1}),'absolute',1e-12);
     assertTrue(any(abs(full(dijStreamContext.physicalDose{1}(:)) - ...
         full(plnLegacy.propOpt.dij_prob2.expected(:))) > 1e-12));
+
+function test_prob2_streaming_partial_selection_matches_inmemory
+    [ct,cst,pln,dij,cfg] = partialSelectionFixture();
+    cfg.BatchSize = 1;
+    [plnLegacy,~] = matRad_calcDoseProb2(ct,cst,[],pln,dij,cfg);
+
+    [plnStreamDisk,~] = matRad_calcDoseProb2Streaming(ct,cst,[],pln,dij,cfg);
+
+    assertProb2AlmostEqual(plnLegacy.propOpt.dij_prob2, ...
+        plnStreamDisk.propOpt.dij_prob2);
+    assertEqual(plnStreamDisk.propOpt.dij_prob2.secondPassStrategy,'disk');
+
+    cfg.SecondPassStrategy = 'recompute';
+    [plnStreamRecompute,~] = matRad_calcDoseProb2Streaming(ct,cst,[],pln,dij,cfg);
+
+    assertProb2AlmostEqual(plnLegacy.propOpt.dij_prob2, ...
+        plnStreamRecompute.propOpt.dij_prob2);
+    assertEqual(plnStreamRecompute.propOpt.dij_prob2.secondPassStrategy, ...
+        'recompute');
 
 function test_prob2_streaming_accepts_dij_without_cfg
     [ct,cst,pln,dij,cfg] = singleCtFixture();
@@ -264,6 +300,13 @@ function [ct,cst,pln,dij,cfg] = singleCtFixture()
     dij.physicalDose{1} = sparse([1 0; 0 2; 1 1; 0 1]);
     dij.physicalDose{2} = sparse([3 0; 0 4; 2 1; 0 5]);
     cfg.BatchSize = 2;
+
+function [ct,cst,pln,dij,cfg] = partialSelectionFixture()
+    [ct,cst,pln,dij,cfg] = singleCtFixture();
+    cst{2,4}{1} = 3;
+    cst(3,1:6) = cell(1,6);
+    cst = addStructure(cst,3,'Spare OAR','OAR',4);
+    cfg.OARStructSel = 2;
 
 function [ct,cst,pln,dij,cfg] = multiCtFixture()
     dim = [2 3 1];
