@@ -1,6 +1,6 @@
-function runProstatePTVWorkflowCore(prepareConfig,varargin)
-% runProstatePTVWorkflowCore Run the shared prostate PTV workflow.
-% Usage: runProstatePTVWorkflowCore(prepareConfig,'caseID','1_mct','rootPath',userDataRoot,'cacheRootPath',fullfile(userDataRoot,'output','cache'),'randomSeed',[])
+function runProstateCOWCWorkflowCoreNoAngles(prepareConfig,varargin)
+% runProstateCOWCWorkflowCoreNoAngles Run the shared prostate COWC workflow without angular sampling.
+% Usage: runProstateCOWCWorkflowCoreNoAngles(prepareConfig,'caseID','1_mct','rootPath',userDataRoot,'cacheRootPath',fullfile(userDataRoot,'output','cache'),'randomSeed',[])
 
 if nargin < 1 || ~isstruct(prepareConfig)
     error('planWorkflow:macros:InvalidPrepareConfig', ...
@@ -14,7 +14,7 @@ if exist(helperFolder,'dir') == 7
     addpath(helperFolder);
 end
 if exist('ensurePlanWorkflowAvailable','file') == 2
-    ensurePlanWorkflowAvailable('runProstatePTVWorkflowCore');
+    ensurePlanWorkflowAvailable('runProstateCOWCWorkflowCoreNoAngles');
 end
 userDataRoot = fileparts(macroRoot);
 
@@ -46,11 +46,17 @@ workflowConfig.precompute.reference.scenario.mode = 'nomScen';
 workflowConfig.precompute.reference.scenario.ctActive = false;
 workflowConfig.precompute.reference.scenario.ctReferenceScenId = 1;
 
-workflowConfig.precompute.robustPlans.robust_1.label = 'PTV';
-workflowConfig.precompute.robustPlans.robust_1.objectiveSetName = 'PTV';
-workflowConfig.precompute.robustPlans.robust_1.scenario.mode = 'nomScen';
+workflowConfig.precompute.robustPlans.robust_1.label = 'Minimax';
+workflowConfig.precompute.robustPlans.robust_1.objectiveSetName = 'Minimax';
+workflowConfig.precompute.robustPlans.robust_1.scenario.mode = 'wcScen';
 workflowConfig.precompute.robustPlans.robust_1.scenario.ctActive = false;
 workflowConfig.precompute.robustPlans.robust_1.scenario.ctReferenceScenId = 1;
+workflowConfig.precompute.robustPlans.robust_1.scenario.setupActive = true;
+workflowConfig.precompute.robustPlans.robust_1.scenario.shiftSD = [5 5 5];
+workflowConfig.precompute.robustPlans.robust_1.scenario.rangeActive = true;
+workflowConfig.precompute.robustPlans.robust_1.scenario.rangeAbsSD = 1;
+workflowConfig.precompute.robustPlans.robust_1.scenario.rangeRelSD = 3.5;
+workflowConfig.precompute.robustPlans.robust_1.scenario.numOfRangeGridPoints = 3;
 
 workflowConfig.precompute.useCache = true;
 workflowConfig.precompute.writeCache = true;
@@ -75,10 +81,13 @@ workflowConfig.sampling.sampling_ctReferenceScenId = 1;
 workflowConfig.sampling.sampling_setupActive = true;
 workflowConfig.sampling.sampling_shiftSD = [5 5 5];
 workflowConfig.sampling.sampling_wcSigma = 1.5;
-workflowConfig.sampling.sampling_gantryActive = true;
-workflowConfig.sampling.sampling_gantryAngleSD = 1;
-workflowConfig.sampling.sampling_couchActive = true;
-workflowConfig.sampling.sampling_couchAngleSD = 1;
+workflowConfig.sampling.sampling_rangeActive = true;
+workflowConfig.sampling.sampling_rangeAbsSD = 1;
+workflowConfig.sampling.sampling_rangeRelSD = 3.5;
+workflowConfig.sampling.sampling_gantryActive = false;
+workflowConfig.sampling.sampling_gantryAngleSD = 0;
+workflowConfig.sampling.sampling_couchActive = false;
+workflowConfig.sampling.sampling_couchAngleSD = 0;
 workflowConfig.sampling.sampling_randomSeed = randomSeed;
 
 % Analyze stage.
@@ -105,6 +114,33 @@ workflow.releaseMemory();
 
 end
 
+function macroRoot = findMacroRoot(startFolder)
+
+macroRoot = startFolder;
+while true
+    if exist(fullfile(macroRoot,'helpers'),'dir') == 7
+        return;
+    end
+    parentFolder = fileparts(macroRoot);
+    if strcmp(parentFolder,macroRoot)
+        error('planWorkflow:macros:MacroRootNotFound', ...
+            'Could not locate userdata/macros root from %s.',startFolder);
+    end
+    macroRoot = parentFolder;
+end
+
+end
+
+function value = fieldOrDefault(s,fieldName,defaultValue)
+
+if isfield(s,fieldName) && ~isempty(s.(fieldName))
+    value = s.(fieldName);
+else
+    value = defaultValue;
+end
+
+end
+
 function [macroArgs,randomSeed] = splitRandomSeedOption(defaultValue,varargin)
 
 macroArgs = varargin;
@@ -113,7 +149,7 @@ if isempty(varargin)
     return;
 end
 
-if numel(varargin) == 1 && isstruct(varargin{1})
+if isscalar(varargin) && isstruct(varargin{1})
     options = varargin{1};
     if isfield(options,'randomSeed')
         randomSeed = options.randomSeed;
@@ -157,32 +193,5 @@ if ~(ischar(firstName) || (isstring(firstName) && isscalar(firstName)))
 end
 knownNames = {'caseID','rootPath','cacheRootPath','randomSeed'};
 tf = any(strcmp(char(string(firstName)),knownNames));
-
-end
-
-function macroRoot = findMacroRoot(startFolder)
-
-macroRoot = startFolder;
-while true
-    if exist(fullfile(macroRoot,'helpers'),'dir') == 7
-        return;
-    end
-    parentFolder = fileparts(macroRoot);
-    if strcmp(parentFolder,macroRoot)
-        error('planWorkflow:macros:MacroRootNotFound', ...
-            'Could not locate userdata/macros root from %s.',startFolder);
-    end
-    macroRoot = parentFolder;
-end
-
-end
-
-function value = fieldOrDefault(s,fieldName,defaultValue)
-
-if isfield(s,fieldName) && ~isempty(s.(fieldName))
-    value = s.(fieldName);
-else
-    value = defaultValue;
-end
 
 end
