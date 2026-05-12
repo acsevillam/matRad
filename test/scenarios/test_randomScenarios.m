@@ -16,7 +16,7 @@ function test_randomScenarioConstructor
     %Test correct standard values & sizes
     assertEqual(scenario.ctScenProb, [1 1]);
     assertEqual(scenario.numOfCtScen, 1);
-    assertEqual(scenario.totNumScen, nSamples); 
+    assertEqual(scenario.totNumScen, nSamples);
     assertEqual(scenario.totNumShiftScen, nSamples);
     assertEqual(scenario.totNumRangeScen, nSamples);
     assertEqual(size(scenario.relRangeShift),[scenario.totNumScen,1]);
@@ -28,10 +28,7 @@ function test_randomScenarioConstructor
     assertEqual(size(scenario.scenMask), [scenario.numOfCtScen,scenario.totNumShiftScen,scenario.totNumRangeScen]);
     %assertEqual(scenario.scenMask, true(1,1,1));
     assertEqual(size(scenario.linearMask), [scenario.totNumScen,3]);
-
-    tmpScenMask = permute(scenario.scenMask,[2 3 1]);
-    [tmp(:,2),tmp(:,3),tmp(:,1)] = ind2sub(size(tmpScenMask),find(tmpScenMask));
-    assertEqual(tmp,scenario.linearMask);
+    assertScenarioMaskDerivedFromLinearMask(scenario);
 
     %assertEqual(ind2sub(find()))
     %assertEqual(scenario.linearMask, [1 1 1]);
@@ -40,7 +37,7 @@ function test_randomScenarioConstructor
     tmp = [scenario.scenarioCtScenIds scenario.isoShift scenario.absRangeShift scenario.relRangeShift];
     assertEqual(scenario.scenForProb,tmp);
 
-    assertEqual(numel(unique(scenario.scenWeight)),scenario.numOfCtScen);    
+    assertEqual(numel(unique(scenario.scenWeight)),scenario.numOfCtScen);
 
 function test_randomScenarioConstructorWithCt
     n = 5;
@@ -68,10 +65,7 @@ function test_randomScenarioConstructorWithCt
     assertEqual(size(scenario.scenMask), [scenario.numOfCtScen,scenario.totNumShiftScen,scenario.totNumRangeScen]);
     %assertEqual(scenario.scenMask, true(1,1,1));
     assertEqual(size(scenario.linearMask), [scenario.totNumScen,3]);
-    
-    tmpScenMask = permute(scenario.scenMask,[2 3 1]);
-    [tmp(:,2),tmp(:,3),tmp(:,1)] = ind2sub(size(tmpScenMask),find(tmpScenMask));
-    assertEqual(tmp,scenario.linearMask);
+    assertScenarioMaskDerivedFromLinearMask(scenario);
 
     %assertEqual(ind2sub(find()))
     %assertEqual(scenario.linearMask, [1 1 1]);
@@ -79,7 +73,106 @@ function test_randomScenarioConstructorWithCt
 
     tmp = [scenario.scenarioCtScenIds scenario.isoShift scenario.absRangeShift scenario.relRangeShift];
     assertEqual(scenario.scenForProb,tmp);
-    assertEqual(numel(unique(scenario.scenWeight)),numel(unique(scenario.ctScenProb(:,2))));   
+    assertEqual(numel(unique(scenario.scenWeight)),numel(unique(scenario.ctScenProb(:,2))));
+
+function test_randomScenarioSetupOnlySingleCtLinearMask
+    nSamples = 4;
+    scenario = matRad_RandomScenarios();
+    scenario.nSamples = nSamples;
+    scenario.randomSeed = 31;
+    scenario.scenarioDimensionActive = {'ct','setup'};
+
+    expectedLinearMask = [ones(nSamples,1) (1:nSamples)' ones(nSamples,1)];
+
+    assertEqual(scenario.totNumShiftScen,nSamples);
+    assertEqual(scenario.totNumRangeScen,1);
+    assertEqual(scenario.linearMask,expectedLinearMask);
+    assertEqual(scenario.scenarioCtScenIds,ones(nSamples,1));
+    assertScenarioMaskDerivedFromLinearMask(scenario);
+
+function test_randomScenarioRangeOnlySingleCtLinearMask
+    nSamples = 4;
+    scenario = matRad_RandomScenarios();
+    scenario.nSamples = nSamples;
+    scenario.randomSeed = 37;
+    scenario.scenarioDimensionActive = {'ct','range'};
+
+    expectedLinearMask = [ones(nSamples,1) ones(nSamples,1) (1:nSamples)'];
+
+    assertEqual(scenario.totNumShiftScen,1);
+    assertEqual(scenario.totNumRangeScen,nSamples);
+    assertEqual(scenario.linearMask,expectedLinearMask);
+    assertEqual(scenario.scenarioCtScenIds,ones(nSamples,1));
+    assertScenarioMaskDerivedFromLinearMask(scenario);
+
+function test_randomScenarioSetupRangeSingleCtLinearMask
+    nSamples = 4;
+    scenario = matRad_RandomScenarios();
+    scenario.nSamples = nSamples;
+    scenario.randomSeed = 41;
+    scenario.scenarioDimensionActive = {'ct','setup','range'};
+
+    expectedLinearMask = [ones(nSamples,1) (1:nSamples)' (1:nSamples)'];
+
+    assertEqual(scenario.totNumShiftScen,nSamples);
+    assertEqual(scenario.totNumRangeScen,nSamples);
+    assertEqual(scenario.linearMask,expectedLinearMask);
+    assertEqual(scenario.scenarioCtScenIds,ones(nSamples,1));
+    assertScenarioMaskDerivedFromLinearMask(scenario);
+
+function test_randomScenarioSetupOnlyMultiCtLinearMask
+    nCtScen = 3;
+    nSamples = 3;
+    ct = struct('numOfCtScen',nCtScen);
+    scenario = matRad_RandomScenarios(ct);
+    scenario.nSamples = nSamples;
+    scenario.randomSeed = 43;
+    scenario.scenarioDimensionActive = {'ct','setup'};
+
+    expectedCtScenIds = kron((1:nCtScen)',ones(nSamples,1));
+    expectedLinearMask = [expectedCtScenIds repmat((1:nSamples)',nCtScen,1) ...
+        ones(nSamples*nCtScen,1)];
+
+    assertEqual(scenario.totNumShiftScen,nSamples);
+    assertEqual(scenario.totNumRangeScen,1);
+    assertEqual(scenario.linearMask,expectedLinearMask);
+    assertEqual(scenario.scenarioCtScenIds,expectedCtScenIds);
+    assertScenarioMaskDerivedFromLinearMask(scenario);
+
+function test_randomScenarioSparseCtSetupOnlyLinearMask
+    nSamples = 3;
+    ct = struct('numOfCtScen',3);
+    scenario = matRad_RandomScenarios(ct);
+    scenario.nSamples = nSamples;
+    scenario.randomSeed = 47;
+    scenario.ctScenProb = [2 1];
+    scenario.scenarioDimensionActive = {'ct','setup'};
+
+    expectedLinearMask = [2*ones(nSamples,1) (1:nSamples)' ones(nSamples,1)];
+
+    assertEqual(scenario.numOfCtScen,1);
+    assertEqual(scenario.linearMask,expectedLinearMask);
+    assertEqual(scenario.scenarioCtScenIds,2*ones(nSamples,1));
+    assertFalse(any(scenario.linearMask(:,1) == 1));
+    assertFalse(any(scenario.linearMask(:,1) == 3));
+    assertScenarioMaskDerivedFromLinearMask(scenario);
+
+function test_randomScenarioCtOnlyUsesOneScenarioPerCt
+    nCtScen = 3;
+    ct = struct('numOfCtScen',nCtScen);
+    scenario = matRad_RandomScenarios(ct);
+    scenario.nSamples = 4;
+    scenario.scenarioDimensionActive = {'ct'};
+
+    expectedLinearMask = [(1:nCtScen)' ones(nCtScen,2)];
+
+    assertEqual(scenario.totNumShiftScen,1);
+    assertEqual(scenario.totNumRangeScen,1);
+    assertEqual(scenario.totNumScen,nCtScen);
+    assertEqual(scenario.linearMask,expectedLinearMask);
+    assertEqual(scenario.scenarioCtScenIds,(1:nCtScen)');
+    assertElementsAlmostEqual(scenario.scenWeight,ones(nCtScen,1)./nCtScen);
+    assertScenarioMaskDerivedFromLinearMask(scenario);
 
 function test_randomScenarioAngularComponents
     nSamples = 4;
@@ -105,6 +198,48 @@ function test_randomScenarioAngularComponents
     assertEqual(scenario.linearMask(:,5),(1:nSamples)');
     assertEqual(size(scenario.gantryAngleOffset),[nSamples 2]);
     assertEqual(size(scenario.couchAngleOffset),[nSamples 2]);
+    assertScenarioMaskDerivedFromLinearMask(scenario);
+
+function test_randomScenarioGantryOnlyAngularComponents
+    nSamples = 4;
+    scenario = matRad_RandomScenarios();
+    scenario.numOfBeams = 2;
+    scenario.nSamples = nSamples;
+    scenario.randomSeed = 53;
+    scenario.scenarioDimensionActive = {'ct','gantry'};
+
+    assertEqual(scenario.totNumShiftScen,1);
+    assertEqual(scenario.totNumRangeScen,1);
+    assertEqual(scenario.totNumGantryScen,nSamples);
+    assertEqual(scenario.totNumCouchScen,1);
+    assertEqual(scenario.totNumScen,nSamples);
+    assertEqual(size(scenario.linearMask),[nSamples 5]);
+    assertEqual(scenario.linearMask(:,2:3),ones(nSamples,2));
+    assertEqual(scenario.linearMask(:,4),(1:nSamples)');
+    assertEqual(scenario.linearMask(:,5),ones(nSamples,1));
+    assertEqual(size(scenario.gantryAngleOffset),[nSamples 2]);
+    assertEqual(scenario.couchAngleOffset,zeros(nSamples,2));
+    assertScenarioMaskDerivedFromLinearMask(scenario);
+
+function test_randomScenarioCouchOnlyAngularComponents
+    nSamples = 4;
+    scenario = matRad_RandomScenarios();
+    scenario.numOfBeams = 2;
+    scenario.nSamples = nSamples;
+    scenario.randomSeed = 59;
+    scenario.scenarioDimensionActive = {'ct','couch'};
+
+    assertEqual(scenario.totNumShiftScen,1);
+    assertEqual(scenario.totNumRangeScen,1);
+    assertEqual(scenario.totNumGantryScen,1);
+    assertEqual(scenario.totNumCouchScen,nSamples);
+    assertEqual(scenario.totNumScen,nSamples);
+    assertEqual(size(scenario.linearMask),[nSamples 5]);
+    assertEqual(scenario.linearMask(:,2:4),ones(nSamples,3));
+    assertEqual(scenario.linearMask(:,5),(1:nSamples)');
+    assertEqual(scenario.gantryAngleOffset,zeros(nSamples,2));
+    assertEqual(size(scenario.couchAngleOffset),[nSamples 2]);
+    assertScenarioMaskDerivedFromLinearMask(scenario);
 
 function test_randomScenarioAngularActivationCanWaitForBeamCount
     scenario = matRad_RandomScenarios();
@@ -151,13 +286,21 @@ function test_randomScenarioExtractSingleAngularScenario
 
     scenarioId = 2;
     singleScenario = scenario.extractSingleScenario(scenarioId);
+    ctScenId = scenario.scenarioCtScenIds(scenarioId);
+    stf = randomScenarioTestStf(scenario.numOfBeams);
+    originalStf = scenario.applyScenarioToStf(scenarioId,stf);
+    extractedStf = singleScenario.applyScenarioToStf(1,stf);
 
     assertEqual(singleScenario.scenarioDimensionActive,scenario.scenarioDimensionActive);
     assertEqual(singleScenario.numOfBeams,scenario.numOfBeams);
     assertEqual(singleScenario.gantryAngleOffset,scenario.gantryAngleOffset(scenarioId,:));
     assertEqual(singleScenario.couchAngleOffset,scenario.couchAngleOffset(scenarioId,:));
+    assertEqual(singleScenario.linearMask,[ctScenId 1 1 1 1]);
+    assertScenarioMaskDerivedFromLinearMask(singleScenario);
+    assertElementsAlmostEqual(randomScenarioStfSignature(extractedStf), ...
+        randomScenarioStfSignature(originalStf));
 
-    
+
 function test_randomScenarioExtractSingleScenario
     refScen = matRad_RandomScenarios();
     for scenNum = 1:refScen.totNumScen
@@ -182,7 +325,6 @@ function test_randomScenarioExtractSingleScenario
         assertEqual(scenario.scenForProb,refScen.scenForProb(scenNum,:));
         assertEqual(scenario.scenWeight, refScen.scenWeight(scenNum));
     end
-
 
 function test_randomScenarioExtractSingleScenarioWithCtScen
     n = 5;
@@ -209,4 +351,34 @@ function test_randomScenarioExtractSingleScenarioWithCtScen
         assertElementsAlmostEqual(scenario.scenProb,helper_mvarGauss(scenario));
         assertEqual(scenario.scenForProb,refScen.scenForProb(scenNum,:));
         assertEqual(scenario.scenWeight, refScen.scenWeight(scenNum));
+    end
+
+function assertScenarioMaskDerivedFromLinearMask(scenario)
+    maskSize = paddedScenarioMaskSize(scenario.scenMask,size(scenario.linearMask,2));
+    expectedMask = false(maskSize);
+    maskSubscripts = mat2cell(scenario.linearMask,size(scenario.linearMask,1), ...
+        ones(1,size(scenario.linearMask,2)));
+    expectedMask(sub2ind(maskSize,maskSubscripts{:})) = true;
+
+    assertEqual(expectedMask(:),scenario.scenMask(:));
+    assertEqual(numel(find(scenario.scenMask)),size(scenario.linearMask,1));
+
+function maskSize = paddedScenarioMaskSize(scenMask,numDims)
+    maskSize = size(scenMask);
+    if numel(maskSize) < numDims
+        maskSize(end+1:numDims) = 1;
+    end
+
+function stf = randomScenarioTestStf(numOfBeams)
+    stf = struct('isoCenter',{},'gantryAngle',{},'couchAngle',{});
+    for b = 1:numOfBeams
+        stf(b).isoCenter = [0 0 0];
+        stf(b).gantryAngle = 10*b;
+        stf(b).couchAngle = 2*b;
+    end
+
+function signature = randomScenarioStfSignature(stf)
+    signature = [];
+    for b = 1:numel(stf)
+        signature = [signature stf(b).isoCenter stf(b).gantryAngle stf(b).couchAngle];
     end

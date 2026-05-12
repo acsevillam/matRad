@@ -21,9 +21,9 @@ classdef matRad_RandomScenarios < matRad_ScenarioModel
 % LICENSE file.
 %
 % %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    
+
     properties
-        includeNominalScenario = false; %Forces inclusion of the nominal scenario        
+        includeNominalScenario = false; %Forces inclusion of the nominal scenario
         nSamples = 10;                  %Standard number of random samples
         randomSeed = [];                %Optional seed for reproducible random scenario values
     end
@@ -37,15 +37,15 @@ classdef matRad_RandomScenarios < matRad_ScenarioModel
     properties (SetAccess=protected)
         name = 'rndScen';
     end
-    
+
     methods
-        function this = matRad_RandomScenarios(ct)           
-            if nargin == 0 
+        function this = matRad_RandomScenarios(ct)
+            if nargin == 0
                 superclassArgs = {};
             else
                 superclassArgs = {ct};
             end
-            
+
             this@matRad_ScenarioModel(superclassArgs{:});
 
             this.initializeScenarioModel();
@@ -65,7 +65,7 @@ classdef matRad_RandomScenarios < matRad_ScenarioModel
 
         function set.nSamples(this,nSamples)
             valid = isnumeric(nSamples) && isscalar(nSamples) && mod(nSamples,1) == 0 && nSamples > 0;
-            if ~valid 
+            if ~valid
                 matRad_cfg = MatRad_Config.instance();
                 matRad_cfg.dispError('Invalid value for nSamples! Needs to be a positive integer!');
             end
@@ -83,11 +83,11 @@ classdef matRad_RandomScenarios < matRad_ScenarioModel
             this.randomSeed = randomSeed;
             this.requestScenarioUpdate();
         end
-        
+
         function set.numOfShiftScen(this,numOfShiftScen)
             matRad_cfg = MatRad_Config.instance();
             matRad_cfg.dispDeprecationWarning('The property numOfShiftScen of the scenario class will soon be deprecated! Use nSamples instead');
-            
+
             %That's for downwards compatibility
             if ~isscalar(numOfShiftScen)
                 numOfShiftScen = unique(numOfShiftScen);
@@ -98,13 +98,13 @@ classdef matRad_RandomScenarios < matRad_ScenarioModel
 
         function  value = get.numOfShiftScen(this)
             matRad_cfg = MatRad_Config.instance();
-            matRad_cfg.dispDeprecationWarning('The property numOfShiftScen of the scenario class will soon be deprecated! Use nSamples instead');            
+            matRad_cfg.dispDeprecationWarning('The property numOfShiftScen of the scenario class will soon be deprecated! Use nSamples instead');
             value = this.nSamples;
         end
 
         function set.numOfRangeShiftScen(this,numOfRangeShiftScen)
             matRad_cfg = MatRad_Config.instance();
-            matRad_cfg.dispDeprecationWarning('The property numOfRangeShiftScen of the scenario class will soon be deprecated! Use nSamples instead');           
+            matRad_cfg.dispDeprecationWarning('The property numOfRangeShiftScen of the scenario class will soon be deprecated! Use nSamples instead');
             this.nSamples = numOfRangeShiftScen;
         end
 
@@ -113,49 +113,50 @@ classdef matRad_RandomScenarios < matRad_ScenarioModel
             matRad_cfg.dispDeprecationWarning('The property numOfRangeShiftScen of the scenario class will soon be deprecated! Use nSamples instead');
             value = this.nSamples;
         end
-        
+
         function scenarios = updateScenarios(this)
             matRad_cfg = MatRad_Config.instance();
 
             this.numOfCtScen = size(this.ctScenProb,1);
             components = this.getScenarioComponents();
             activeIx = [components.active];
+            nScenarioSamples = scenarioCountForActiveDimension(any(activeIx),this.nSamples);
 
             %Multivariate Normal Sampling over active components only.
-            scenarios = zeros(this.nSamples,numel(components));
+            scenarios = zeros(nScenarioSamples,numel(components));
             if any(activeIx)
                 scales = [components(activeIx).scale];
                 Sigma = diag(scales.^2);
                 cs = chol(Sigma);
                 if isempty(this.randomSeed)
-                    randomValues = randn(this.nSamples,sum(activeIx));
+                    randomValues = randn(nScenarioSamples,sum(activeIx));
                 else
                     rngState = rng;
                     cleanupObj = onCleanup(@() rng(rngState));
                     rng(this.randomSeed);
-                    randomValues = randn(this.nSamples,sum(activeIx));
+                    randomValues = randn(nScenarioSamples,sum(activeIx));
                     clear cleanupObj;
                 end
                 scenarios(:,activeIx) = randomValues * cs;
             end
 
             if this.includeNominalScenario
-                %We include the nominal scenario by just replacing the  
-                %first one to keep the number of scenarios the same 
-                scenarios(1,:) = 0; 
+                %We include the nominal scenario by just replacing the
+                %first one to keep the number of scenarios the same
+                scenarios(1,:) = 0;
             end
 
             %Handle 4D CT scenario ids
             ctScenIds = repmat(this.ctScenProb(:,1)',size(scenarios,1),1);
             ctScenIds = ctScenIds(:);
             scenarios = horzcat(ctScenIds, repmat(scenarios,[this.numOfCtScen 1]));
-                
+
             %Scenario weight
             scenWeight = [];
             for sCt = 1:this.numOfCtScen
-                %equal weights within a phase since they have been randomly sampled 
-                %(not entirely true if the Nominal scenario was forced) 
-                scenWeight = [scenWeight; this.ctScenProb(sCt,2) * ones(this.nSamples,1)./this.nSamples];
+                %equal weights within a phase since they have been randomly sampled
+                %(not entirely true if the Nominal scenario was forced)
+                scenWeight = [scenWeight; this.ctScenProb(sCt,2) * ones(nScenarioSamples,1)./nScenarioSamples];
             end
 
             %set variables
@@ -167,49 +168,35 @@ classdef matRad_RandomScenarios < matRad_ScenarioModel
             this.totNumRangeScen = scenarioCountForActiveDimension(rangeActive,this.nSamples);
             this.totNumGantryScen = scenarioCountForActiveDimension(gantryActive,this.nSamples);
             this.totNumCouchScen = scenarioCountForActiveDimension(couchActive,this.nSamples);
-            this.totNumScen = this.nSamples * this.numOfCtScen; %check because of CT scenarios
+            this.totNumScen = nScenarioSamples * this.numOfCtScen; %check because of CT scenarios
+
+            linearMaskAll = zeros(this.totNumScen,5);
+            rowIx = 0;
+            for sCt = 1:this.numOfCtScen
+                ctScenId = this.ctScenProb(sCt,1);
+                for sampleIx = 1:nScenarioSamples
+                    rowIx = rowIx + 1;
+                    linearMaskAll(rowIx,:) = [ctScenId, ...
+                        scenarioIndexForSample(setupActive,sampleIx), ...
+                        scenarioIndexForSample(rangeActive,sampleIx), ...
+                        scenarioIndexForSample(gantryActive,sampleIx), ...
+                        scenarioIndexForSample(couchActive,sampleIx)];
+                end
+            end
 
             %Mask for scenario selection
             if gantryActive || couchActive
-                scenMask = false(this.numOfAvailableCtScen,this.totNumShiftScen, ...
-                    this.totNumRangeScen,this.totNumGantryScen,this.totNumCouchScen);
-                linearMask = zeros(this.totNumScen,5);
-                rowIx = 0;
-                for sCt = 1:this.numOfCtScen
-                    ctScenId = this.ctScenProb(sCt,1);
-                    for sampleIx = 1:this.nSamples
-                        rowIx = rowIx + 1;
-                        linearMask(rowIx,:) = [ctScenId, ...
-                            scenarioIndexForSample(setupActive,sampleIx), ...
-                            scenarioIndexForSample(rangeActive,sampleIx), ...
-                            scenarioIndexForSample(gantryActive,sampleIx), ...
-                            scenarioIndexForSample(couchActive,sampleIx)];
-                    end
-                end
                 scenMaskSize = [this.numOfAvailableCtScen,this.totNumShiftScen, ...
                     this.totNumRangeScen,this.totNumGantryScen,this.totNumCouchScen];
-                maskSubscripts = mat2cell(linearMask, size(linearMask,1), ones(1,size(linearMask,2)));
-                scenMask(sub2ind(scenMaskSize,maskSubscripts{:})) = true;
+                linearMask = linearMaskAll;
             else
-                scenMask = false(this.numOfAvailableCtScen,this.totNumShiftScen,this.totNumRangeScen);
-
-                for sCt = 1:this.numOfCtScen
-                    scenIx = this.ctScenProb(sCt,1);
-                    if setupActive && rangeActive
-                        scenMask(scenIx,:,:) = diag(true(this.nSamples,1));
-                    elseif setupActive
-                        scenMask(scenIx,:,1) = true(1,this.nSamples);
-                    elseif rangeActive
-                        scenMask(scenIx,1,:) = reshape(true(1,this.nSamples),1,1,this.nSamples);
-                    else
-                        scenMask(scenIx,1,1) = true;
-                    end
-                end
-
-                tmpScenMask = permute(scenMask,[3 2 1]);
-                [x{3}, x{2}, x{1}] = ind2sub(size(tmpScenMask),find(tmpScenMask));
-                linearMask = cell2mat(x);
+                scenMaskSize = [this.numOfAvailableCtScen,this.totNumShiftScen, ...
+                    this.totNumRangeScen];
+                linearMask = linearMaskAll(:,1:3);
             end
+            scenMask = false(scenMaskSize);
+            maskSubscripts = mat2cell(linearMask, size(linearMask,1), ones(1,size(linearMask,2)));
+            scenMask(sub2ind(scenMaskSize,maskSubscripts{:})) = true;
             totNumScen = sum(scenMask(:));
 
             scenarioValues = scenarios(:,2:end);
