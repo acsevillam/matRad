@@ -145,6 +145,35 @@ function test_prob2_streaming_partial_selection_matches_inmemory
     assertEqual(plnStreamRecompute.propOpt.dij_prob2.secondPassStrategy, ...
         'recompute');
 
+function test_prob2_streaming_use_parallel_precomputed_disk_matches_serial
+    [ct,cst,pln,dij,cfg] = singleCtFixture();
+    cfg.BatchSize = 1;
+
+    cfg.UseParallel = false;
+    [plnSerial,~] = matRad_calcDoseProb2Streaming(ct,cst,[],pln,dij,cfg);
+
+    cfg.UseParallel = true;
+    [plnParallel,~] = matRad_calcDoseProb2Streaming(ct,cst,[],pln,dij,cfg);
+
+    assertProb2AlmostEqual(plnSerial.propOpt.dij_prob2, ...
+        plnParallel.propOpt.dij_prob2);
+    assertStreamingSizeDisk(plnParallel.propOpt.dij_prob2);
+
+function test_prob2_streaming_use_parallel_precomputed_recompute_matches_serial
+    [ct,cst,pln,dij,cfg] = singleCtFixture();
+    cfg.BatchSize = 1;
+    cfg.SecondPassStrategy = 'recompute';
+
+    cfg.UseParallel = false;
+    [plnSerial,~] = matRad_calcDoseProb2Streaming(ct,cst,[],pln,dij,cfg);
+
+    cfg.UseParallel = true;
+    [plnParallel,~] = matRad_calcDoseProb2Streaming(ct,cst,[],pln,dij,cfg);
+
+    assertProb2AlmostEqual(plnSerial.propOpt.dij_prob2, ...
+        plnParallel.propOpt.dij_prob2);
+    assertStreamingSizeRecompute(plnParallel.propOpt.dij_prob2);
+
 function test_prob2_streaming_accepts_dij_without_cfg
     [ct,cst,pln,dij,cfg] = singleCtFixture();
     [plnLegacy,~] = matRad_calcDoseProb2(ct,cst,[],pln,dij,cfg);
@@ -177,6 +206,71 @@ function test_prob2_streaming_recomputes_scenario_dij_without_dij_argument
     assertFalse(isfield(dijProb2,'cacheDir'));
     assertStreamingSizeDisk(dijProb2);
     assertEqual(dijStreamContext.numOfScenarios,1);
+
+function test_prob2_streaming_recompute_does_not_mutate_engine_handle
+    [ct,cst,pln,stf] = photonTestDataFixture();
+    pln.multScen = matRad_NominalScenario(ct);
+    engine = DoseEngines.matRad_DoseEngineBase.getEngineFromPln(pln);
+    engine.UseParallel = true;
+    engine.doseGrid.resolution = struct('x',5,'y',6,'z',7);
+    engine.selectVoxelsInScenarios = 'all';
+    engine.randomSeed = 17;
+    originalScenarioIds = engine.multScen.scenarioIds();
+    originalRandomSeed = engine.randomSeed;
+    originalDoseGrid = engine.doseGrid;
+    originalSelectVoxelsInScenarios = engine.selectVoxelsInScenarios;
+    pln.propDoseCalc = engine;
+
+    cfg.SecondPassStrategy = 'recompute';
+    cfg.KeepCache = false;
+    cfg.BatchSize = 10000;
+    cfg.targetStructSel = 1;
+
+    [~,dijStreamContext] = matRad_calcDoseProb2Streaming(ct,cst,stf, ...
+        pln,cfg);
+
+    assertTrue(engine.UseParallel);
+    assertEqual(engine.multScen.scenarioIds(),originalScenarioIds);
+    assertEqual(engine.randomSeed,originalRandomSeed);
+    assertEqual(engine.selectVoxelsInScenarios, ...
+        originalSelectVoxelsInScenarios);
+    assertEqual(engine.doseGrid,originalDoseGrid);
+    assertEqual(dijStreamContext.doseGrid.resolution, ...
+        engine.doseGrid.resolution);
+
+function test_prob2_streaming_collect_timing_reports_real_parallel_when_available
+    if ~parallelComputingAvailable()
+        moxunit_throw_test_skipped_exception('Parallel Computing Toolbox is unavailable.');
+    end
+
+    [ct,cst,pln,stf] = photonTestDataFixture();
+    pln.multScen = rangeRandomScenario(ct);
+    engine = DoseEngines.matRad_DoseEngineBase.getEngineFromPln(pln);
+    engine.UseParallel = true;
+    engine.randomSeed = 29;
+    originalRandomSeed = engine.randomSeed;
+    originalScenarioIds = engine.multScen.scenarioIds();
+    pln.propDoseCalc = engine;
+
+    cfg.SecondPassStrategy = 'recompute';
+    cfg.KeepCache = false;
+    cfg.BatchSize = 10000;
+    cfg.targetStructSel = 1;
+    cfg.UseParallel = true;
+    cfg.CollectTiming = true;
+
+    [plnStream,~] = matRad_calcDoseProb2Streaming(ct,cst,stf,pln,cfg);
+    timing = plnStream.propOpt.dij_prob2.timing;
+
+    assertTrue(engine.UseParallel);
+    assertEqual(engine.randomSeed,originalRandomSeed);
+    assertEqual(engine.multScen.scenarioIds(),originalScenarioIds);
+    if ~timing.parallelScenario.firstPass || ~timing.parallelScenario.omega
+        moxunit_throw_test_skipped_exception(['Parallel PROB2 streaming ', ...
+            'could not be activated in this environment.']);
+    end
+    assertTrue(timing.parallelScenario.firstPass);
+    assertTrue(timing.parallelScenario.omega);
 
 function test_prob2_streaming_recompute_matches_existing
     [ct,cst,pln,dij,cfg] = singleCtFixture();
@@ -361,6 +455,12 @@ function [ct,cst,pln,stf] = photonTestDataFixture()
         pln.multScen = matRad_NominalScenario();
     end
 
+function scenario = rangeRandomScenario(ct)
+    scenario = matRad_RandomScenarios(ct);
+    scenario.nSamples = 2;
+    scenario.randomSeed = 31;
+    scenario.scenarioDimensionActive = {'ct','range'};
+
 function dij = baseDij(dim,numBixels)
     dij.doseGrid.dimensions = dim;
     dij.doseGrid.numOfVoxels = prod(dim);
@@ -457,3 +557,20 @@ function deleteFileIfExists(path)
     if exist(path,'file') == 2
         delete(path);
     end
+
+function available = parallelComputingAvailable()
+    available = false;
+    if exist('parpool','file') ~= 2 || exist('gcp','file') ~= 2
+        return;
+    end
+
+    try
+        [available,~] = license('checkout','Distrib_Computing_Toolbox');
+    catch
+        available = false;
+    end
+
+    if isempty(available)
+        available = false;
+    end
+    available = logical(available);

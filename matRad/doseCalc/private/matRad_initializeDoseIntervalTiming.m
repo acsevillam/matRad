@@ -66,6 +66,8 @@ timing.numOarVoxels = numOarVoxels;
 timing.numScenarios = numScenarios;
 timing.numBixels = numBixels;
 timing.totalSeconds = 0;
+timing.parallelScenario = struct('firstPass',false, ...
+    'targetExtreme',false,'oarRadiusFactors',false);
 end
 
 function timing = initializeStageTiming(stageName,numVoxels,batchSize,numBatches)

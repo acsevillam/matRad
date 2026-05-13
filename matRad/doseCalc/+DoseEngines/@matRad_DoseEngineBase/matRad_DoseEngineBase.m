@@ -34,6 +34,9 @@ classdef (Abstract) matRad_DoseEngineBase < handle
         voxelSubIx;                 % selection of where to calculate / store dose, empty by default
         selectVoxelsInScenarios;    % which voxels to compute in robustness scenarios
         bioParam;                   % Biological dose modeling
+        UseParallel;                % request safe available dose parallelism
+                                    % matRad may create or reduce a parallel
+                                    % pool and falls back to serial calculation
     end
     
     % Protected properties with public get access
@@ -270,6 +273,7 @@ classdef (Abstract) matRad_DoseEngineBase < handle
             this.doseGrid                   = matRad_cfg.defaults.propDoseCalc.doseGrid;
             this.multScen                   = 'nomScen';
             this.selectVoxelsInScenarios    = matRad_cfg.defaults.propDoseCalc.selectVoxelsInScenarios;
+            this.UseParallel                = false;
         end
     end
     

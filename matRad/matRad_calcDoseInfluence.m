@@ -9,7 +9,17 @@ function dij = matRad_calcDoseInfluence(ct,cst,stf,pln)
 %   ct:         ct cube
 %   cst:        matRad cst cell array
 %   stf:        matRad steering information struct
-%   pln:        matRad plan meta information struct
+%   pln:        matRad plan meta information struct. If
+%               pln.propDoseCalc.UseParallel is true, matRad uses safe
+%               available parallelism. For robust multi-scenario analytical
+%               pencil-beam influence calculations, scenarios are computed
+%               in parallel and assembled into one dij. matRad falls back to
+%               serial calculation when fewer than two scenarios are active,
+%               the Parallel Computing Toolbox or enough memory/workers are
+%               unavailable, or the engine is not an analytical pencil-beam
+%               engine. To keep memory use bounded, matRad may create or
+%               reduce the active parallel pool. Forward dose and Monte
+%               Carlo engines remain serial in this orchestration path.
 %
 %
 % output
@@ -36,7 +46,9 @@ matRad_cfg = MatRad_Config.instance();
 
 %Deprecation warnings
 if ~isfield(stf,'machine')
-    matRad_cfg.dispDeprecationWarning('stf should contain the machine name in the ''machine'' field since matRad 3. Manually adding ''%s'' from pln.',pln.machine);
+    matRad_cfg.dispDeprecationWarning(['stf should contain the machine ', ...
+        'name in the ''machine'' field since matRad 3. Manually adding ', ...
+        '''%s'' from pln.'],pln.machine);
     for i=1:numel(stf)
         stf(i).machine = pln.machine;
     end
@@ -44,6 +56,14 @@ end
 
 engine = DoseEngines.matRad_DoseEngineBase.getEngineFromPln(pln);
 engine.assertSupportedScenarioDimensions();
+
+if engine.UseParallel
+    [dij,useParallel] = matRad_calcDoseInfluenceParallelScenarios( ...
+        ct,cst,stf,pln,engine);
+    if useParallel
+        return;
+    end
+end
 
 %call the calcDose funktion
 dij = engine.calcDoseInfluence(ct,cst,stf);

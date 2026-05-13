@@ -17,6 +17,11 @@ function [pln_prob2,dij_prob2Context] = matRad_calcDoseProb2Streaming(ct,cst,stf
 %           scenario dose influence data
 %   cfg:    configuration struct. Optional fields accepted by
 %           matRad_calcDoseProb2 plus:
+%           UseParallel: use safe available scenario parallelism for the
+%               first pass and Omega pass when the Parallel Computing
+%               Toolbox and enough workers/memory are available.
+%               matRad may create or reduce the active parallel pool.
+%               Precomputed dij inputs fall back to serial streaming.
 %           SecondPassStrategy: 'disk' (default) or 'recompute'
 %           CacheRoot: root folder for disk blocks
 %           KeepCache: keep the hash cache folder after the run (default false)
@@ -109,9 +114,12 @@ try
         dij_prob2,provider,ctx,quantity,cfg,firstPassWork,matRad_cfg);
 
     if needsSecondPass
-        [dij_prob2.Omega,provider] = accumulateProb2StreamingOmega( ...
+        [dij_prob2.Omega,provider,omegaParallel] = accumulateProb2StreamingOmega( ...
             dij_prob2,provider,ctx,quantity,cfg,voiRows,voiBatches, ...
             matRad_cfg);
+        if cfg.CollectTiming
+            dij_prob2.timing.parallelScenario.omega = omegaParallel;
+        end
     else
         dij_prob2.Omega = cell(size(voiRows));
     end
@@ -180,6 +188,15 @@ dij_prob2.scenarioDijIx = ctx.scenarioDijIx(:);
 dij_prob2.scenarioCtScenIds = ctx.scenarioCtScenIds(:);
 dij_prob2.scenarioWeights = ctx.scenarioWeights(:);
 dij_prob2.probabilisticMode = 'PROB2';
+if isfield(ctx.cfg,'CollectTiming') && ctx.cfg.CollectTiming
+    dij_prob2.timing = struct();
+    dij_prob2.timing.useParallelRequested = logical(ctx.cfg.UseParallel);
+    dij_prob2.timing.numScenarios = numel(ctx.scenarioDijIx);
+    dij_prob2.timing.numBixels = ctx.numBixels;
+    dij_prob2.timing.totalSeconds = 0;
+    dij_prob2.timing.parallelScenario = struct('firstPass',false, ...
+        'omega',false);
+end
 end
 
 function rows = resolveProb2StreamingExpectedRows(ctx)
@@ -229,6 +246,38 @@ matRad_cfg.dispInfo(['matRad: Streaming PROB2 first pass over %d ', ...
     'scenario(s) and %d selected dose voxels.\n'], ...
     numScenarios,numExpectedRows);
 
+[useParallel,parallelProvider] = matRad_configureScenarioDoseStreamingParallel( ...
+    provider,ctx,cfg,matRad_cfg,'streaming PROB2 first pass',[]);
+if useParallel
+    expectedRows = sparse(numExpectedRows,ctx.numBixels);
+    logLevel = matRad_cfg.logLevel;
+    scenarioResults = cell(numScenarios,1);
+    parfor s = 1:numScenarios
+        workerCfg = MatRad_Config.instance();
+        workerCfg.logLevel = logLevel;
+        scenarioResults{s} = computeProb2StreamingFirstPassScenario( ...
+            parallelProvider,ctx,quantity,cfg,expectedBatches,voiBatches, ...
+            cacheVoiRows,s,numExpectedRows,workerCfg);
+    end
+
+    telemetryBlocks = cell(numScenarios,1);
+    for s = 1:numScenarios
+        result = scenarioResults{s};
+        expectedRows = expectedRows + result.expectedRows;
+        telemetryBlocks{s} = result.sizeTelemetry;
+    end
+    provider = matRad_mergeScenarioDoseSizeTelemetry(provider,telemetryBlocks);
+    if cfg.CollectTiming
+        dij_prob2.timing.parallelScenario.firstPass = true;
+    end
+
+    for b = 1:numel(expectedBatches)
+        batch = expectedBatches{b};
+        dij_prob2.expected(batch.rows,:) = expectedRows(batch.localIx,:);
+    end
+    return;
+end
+
 for s = 1:numScenarios
     matRad_cfg.dispInfo('matRad: Streaming PROB2 first pass scenario %d/%d.\n', ...
         s,numScenarios);
@@ -265,11 +314,96 @@ for s = 1:numScenarios
 end
 end
 
-function [Omega,provider] = accumulateProb2StreamingOmega( ...
+function result = computeProb2StreamingFirstPassScenario( ...
+    provider,ctx,quantity,cfg,expectedBatches,voiBatches,cacheVoiRows, ...
+    scenarioIx,numExpectedRows,matRad_cfg)
+localProvider = provider;
+if ~isfield(localProvider,'sizeTelemetry') || isempty(localProvider.sizeTelemetry)
+    localProvider.sizeTelemetry = matRad_initializeScenarioDoseSizeTelemetry();
+end
+
+expectedRows = sparse(numExpectedRows,ctx.numBixels);
+[localProvider,source] = matRad_beginScenarioDoseRowsProvider( ...
+    localProvider,ctx,quantity,scenarioIx,matRad_cfg);
+scenarioWeight = ctx.scenarioWeights(scenarioIx);
+
+for b = 1:numel(expectedBatches)
+    batch = expectedBatches{b};
+    rows = matRad_getScenarioDoseProviderRows(source, ...
+        ctx.scenarioMaps{scenarioIx},batch.rows,matRad_cfg);
+    expectedRows(batch.localIx,:) = expectedRows(batch.localIx,:) + ...
+        scenarioWeight .* rows;
+end
+
+if cacheVoiRows
+    for voiIx = 1:numel(voiBatches)
+        batches = voiBatches{voiIx};
+        for b = 1:numel(batches)
+            batch = batches{b};
+            rows = matRad_getScenarioDoseProviderRows(source, ...
+                ctx.scenarioMaps{scenarioIx},batch.rows,matRad_cfg);
+            blockBytes = matRad_writeScenarioDoseCacheBlock( ...
+                localProvider.cacheContext,scenarioIx, ...
+                prob2StreamingVoiCacheKind(voiIx),b,batch.rows,rows);
+            localProvider = matRad_updateScenarioDoseDiskCachePeak( ...
+                localProvider,blockBytes);
+        end
+    end
+end
+
+[localProvider,source] = matRad_endScenarioDoseRowsProvider(localProvider,source);
+
+result = struct();
+result.expectedRows = expectedRows;
+result.sizeTelemetry = localProvider.sizeTelemetry;
+end
+
+function [Omega,provider,parallelEnabled] = accumulateProb2StreamingOmega( ...
     dij_prob2,provider,ctx,quantity,cfg,voiRows,voiBatches,matRad_cfg)
 Omega = cell(size(voiRows));
 numScenarios = numel(ctx.scenarioDijIx);
 numBixels = ctx.numBixels;
+parallelEnabled = false;
+
+[useParallel,parallelProvider] = matRad_configureScenarioDoseStreamingParallel( ...
+    provider,ctx,cfg,matRad_cfg,'streaming PROB2 Omega',[]);
+if useParallel
+    logLevel = matRad_cfg.logLevel;
+    scenarioResults = cell(numScenarios,1);
+    parfor s = 1:numScenarios
+        workerCfg = MatRad_Config.instance();
+        workerCfg.logLevel = logLevel;
+        scenarioResults{s} = computeProb2StreamingOmegaScenario( ...
+            parallelProvider,dij_prob2,ctx,quantity,cfg,voiBatches,s, ...
+            workerCfg);
+    end
+
+    telemetryBlocks = cell(numScenarios,1);
+    for voiIx = 1:numel(voiRows)
+        if isempty(voiRows{voiIx})
+            Omega{voiIx} = [];
+        else
+            Omega{voiIx} = sparse(numBixels,numBixels);
+        end
+    end
+    for s = 1:numScenarios
+        result = scenarioResults{s};
+        for voiIx = 1:numel(voiRows)
+            if ~isempty(result.Omega{voiIx})
+                Omega{voiIx} = Omega{voiIx} + result.Omega{voiIx};
+            end
+        end
+        telemetryBlocks{s} = result.sizeTelemetry;
+    end
+    provider = matRad_mergeScenarioDoseSizeTelemetry(provider,telemetryBlocks);
+    for voiIx = 1:numel(Omega)
+        if ~isempty(Omega{voiIx})
+            Omega{voiIx} = sparse(0.5.*(Omega{voiIx} + Omega{voiIx}'));
+        end
+    end
+    parallelEnabled = true;
+    return;
+end
 
 for voiIx = 1:numel(voiRows)
     if isempty(voiRows{voiIx})
@@ -314,6 +448,58 @@ for voiIx = 1:numel(voiRows)
 
     Omega{voiIx} = sparse(0.5.*(omega + omega'));
 end
+end
+
+function result = computeProb2StreamingOmegaScenario( ...
+    provider,dij_prob2,ctx,quantity,cfg,voiBatches,scenarioIx,matRad_cfg)
+localProvider = provider;
+if ~isfield(localProvider,'sizeTelemetry') || isempty(localProvider.sizeTelemetry)
+    localProvider.sizeTelemetry = matRad_initializeScenarioDoseSizeTelemetry();
+end
+
+Omega = cell(size(dij_prob2.voiSubIx));
+numBixels = ctx.numBixels;
+source = [];
+if strcmp(cfg.SecondPassStrategy,'recompute')
+    [localProvider,source] = matRad_beginScenarioDoseRowsProvider( ...
+        localProvider,ctx,quantity,scenarioIx,matRad_cfg);
+end
+
+for voiIx = 1:numel(voiBatches)
+    batches = voiBatches{voiIx};
+    if isempty(batches)
+        Omega{voiIx} = [];
+        continue;
+    end
+
+    omega = sparse(numBixels,numBixels);
+    for b = 1:numel(batches)
+        batch = batches{b};
+        if strcmp(cfg.SecondPassStrategy,'disk')
+            rows = matRad_readScenarioDoseCacheBlock(localProvider.cacheContext, ...
+                scenarioIx,prob2StreamingVoiCacheKind(voiIx),b,batch.rows);
+        else
+            rows = matRad_getScenarioDoseProviderRows(source, ...
+                ctx.scenarioMaps{scenarioIx},batch.rows,matRad_cfg);
+        end
+        centeredRows = {rows - dij_prob2.expected(batch.rows,:)};
+        if strcmp(cfg.SecondPassStrategy,'recompute')
+            localProvider = matRad_updateScenarioDoseMemoryPeak( ...
+                localProvider,source,rows,centeredRows);
+        end
+        omega = omega + accumulateProb2StreamingCenteredOmegaBatch( ...
+            centeredRows,ctx.scenarioWeights(scenarioIx),numBixels);
+    end
+    Omega{voiIx} = omega;
+end
+
+if strcmp(cfg.SecondPassStrategy,'recompute')
+    [localProvider,source] = matRad_endScenarioDoseRowsProvider(localProvider,source);
+end
+
+result = struct();
+result.Omega = Omega;
+result.sizeTelemetry = localProvider.sizeTelemetry;
 end
 
 function omega = accumulateProb2StreamingCenteredOmegaBatch(centeredRows,scenarioWeights, ...
