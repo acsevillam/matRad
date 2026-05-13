@@ -131,9 +131,16 @@ end
 end
 
 function numDoseVoxels = estimateNumDoseVoxels(ct,engine)
-numDoseVoxels = prod(ct.cubeDim);
-if isstruct(engine.doseGrid) && all(isfield(engine.doseGrid,{'x','y','z'}))
-    numDoseVoxels = numel(engine.doseGrid.x) * ...
-        numel(engine.doseGrid.y) * numel(engine.doseGrid.z);
+doseGrid = engine.doseGrid;
+
+if all(isfield(doseGrid,{'x','y','z'}))
+    numDoseVoxels = numel(doseGrid.x) * numel(doseGrid.y) * ...
+        numel(doseGrid.z);
+    return;
 end
+
+ctGrid = matRad_getWorldAxes(ct);
+numDoseVoxels = numel(ctGrid.x(1):doseGrid.resolution.x:ctGrid.x(end)) * ...
+    numel(ctGrid.y(1):doseGrid.resolution.y:ctGrid.y(end)) * ...
+    numel(ctGrid.z(1):doseGrid.resolution.z:ctGrid.z(end));
 end
