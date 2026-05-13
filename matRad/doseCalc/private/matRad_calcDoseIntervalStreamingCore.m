@@ -212,6 +212,44 @@ matRad_cfg.dispInfo(['matRad: Streaming first pass over %d scenario(s), ', ...
     '%d target voxels, and %d OAR voxels.\n'],numScenarios, ...
     numel(ctx.targetRows),numel(ctx.oarRows));
 
+[useParallel,parallelProvider] = matRad_configureScenarioDoseStreamingParallel( ...
+    provider,ctx,cfg,matRad_cfg,'streaming interval first pass',[]);
+if useParallel
+    logLevel = matRad_cfg.logLevel;
+    scenarioResults = cell(numScenarios,1);
+    parfor s = 1:numScenarios
+        workerCfg = MatRad_Config.instance();
+        workerCfg.logLevel = logLevel;
+        scenarioResults{s} = computeIntervalStreamingFirstPassScenario( ...
+            parallelProvider,ctx,quantity,cfg,targetBatches,oarBatches, ...
+            cacheTargetRows,cacheOARRows,s,workerCfg);
+    end
+
+    telemetryBlocks = cell(numScenarios,1);
+    for s = 1:numScenarios
+        result = scenarioResults{s};
+        targetCenter = targetCenter + result.targetCenter;
+        oarCenter = oarCenter + result.oarCenter;
+        targetSecondMoment = targetSecondMoment + result.targetSecondMoment;
+        telemetryBlocks{s} = result.sizeTelemetry;
+    end
+    provider = matRad_mergeScenarioDoseSizeTelemetry(provider,telemetryBlocks);
+    if cfg.CollectTiming
+        dij_interval.timing.parallelScenario.firstPass = true;
+    end
+
+    if ~isempty(ctx.targetRows)
+        dij_interval.center(ctx.targetRows,:) = targetCenter;
+    end
+    if ~isempty(ctx.oarRows)
+        dij_interval.center(ctx.oarRows,:) = oarCenter;
+    end
+    if strcmp(cfg.RadiusMode,'std')
+        dij_interval.radius = targetSecondMoment;
+    end
+    return;
+end
+
 for s = 1:numScenarios
     matRad_cfg.dispInfo('matRad: Streaming first pass scenario %d/%d.\n', ...
         s,numScenarios);
@@ -268,12 +306,103 @@ if strcmp(cfg.RadiusMode,'std')
 end
 end
 
+function result = computeIntervalStreamingFirstPassScenario( ...
+    provider,ctx,quantity,cfg,targetBatches,oarBatches,cacheTargetRows, ...
+    cacheOARRows,scenarioIx,matRad_cfg)
+localProvider = provider;
+if ~isfield(localProvider,'sizeTelemetry') || isempty(localProvider.sizeTelemetry)
+    localProvider.sizeTelemetry = matRad_initializeScenarioDoseSizeTelemetry();
+end
+
+targetCenter = sparse(numel(ctx.targetRows),ctx.numBixels);
+oarCenter = sparse(numel(ctx.oarRows),ctx.numBixels);
+targetSecondMoment = sparse(ctx.numBixels,ctx.numBixels);
+
+[localProvider,source] = matRad_beginScenarioDoseRowsProvider( ...
+    localProvider,ctx,quantity,scenarioIx,matRad_cfg);
+scenarioWeight = ctx.scenarioWeights(scenarioIx);
+
+for b = 1:numel(targetBatches)
+    batch = targetBatches{b};
+    rows = matRad_getScenarioDoseProviderRows(source, ...
+        ctx.scenarioMaps{scenarioIx},batch.rows,matRad_cfg);
+    targetCenter(batch.localIx,:) = targetCenter(batch.localIx,:) + ...
+        scenarioWeight .* rows;
+    if strcmp(cfg.RadiusMode,'std')
+        targetSecondMoment = targetSecondMoment + rows' * ...
+            (scenarioWeight .* rows);
+    end
+    if cacheTargetRows
+        blockBytes = matRad_writeScenarioDoseCacheBlock( ...
+            localProvider.cacheContext,scenarioIx, ...
+            intervalStreamingTargetCacheKind(),b,batch.rows,rows);
+        localProvider = matRad_updateScenarioDoseDiskCachePeak( ...
+            localProvider,blockBytes);
+    end
+end
+
+for b = 1:numel(oarBatches)
+    batch = oarBatches{b};
+    rows = matRad_getScenarioDoseProviderRows(source, ...
+        ctx.scenarioMaps{scenarioIx},batch.rows,matRad_cfg);
+    oarCenter(batch.localIx,:) = oarCenter(batch.localIx,:) + ...
+        scenarioWeight .* rows;
+    if cacheOARRows
+        blockBytes = matRad_writeScenarioDoseCacheBlock( ...
+            localProvider.cacheContext,scenarioIx, ...
+            intervalStreamingOARCacheKind(),b,batch.rows,rows);
+        localProvider = matRad_updateScenarioDoseDiskCachePeak( ...
+            localProvider,blockBytes);
+    end
+end
+
+[localProvider,source] = matRad_endScenarioDoseRowsProvider(localProvider,source);
+
+result = struct();
+result.targetCenter = targetCenter;
+result.oarCenter = oarCenter;
+result.targetSecondMoment = targetSecondMoment;
+result.sizeTelemetry = localProvider.sizeTelemetry;
+end
+
 function [dij_interval,provider] = accumulateIntervalStreamingTargetExtremeRadius( ...
     dij_interval,provider,ctx,quantity,cfg,targetBatches,matRad_cfg)
 targetDeltaRows = sparse(numel(ctx.targetRows),ctx.numBixels);
 numScenarios = numel(ctx.scenarioDijIx);
 
 matRad_cfg.dispInfo('matRad: Streaming second pass for extreme target radius.\n');
+[useParallel,parallelProvider] = matRad_configureScenarioDoseStreamingParallel( ...
+    provider,ctx,cfg,matRad_cfg,'streaming interval target extreme radius',[]);
+if useParallel
+    logLevel = matRad_cfg.logLevel;
+    scenarioResults = cell(numScenarios,1);
+    centerRowsAll = dij_interval.center(ctx.targetRows,:);
+    parfor s = 1:numScenarios
+        workerCfg = MatRad_Config.instance();
+        workerCfg.logLevel = logLevel;
+        scenarioResults{s} = computeIntervalStreamingTargetExtremeScenario( ...
+            parallelProvider,ctx,quantity,cfg,targetBatches,centerRowsAll, ...
+            s,workerCfg);
+    end
+
+    telemetryBlocks = cell(numScenarios,1);
+    for s = 1:numScenarios
+        result = scenarioResults{s};
+        targetDeltaRows = max(targetDeltaRows,result.targetDeltaRows);
+        telemetryBlocks{s} = result.sizeTelemetry;
+    end
+    provider = matRad_mergeScenarioDoseSizeTelemetry(provider,telemetryBlocks);
+    if cfg.CollectTiming
+        dij_interval.timing.parallelScenario.targetExtreme = true;
+    end
+
+    deltaSquared = full(sum(targetDeltaRows.^2,1));
+    centerRows = dij_interval.center(ctx.targetRows,:);
+    dij_interval.radius = centerRows' * centerRows + ...
+        spdiags(deltaSquared(:),0,ctx.numBixels,ctx.numBixels);
+    return;
+end
+
 for s = 1:numScenarios
     source = [];
     if strcmp(cfg.SecondPassStrategy,'recompute')
@@ -309,6 +438,48 @@ deltaSquared = full(sum(targetDeltaRows.^2,1));
 centerRows = dij_interval.center(ctx.targetRows,:);
 dij_interval.radius = centerRows' * centerRows + ...
     spdiags(deltaSquared(:),0,ctx.numBixels,ctx.numBixels);
+end
+
+function result = computeIntervalStreamingTargetExtremeScenario( ...
+    provider,ctx,quantity,cfg,targetBatches,centerRowsAll,scenarioIx, ...
+    matRad_cfg)
+localProvider = provider;
+if ~isfield(localProvider,'sizeTelemetry') || isempty(localProvider.sizeTelemetry)
+    localProvider.sizeTelemetry = matRad_initializeScenarioDoseSizeTelemetry();
+end
+
+targetDeltaRows = sparse(numel(ctx.targetRows),ctx.numBixels);
+source = [];
+if strcmp(cfg.SecondPassStrategy,'recompute')
+    [localProvider,source] = matRad_beginScenarioDoseRowsProvider( ...
+        localProvider,ctx,quantity,scenarioIx,matRad_cfg);
+end
+
+for b = 1:numel(targetBatches)
+    batch = targetBatches{b};
+    if strcmp(cfg.SecondPassStrategy,'disk')
+        rows = matRad_readScenarioDoseCacheBlock(localProvider.cacheContext, ...
+            scenarioIx,intervalStreamingTargetCacheKind(),b,batch.rows);
+    else
+        rows = matRad_getScenarioDoseProviderRows(source, ...
+            ctx.scenarioMaps{scenarioIx},batch.rows,matRad_cfg);
+    end
+    centerRows = centerRowsAll(batch.localIx,:);
+    if strcmp(cfg.SecondPassStrategy,'recompute')
+        localProvider = matRad_updateScenarioDoseMemoryPeak(localProvider, ...
+            source,rows,centerRows,targetDeltaRows);
+    end
+    targetDeltaRows(batch.localIx,:) = max(targetDeltaRows(batch.localIx,:), ...
+        abs(rows - centerRows));
+end
+
+if strcmp(cfg.SecondPassStrategy,'recompute')
+    [localProvider,source] = matRad_endScenarioDoseRowsProvider(localProvider,source);
+end
+
+result = struct();
+result.targetDeltaRows = targetDeltaRows;
+result.sizeTelemetry = localProvider.sizeTelemetry;
 end
 
 function [dij_interval,provider] = accumulateIntervalStreamingOARRadiusFactors( ...

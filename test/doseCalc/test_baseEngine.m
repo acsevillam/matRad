@@ -66,3 +66,10 @@ function test_getEngineFromPlnByName
     photonDummyPln = struct('radiationMode','photons','machine','Generic','propDoseCalc',struct('engine','MCsquare'));
     engine = DoseEngines.matRad_DoseEngineBase.getEngineFromPln(photonDummyPln);
     assertTrue(isa(engine,'DoseEngines.matRad_PhotonPencilBeamSVDEngine'));
+
+function test_getEngineFromPlnAssignsUseParallel
+    photonDummyPln = struct('radiationMode','photons','machine','Generic', ...
+        'propDoseCalc',struct('engine','SVDPB','UseParallel',true));
+    engine = DoseEngines.matRad_DoseEngineBase.getEngineFromPln(photonDummyPln);
+
+    assertTrue(engine.UseParallel);

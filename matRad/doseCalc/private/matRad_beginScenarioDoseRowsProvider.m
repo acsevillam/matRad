@@ -27,7 +27,7 @@ if isfield(provider,'preloadedScenarioId') && ...
     dijScenario = provider.preloadedDij;
     provider = rmfield(provider,{'preloadedScenarioId','preloadedDij'});
 else
-    pln_s = matRad_selectSingleScenarioPlan(provider.pln,scenarioId);
+    pln_s = matRad_prepareSerialScenarioPlan(provider.pln,scenarioId);
     dijScenario = matRad_calcDoseInfluence(provider.ct,provider.cst, ...
         provider.stf,pln_s);
 end

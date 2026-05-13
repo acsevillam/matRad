@@ -36,11 +36,11 @@ provider.type = 'streaming';
 provider.ct = ct;
 provider.cst = cst;
 provider.stf = stf;
-provider.pln = pln;
+provider.pln = matRad_makeWorkerSafePlan(pln);
 provider.scenarioIds = scenarioInfo.scenarioIds(:);
 
 firstScenarioId = scenarioInfo.scenarioIds(1);
-pln_s = matRad_selectSingleScenarioPlan(pln,firstScenarioId);
+pln_s = matRad_prepareSerialScenarioPlan(provider.pln,firstScenarioId);
 dijTemplate = matRad_calcDoseInfluence(ct,cst,stf,pln_s);
 provider.preloadedScenarioId = firstScenarioId;
 provider.preloadedDij = dijTemplate;

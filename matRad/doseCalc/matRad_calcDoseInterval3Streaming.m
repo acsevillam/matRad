@@ -16,6 +16,12 @@ function [pln_interval,dij_intervalContext] = matRad_calcDoseInterval3Streaming(
 %           streaming uses dij scenario matrices instead of recalculating
 %           scenario dose influence data
 %   cfg:    optional configuration struct accepted by matRad_calcDoseInterval3 plus:
+%           UseParallel: use safe available scenario parallelism for
+%               scenario-reducible streaming passes when the Parallel
+%               Computing Toolbox and enough workers/memory are available.
+%               matRad may create or reduce the active parallel pool.
+%               The OAR radius-factor pass keeps its batch/voxel parallel
+%               path. Precomputed dij inputs fall back to serial streaming.
 %           SecondPassStrategy: 'disk' (default) or 'recompute'
 %           CacheRoot: root folder for disk blocks
 %           KeepCache: keep the hash cache folder after the run (default false)
