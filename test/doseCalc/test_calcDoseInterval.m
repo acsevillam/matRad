@@ -578,6 +578,22 @@ function test_interval2_streaming_partial_selection_matches_inmemory
     assertEqual(plnStreamRecompute.propOpt.dij_interval.secondPassStrategy, ...
         'recompute');
 
+function test_interval2_streaming_serial_detailed_progress_is_aggregated
+    [ct,cst,pln,dij,cfg] = singleCtFixture();
+    cfg.BatchSize = 1;
+    cfg.RadiusMode = 'extreme';
+    cfg.SecondPassStrategy = 'recompute';
+    cfg.ProgressLevel = 'detailed';
+
+    [logCleanup,startLogCount] = captureMatRadLog();
+    matRad_calcDoseInterval2Streaming(ct,cst,[],pln,dij,cfg);
+
+    messages = matRadLogMessages(startLogCount);
+    assertTrue(anyMessageContains(messages,'Target center progress 4/4'));
+    assertTrue(anyMessageContains(messages,'OAR center progress 4/4'));
+    assertTrue(anyMessageContains(messages,'Target extreme radius progress 4/4'));
+    assertTrue(anyMessageContains(messages,'scenario 2/2, batch 2/2'));
+
 function test_interval2_streaming_use_parallel_precomputed_matches_serial_std
     [ct,cst,pln,dij,cfg] = singleCtFixture();
     cfg.BatchSize = 1;
@@ -592,7 +608,7 @@ function test_interval2_streaming_use_parallel_precomputed_matches_serial_std
         full(plnSerial.propOpt.dij_interval.center),'absolute',1e-12);
     assertElementsAlmostEqual(full(plnParallel.propOpt.dij_interval.radius), ...
         full(plnSerial.propOpt.dij_interval.radius),'absolute',1e-12);
-    assertStreamingSizeDisk(plnParallel.propOpt.dij_interval);
+    assertStreamingSizeDiskWithoutAuxiliary(plnParallel.propOpt.dij_interval);
 
 function test_interval2_streaming_use_parallel_precomputed_extreme_matches_serial
     [ct,cst,pln,dij,cfg] = singleCtFixture();
@@ -675,7 +691,9 @@ function test_interval2_streaming_collect_timing_reports_real_parallel_when_avai
     cfg.targetStructSel = 1;
     cfg.UseParallel = true;
     cfg.CollectTiming = true;
+    cfg.ProgressLevel = 'detailed';
 
+    [logCleanup,startLogCount] = captureMatRadLog();
     [plnStream,~] = matRad_calcDoseInterval2Streaming(ct,cst,stf,pln,cfg);
     timing = plnStream.propOpt.dij_interval.timing;
 
@@ -690,6 +708,10 @@ function test_interval2_streaming_collect_timing_reports_real_parallel_when_avai
     assertTrue(timing.parallelScenario.firstPass);
     assertTrue(timing.parallelScenario.targetExtreme);
     assertFalse(timing.parallelScenario.oarRadiusFactors);
+    messages = matRadLogMessages(startLogCount);
+    assertTrue(anyMessageContains(messages,'Target center progress'));
+    assertTrue(anyMessageContains(messages,'OAR center progress'));
+    assertTrue(anyMessageContains(messages,'Target extreme radius progress'));
 
 function test_interval_streaming_rejects_duplicate_precomputed_dij_inputs
     [ct,cst,pln,dij,cfg] = singleCtFixture();
@@ -929,6 +951,36 @@ function available = parallelComputingAvailable()
     end
     available = logical(available);
 
+function [cleanup,startLogCount] = captureMatRadLog()
+    matRad_cfg = MatRad_Config.instance();
+    keepLog = matRad_cfg.keepLog;
+    startLogCount = size(matRad_cfg.messageLog,1);
+    matRad_cfg.keepLog = true;
+    cleanup = onCleanup(@() restoreMatRadLog(matRad_cfg,keepLog));
+
+function restoreMatRadLog(matRad_cfg,keepLog)
+    matRad_cfg.keepLog = keepLog;
+
+function messages = matRadLogMessages(startLogCount)
+    if nargin < 1
+        startLogCount = 0;
+    end
+    matRad_cfg = MatRad_Config.instance();
+    if size(matRad_cfg.messageLog,1) <= startLogCount
+        messages = {};
+    else
+        messages = matRad_cfg.messageLog(startLogCount + 1:end,2);
+    end
+
+function tf = anyMessageContains(messages,needle)
+    tf = false;
+    for i = 1:numel(messages)
+        if ~isempty(strfind(messages{i},needle))
+            tf = true;
+            return;
+        end
+    end
+
 function [ct,cst,pln,dij,cfg] = singleCtFixture()
     ct.numOfCtScen = 1;
     ct.cubeDim = [2 2 1];
@@ -1142,7 +1194,8 @@ function cst = addStructure(cst,rowIx,name,type,voxels)
     cst{rowIx,5} = struct();
     cst{rowIx,6} = {};
 
-function scenarioModel = fixtureScenarioModel(ct,ctScenIds,scenarioValues,linearMask,scenMask,scenarioWeights)
+function scenarioModel = fixtureScenarioModel(ct,ctScenIds,scenarioValues, ...
+        linearMask,scenMask,scenarioWeights)
     scenarioModel = matRad_NominalScenario(ct);
     dimensions = matRad_createScenarioComponents([1 1 1],1,1);
     scenForProb = [ctScenIds(:) scenarioValues];
@@ -1164,6 +1217,17 @@ function assertStreamingSizeDisk(dij)
     assertTrue(sizeData.diskCachePeakBytes > 0);
     assertEqual(sizeData.auxiliaryPeakBytes, ...
         sizeData.diskCachePeakBytes);
+    assertEqual(sizeData.auxiliaryPeakKind,'diskCache');
+    assertEqual(sizeData.secondPassStrategy,'disk');
+
+function assertStreamingSizeDiskWithoutAuxiliary(dij)
+    assertStreamingSizeTotal(dij);
+    sizeData = dij.streamingSize;
+    assertEqual(sizeData.diskCachePeakBytes,0);
+    assertEqual(sizeData.memoryTemporaryPeakBytes,0);
+    assertEqual(sizeData.auxiliaryPeakBytes,0);
+    assertElementsAlmostEqual(sizeData.totalPrecomputingBytes, ...
+        sizeData.compactBytes,'absolute',1e-12);
     assertEqual(sizeData.auxiliaryPeakKind,'diskCache');
     assertEqual(sizeData.secondPassStrategy,'disk');
 

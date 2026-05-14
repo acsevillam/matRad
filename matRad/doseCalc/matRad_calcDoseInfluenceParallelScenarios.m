@@ -48,6 +48,14 @@ if ~isa(engine,'DoseEngines.matRad_PencilBeamEngineAbstract')
     return;
 end
 
+if usesStochasticDijSampling(engine)
+    matRad_cfg.dispWarning(['UseParallel was requested for multi-scenario ', ...
+        'dij calculation, but dose engine "%s" uses stochastic dij ', ...
+        'sampling. Falling back to serial dose calculation.\n'], ...
+        engine.name);
+    return;
+end
+
 scenarioModel = resolveScenarioModel(ct,pln,engine,matRad_cfg);
 if isempty(scenarioModel)
     return;
@@ -62,7 +70,7 @@ if numScenarios < 2
     return;
 end
 
-plnParallel = matRad_makeWorkerSafePlan(pln);
+plnParallel = matRad_makeWorkerSafePlan(pln,engine);
 plnParallel.multScen = scenarioModel;
 
 workerMemoryBytes = estimateScenarioDoseWorkerMemoryBytes(ct,cst,stf, ...
@@ -106,6 +114,11 @@ else
             'calculation.\n']);
     end
 end
+end
+
+function tf = usesStochasticDijSampling(engine)
+tf = matRad_ispropCompat(engine,'enableDijSampling') && ...
+    logical(engine.enableDijSampling);
 end
 
 function workerMemoryBytes = estimateScenarioDoseWorkerMemoryBytes(ct,cst,stf,pln,engine)

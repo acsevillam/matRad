@@ -1,8 +1,10 @@
-function [pln_interval,dij_intervalContext] = matRad_calcDoseIntervalStreamingCore(ct,cst,stf,pln,cfg,intervalMode)
+function [pln_interval,dij_intervalContext] = ...
+    matRad_calcDoseIntervalStreamingCore(ct,cst,stf,pln,cfg,intervalMode)
 % matRad_calcDoseIntervalStreamingCore shared streaming implementation for dose interval methods
 %
 % call
-%   [pln_interval,dij_intervalContext] = matRad_calcDoseIntervalStreamingCore(ct,cst,stf,pln,cfg,intervalMode)
+%   [pln_interval,dij_intervalContext] = ...
+%       matRad_calcDoseIntervalStreamingCore(ct,cst,stf,pln,cfg,intervalMode)
 %
 % input
 %   ct:           matRad ct struct
@@ -216,13 +218,23 @@ matRad_cfg.dispInfo(['matRad: Streaming first pass over %d scenario(s), ', ...
     provider,ctx,cfg,matRad_cfg,'streaming interval first pass',[]);
 if useParallel
     logLevel = matRad_cfg.logLevel;
+    targetProgressReporter = matRad_createScenarioDoseProgressReporter( ...
+        matRad_cfg,cfg,'Target center',numScenarios*numel(targetBatches), ...
+        true);
+    targetProgressCleanup = onCleanup(targetProgressReporter.cleanup);
+    targetProgressQueue = targetProgressReporter.queue;
+    oarProgressReporter = matRad_createScenarioDoseProgressReporter( ...
+        matRad_cfg,cfg,'OAR center',numScenarios*numel(oarBatches),true);
+    oarProgressCleanup = onCleanup(oarProgressReporter.cleanup);
+    oarProgressQueue = oarProgressReporter.queue;
     scenarioResults = cell(numScenarios,1);
     parfor s = 1:numScenarios
         workerCfg = MatRad_Config.instance();
         workerCfg.logLevel = logLevel;
         scenarioResults{s} = computeIntervalStreamingFirstPassScenario( ...
             parallelProvider,ctx,quantity,cfg,targetBatches,oarBatches, ...
-            cacheTargetRows,cacheOARRows,s,workerCfg);
+            cacheTargetRows,cacheOARRows,s,workerCfg,targetProgressQueue, ...
+            oarProgressQueue,numScenarios);
     end
 
     telemetryBlocks = cell(numScenarios,1);
@@ -250,16 +262,16 @@ if useParallel
     return;
 end
 
+targetProgressReporter = matRad_createScenarioDoseProgressReporter( ...
+    matRad_cfg,cfg,'Target center',numScenarios*numel(targetBatches),false);
+oarProgressReporter = matRad_createScenarioDoseProgressReporter( ...
+    matRad_cfg,cfg,'OAR center',numScenarios*numel(oarBatches),false);
 for s = 1:numScenarios
-    matRad_cfg.dispInfo('matRad: Streaming first pass scenario %d/%d.\n', ...
-        s,numScenarios);
     [provider,source] = matRad_beginScenarioDoseRowsProvider(provider,ctx,quantity,s,matRad_cfg);
     scenarioWeight = ctx.scenarioWeights(s);
 
     for b = 1:numel(targetBatches)
         batch = targetBatches{b};
-        matRad_logScenarioDoseBatchProgress(matRad_cfg,cfg,'Target center', ...
-            b,numel(targetBatches));
         rows = matRad_getScenarioDoseProviderRows(source,ctx.scenarioMaps{s}, ...
             batch.rows,matRad_cfg);
         targetCenter(batch.localIx,:) = targetCenter(batch.localIx,:) + ...
@@ -274,12 +286,13 @@ for s = 1:numScenarios
             provider = matRad_updateScenarioDoseDiskCachePeak(provider, ...
                 blockBytes);
         end
+        targetProgressReporter.update(sprintf( ...
+            'scenario %d/%d, batch %d/%d',s,numScenarios,b, ...
+            numel(targetBatches)));
     end
 
     for b = 1:numel(oarBatches)
         batch = oarBatches{b};
-        matRad_logScenarioDoseBatchProgress(matRad_cfg,cfg,'OAR center', ...
-            b,numel(oarBatches));
         rows = matRad_getScenarioDoseProviderRows(source,ctx.scenarioMaps{s}, ...
             batch.rows,matRad_cfg);
         oarCenter(batch.localIx,:) = oarCenter(batch.localIx,:) + ...
@@ -290,6 +303,9 @@ for s = 1:numScenarios
             provider = matRad_updateScenarioDoseDiskCachePeak(provider, ...
                 blockBytes);
         end
+        oarProgressReporter.update(sprintf( ...
+            'scenario %d/%d, batch %d/%d',s,numScenarios,b, ...
+            numel(oarBatches)));
     end
 
     [provider,source] = matRad_endScenarioDoseRowsProvider(provider,source);
@@ -308,7 +324,8 @@ end
 
 function result = computeIntervalStreamingFirstPassScenario( ...
     provider,ctx,quantity,cfg,targetBatches,oarBatches,cacheTargetRows, ...
-    cacheOARRows,scenarioIx,matRad_cfg)
+    cacheOARRows,scenarioIx,matRad_cfg,targetProgressQueue,oarProgressQueue, ...
+    numScenarios)
 localProvider = provider;
 if ~isfield(localProvider,'sizeTelemetry') || isempty(localProvider.sizeTelemetry)
     localProvider.sizeTelemetry = matRad_initializeScenarioDoseSizeTelemetry();
@@ -339,6 +356,10 @@ for b = 1:numel(targetBatches)
         localProvider = matRad_updateScenarioDoseDiskCachePeak( ...
             localProvider,blockBytes);
     end
+    if ~isempty(targetProgressQueue)
+        send(targetProgressQueue,sprintf('scenario %d/%d, batch %d/%d', ...
+            scenarioIx,numScenarios,b,numel(targetBatches)));
+    end
 end
 
 for b = 1:numel(oarBatches)
@@ -353,6 +374,10 @@ for b = 1:numel(oarBatches)
             intervalStreamingOARCacheKind(),b,batch.rows,rows);
         localProvider = matRad_updateScenarioDoseDiskCachePeak( ...
             localProvider,blockBytes);
+    end
+    if ~isempty(oarProgressQueue)
+        send(oarProgressQueue,sprintf('scenario %d/%d, batch %d/%d', ...
+            scenarioIx,numScenarios,b,numel(oarBatches)));
     end
 end
 
@@ -377,12 +402,16 @@ if useParallel
     logLevel = matRad_cfg.logLevel;
     scenarioResults = cell(numScenarios,1);
     centerRowsAll = dij_interval.center(ctx.targetRows,:);
+    progressReporter = matRad_createScenarioDoseProgressReporter(matRad_cfg, ...
+        cfg,'Target extreme radius',numScenarios*numel(targetBatches),true);
+    progressCleanup = onCleanup(progressReporter.cleanup);
+    progressQueue = progressReporter.queue;
     parfor s = 1:numScenarios
         workerCfg = MatRad_Config.instance();
         workerCfg.logLevel = logLevel;
         scenarioResults{s} = computeIntervalStreamingTargetExtremeScenario( ...
             parallelProvider,ctx,quantity,cfg,targetBatches,centerRowsAll, ...
-            s,workerCfg);
+            s,workerCfg,progressQueue,numScenarios);
     end
 
     telemetryBlocks = cell(numScenarios,1);
@@ -403,16 +432,17 @@ if useParallel
     return;
 end
 
+progressReporter = matRad_createScenarioDoseProgressReporter(matRad_cfg, ...
+    cfg,'Target extreme radius',numScenarios*numel(targetBatches),false);
 for s = 1:numScenarios
     source = [];
     if strcmp(cfg.SecondPassStrategy,'recompute')
-        [provider,source] = matRad_beginScenarioDoseRowsProvider(provider,ctx,quantity,s,matRad_cfg);
+        [provider,source] = matRad_beginScenarioDoseRowsProvider( ...
+            provider,ctx,quantity,s,matRad_cfg);
     end
 
     for b = 1:numel(targetBatches)
         batch = targetBatches{b};
-        matRad_logScenarioDoseBatchProgress(matRad_cfg,cfg,'Target extreme radius', ...
-            b,numel(targetBatches));
         if strcmp(cfg.SecondPassStrategy,'disk')
             rows = matRad_readScenarioDoseCacheBlock(provider.cacheContext,s, ...
                 intervalStreamingTargetCacheKind(),b,batch.rows);
@@ -427,6 +457,8 @@ for s = 1:numScenarios
         end
         targetDeltaRows(batch.localIx,:) = max(targetDeltaRows(batch.localIx,:), ...
             abs(rows - centerRows));
+        progressReporter.update(sprintf('scenario %d/%d, batch %d/%d', ...
+            s,numScenarios,b,numel(targetBatches)));
     end
 
     if strcmp(cfg.SecondPassStrategy,'recompute')
@@ -442,7 +474,7 @@ end
 
 function result = computeIntervalStreamingTargetExtremeScenario( ...
     provider,ctx,quantity,cfg,targetBatches,centerRowsAll,scenarioIx, ...
-    matRad_cfg)
+    matRad_cfg,progressQueue,numScenarios)
 localProvider = provider;
 if ~isfield(localProvider,'sizeTelemetry') || isempty(localProvider.sizeTelemetry)
     localProvider.sizeTelemetry = matRad_initializeScenarioDoseSizeTelemetry();
@@ -471,6 +503,10 @@ for b = 1:numel(targetBatches)
     end
     targetDeltaRows(batch.localIx,:) = max(targetDeltaRows(batch.localIx,:), ...
         abs(rows - centerRows));
+    if ~isempty(progressQueue)
+        send(progressQueue,sprintf('scenario %d/%d, batch %d/%d', ...
+            scenarioIx,numScenarios,b,numel(targetBatches)));
+    end
 end
 
 if strcmp(cfg.SecondPassStrategy,'recompute')
@@ -499,9 +535,10 @@ for b = 1:numel(oarBatches)
             scenarioRows{s} = matRad_readScenarioDoseCacheBlock(provider.cacheContext, ...
                 s,intervalStreamingOARCacheKind(),b,batch.rows);
         else
-            [provider,source] = matRad_beginScenarioDoseRowsProvider(provider,ctx,quantity,s,matRad_cfg);
-            scenarioRows{s} = matRad_getScenarioDoseProviderRows(source,ctx.scenarioMaps{s}, ...
-                batch.rows,matRad_cfg);
+            [provider,source] = matRad_beginScenarioDoseRowsProvider( ...
+                provider,ctx,quantity,s,matRad_cfg);
+            scenarioRows{s} = matRad_getScenarioDoseProviderRows(source, ...
+                ctx.scenarioMaps{s},batch.rows,matRad_cfg);
             provider = matRad_updateScenarioDoseMemoryPeak(provider,source, ...
                 scenarioRows{s});
             [provider,source] = matRad_endScenarioDoseRowsProvider(provider,source);

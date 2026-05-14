@@ -148,6 +148,7 @@ if isfield(plnNominal,'propOpt') && isstruct(plnNominal.propOpt) && ...
         isfield(plnNominal.propOpt,'scen4D')
     plnNominal.propOpt = rmfield(plnNominal.propOpt,'scen4D');
 end
+plnNominal = matRad_makeWorkerSafePlan(plnNominal);
 
 dijContext = matRad_calcDoseInfluence(ct,cst,stf,plnNominal);
 end

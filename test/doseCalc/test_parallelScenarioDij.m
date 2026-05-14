@@ -161,6 +161,7 @@ function test_parallel_pencil_beam_multiscen_uses_parfor_when_available
 
     [ct,cst,pln,stf] = photonTestDataFixture();
     pln.multScen = rangeRandomScenario(ct);
+    pln.propDoseCalc.enableDijSampling = false;
 
     pln.propDoseCalc.UseParallel = false;
     dijSerial = matRad_calcDoseInfluence(ct,cst,stf,pln);
@@ -183,6 +184,7 @@ function test_parallel_pencil_beam_multiscen_engine_handle_is_worker_safe
 
     [ct,cst,pln,stf] = photonTestDataFixture();
     pln.multScen = rangeRandomScenario(ct);
+    pln.propDoseCalc.enableDijSampling = false;
 
     pln.propDoseCalc.UseParallel = false;
     dijSerial = matRad_calcDoseInfluence(ct,cst,stf,pln);
@@ -205,6 +207,19 @@ function test_parallel_pencil_beam_multiscen_engine_handle_is_worker_safe
             'calculation could not be activated in this environment.']);
     end
     assertDijAlmostEqual(dijSerial,dijParallel);
+
+function test_parallel_pencil_beam_multiscen_falls_back_for_stochastic_sampling
+    [ct,cst,pln,stf] = photonTestDataFixture();
+    pln.multScen = rangeRandomScenario(ct);
+    pln.propDoseCalc.UseParallel = true;
+    pln.propDoseCalc.enableDijSampling = true;
+    engine = DoseEngines.matRad_DoseEngineBase.getEngineFromPln(pln);
+
+    [dij,useParallel] = matRad_calcDoseInfluenceParallelScenarios( ...
+        ct,cst,stf,pln,engine);
+
+    assertFalse(useParallel);
+    assertTrue(isempty(dij));
 
 function test_parallel_particle_bio_multiscen_matches_serial_when_available
     if ~parallelComputingAvailable()
