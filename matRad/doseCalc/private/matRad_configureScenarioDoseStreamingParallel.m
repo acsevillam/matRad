@@ -75,6 +75,9 @@ if isfield(originalProvider,'preloadedDij') && ~isempty(originalProvider.preload
 end
 
 numRows = max([1; numel(ctx.targetRows); numel(ctx.oarRows)]);
-rowWorkspaceBytes = numRows * max(1,ctx.numBixels) * 8 * 4;
+% Streaming row workspaces keep sparse dose influence rows, not dense blocks.
+sparseWorkspaceFillFactor = 0.05;
+rowWorkspaceBytes = numRows * max(1,ctx.numBixels) * 8 * 4 * ...
+    sparseWorkspaceFillFactor;
 workerMemoryBytes = providerBytes + scenarioDijBytes + rowWorkspaceBytes;
 end
