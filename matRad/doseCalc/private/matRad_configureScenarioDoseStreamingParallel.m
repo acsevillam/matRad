@@ -75,9 +75,12 @@ if isfield(originalProvider,'preloadedDij') && ~isempty(originalProvider.preload
 end
 
 numRows = max([1; numel(ctx.targetRows); numel(ctx.oarRows)]);
-% Streaming row workspaces keep sparse dose influence rows, not dense blocks.
+% Streaming row workspaces keep sparse dose influence rows, matching the
+% heuristic used for multi-scenario dij calculation.
 sparseWorkspaceFillFactor = 0.05;
-rowWorkspaceBytes = numRows * max(1,ctx.numBixels) * 8 * 4 * ...
-    sparseWorkspaceFillFactor;
-workerMemoryBytes = providerBytes + scenarioDijBytes + rowWorkspaceBytes;
+rowMatrixBytes = double(numRows) * double(max(1,ctx.numBixels)) * 8;
+rowWorkspaceBytes = sparseWorkspaceFillFactor * rowMatrixBytes;
+temporaryWorkspaceBytes = max(128 * 1024^2,double(numRows) * 8 * 10);
+workerMemoryBytes = providerBytes + scenarioDijBytes + rowWorkspaceBytes + ...
+    temporaryWorkspaceBytes;
 end
