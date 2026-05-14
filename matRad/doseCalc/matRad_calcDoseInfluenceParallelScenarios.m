@@ -48,6 +48,14 @@ if ~isa(engine,'DoseEngines.matRad_PencilBeamEngineAbstract')
     return;
 end
 
+if usesStochasticDijSampling(engine)
+    matRad_cfg.dispWarning(['UseParallel was requested for multi-scenario ', ...
+        'dij calculation, but dose engine "%s" uses stochastic dij ', ...
+        'sampling. Falling back to serial dose calculation.\n'], ...
+        engine.name);
+    return;
+end
+
 scenarioModel = resolveScenarioModel(ct,pln,engine,matRad_cfg);
 if isempty(scenarioModel)
     return;
@@ -62,7 +70,7 @@ if numScenarios < 2
     return;
 end
 
-plnParallel = matRad_makeWorkerSafePlan(pln);
+plnParallel = matRad_makeWorkerSafePlan(pln,engine);
 plnParallel.multScen = scenarioModel;
 
 workerMemoryBytes = estimateScenarioDoseWorkerMemoryBytes(ct,cst,stf, ...
@@ -108,6 +116,11 @@ else
 end
 end
 
+function tf = usesStochasticDijSampling(engine)
+tf = matRad_ispropCompat(engine,'enableDijSampling') && ...
+    logical(engine.enableDijSampling);
+end
+
 function workerMemoryBytes = estimateScenarioDoseWorkerMemoryBytes(ct,cst,stf,pln,engine)
 inputBytes = matRad_variableBytes(ct) + matRad_variableBytes(cst) + ...
     matRad_variableBytes(stf) + matRad_variableBytes(pln);
@@ -131,9 +144,16 @@ end
 end
 
 function numDoseVoxels = estimateNumDoseVoxels(ct,engine)
-numDoseVoxels = prod(ct.cubeDim);
-if isstruct(engine.doseGrid) && all(isfield(engine.doseGrid,{'x','y','z'}))
-    numDoseVoxels = numel(engine.doseGrid.x) * ...
-        numel(engine.doseGrid.y) * numel(engine.doseGrid.z);
+doseGrid = engine.doseGrid;
+
+if all(isfield(doseGrid,{'x','y','z'}))
+    numDoseVoxels = numel(doseGrid.x) * numel(doseGrid.y) * ...
+        numel(doseGrid.z);
+    return;
 end
+
+ctGrid = matRad_getWorldAxes(ct);
+numDoseVoxels = numel(ctGrid.x(1):doseGrid.resolution.x:ctGrid.x(end)) * ...
+    numel(ctGrid.y(1):doseGrid.resolution.y:ctGrid.y(end)) * ...
+    numel(ctGrid.z(1):doseGrid.resolution.z:ctGrid.z(end));
 end

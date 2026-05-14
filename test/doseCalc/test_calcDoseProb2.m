@@ -145,6 +145,21 @@ function test_prob2_streaming_partial_selection_matches_inmemory
     assertEqual(plnStreamRecompute.propOpt.dij_prob2.secondPassStrategy, ...
         'recompute');
 
+function test_prob2_streaming_serial_detailed_progress_is_aggregated
+    [ct,cst,pln,dij,cfg] = singleCtFixture();
+    cfg.BatchSize = 1;
+    cfg.SecondPassStrategy = 'recompute';
+    cfg.ProgressLevel = 'detailed';
+
+    [logCleanup,startLogCount] = captureMatRadLog();
+    matRad_calcDoseProb2Streaming(ct,cst,[],pln,dij,cfg);
+
+    messages = matRadLogMessages(startLogCount);
+    assertTrue(anyMessageContains(messages,'Expected influence progress 8/8'));
+    assertTrue(anyMessageContains(messages,'scenario 2/2, batch 4/4'));
+    assertTrue(anyMessageContains(messages,'Omega progress 8/8'));
+    assertTrue(anyMessageContains(messages,'scenario 2/2, VOI 2, batch 2/2'));
+
 function test_prob2_streaming_use_parallel_precomputed_disk_matches_serial
     [ct,cst,pln,dij,cfg] = singleCtFixture();
     cfg.BatchSize = 1;
@@ -258,7 +273,9 @@ function test_prob2_streaming_collect_timing_reports_real_parallel_when_availabl
     cfg.targetStructSel = 1;
     cfg.UseParallel = true;
     cfg.CollectTiming = true;
+    cfg.ProgressLevel = 'detailed';
 
+    [logCleanup,startLogCount] = captureMatRadLog();
     [plnStream,~] = matRad_calcDoseProb2Streaming(ct,cst,stf,pln,cfg);
     timing = plnStream.propOpt.dij_prob2.timing;
 
@@ -271,6 +288,9 @@ function test_prob2_streaming_collect_timing_reports_real_parallel_when_availabl
     end
     assertTrue(timing.parallelScenario.firstPass);
     assertTrue(timing.parallelScenario.omega);
+    messages = matRadLogMessages(startLogCount);
+    assertTrue(anyMessageContains(messages,'Expected influence progress'));
+    assertTrue(anyMessageContains(messages,'Omega progress'));
 
 function test_prob2_streaming_recompute_matches_existing
     [ct,cst,pln,dij,cfg] = singleCtFixture();
@@ -479,7 +499,8 @@ function cst = addStructure(cst,rowIx,name,type,voxels)
     cst{rowIx,5} = struct();
     cst{rowIx,6} = {};
 
-function scenarioModel = fixtureScenarioModel(ct,ctScenIds,scenarioValues,linearMask,scenMask,scenarioWeights)
+function scenarioModel = fixtureScenarioModel(ct,ctScenIds,scenarioValues, ...
+        linearMask,scenMask,scenarioWeights)
     scenarioModel = matRad_NominalScenario(ct);
     dimensions = matRad_createScenarioComponents([1 1 1],1,1);
     scenForProb = [ctScenIds(:) scenarioValues];
@@ -574,3 +595,33 @@ function available = parallelComputingAvailable()
         available = false;
     end
     available = logical(available);
+
+function [cleanup,startLogCount] = captureMatRadLog()
+    matRad_cfg = MatRad_Config.instance();
+    keepLog = matRad_cfg.keepLog;
+    startLogCount = size(matRad_cfg.messageLog,1);
+    matRad_cfg.keepLog = true;
+    cleanup = onCleanup(@() restoreMatRadLog(matRad_cfg,keepLog));
+
+function restoreMatRadLog(matRad_cfg,keepLog)
+    matRad_cfg.keepLog = keepLog;
+
+function messages = matRadLogMessages(startLogCount)
+    if nargin < 1
+        startLogCount = 0;
+    end
+    matRad_cfg = MatRad_Config.instance();
+    if size(matRad_cfg.messageLog,1) <= startLogCount
+        messages = {};
+    else
+        messages = matRad_cfg.messageLog(startLogCount + 1:end,2);
+    end
+
+function tf = anyMessageContains(messages,needle)
+    tf = false;
+    for i = 1:numel(messages)
+        if ~isempty(strfind(messages{i},needle))
+            tf = true;
+            return;
+        end
+    end

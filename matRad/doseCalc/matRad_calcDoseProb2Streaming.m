@@ -251,13 +251,18 @@ matRad_cfg.dispInfo(['matRad: Streaming PROB2 first pass over %d ', ...
 if useParallel
     expectedRows = sparse(numExpectedRows,ctx.numBixels);
     logLevel = matRad_cfg.logLevel;
+    progressReporter = matRad_createScenarioDoseProgressReporter(matRad_cfg, ...
+        cfg,'Expected influence',numScenarios*numel(expectedBatches),true);
+    progressCleanup = onCleanup(progressReporter.cleanup);
+    progressQueue = progressReporter.queue;
     scenarioResults = cell(numScenarios,1);
     parfor s = 1:numScenarios
         workerCfg = MatRad_Config.instance();
         workerCfg.logLevel = logLevel;
         scenarioResults{s} = computeProb2StreamingFirstPassScenario( ...
             parallelProvider,ctx,quantity,cfg,expectedBatches,voiBatches, ...
-            cacheVoiRows,s,numExpectedRows,workerCfg);
+            cacheVoiRows,s,numExpectedRows,workerCfg,progressQueue, ...
+            numScenarios);
     end
 
     telemetryBlocks = cell(numScenarios,1);
@@ -278,21 +283,21 @@ if useParallel
     return;
 end
 
+progressReporter = matRad_createScenarioDoseProgressReporter(matRad_cfg, ...
+    cfg,'Expected influence',numScenarios*numel(expectedBatches),false);
 for s = 1:numScenarios
-    matRad_cfg.dispInfo('matRad: Streaming PROB2 first pass scenario %d/%d.\n', ...
-        s,numScenarios);
     [provider,source] = matRad_beginScenarioDoseRowsProvider(provider,ctx, ...
         quantity,s,matRad_cfg);
     scenarioWeight = ctx.scenarioWeights(s);
 
     for b = 1:numel(expectedBatches)
         batch = expectedBatches{b};
-        matRad_logScenarioDoseBatchProgress(matRad_cfg,cfg,'Expected influence', ...
-            b,numel(expectedBatches));
         rows = matRad_getScenarioDoseProviderRows(source,ctx.scenarioMaps{s}, ...
             batch.rows,matRad_cfg);
         dij_prob2.expected(batch.rows,:) = dij_prob2.expected(batch.rows,:) + ...
             scenarioWeight .* rows;
+        progressReporter.update(sprintf('scenario %d/%d, batch %d/%d', ...
+            s,numScenarios,b,numel(expectedBatches)));
     end
 
     if cacheVoiRows
@@ -316,7 +321,7 @@ end
 
 function result = computeProb2StreamingFirstPassScenario( ...
     provider,ctx,quantity,cfg,expectedBatches,voiBatches,cacheVoiRows, ...
-    scenarioIx,numExpectedRows,matRad_cfg)
+    scenarioIx,numExpectedRows,matRad_cfg,progressQueue,numScenarios)
 localProvider = provider;
 if ~isfield(localProvider,'sizeTelemetry') || isempty(localProvider.sizeTelemetry)
     localProvider.sizeTelemetry = matRad_initializeScenarioDoseSizeTelemetry();
@@ -333,6 +338,10 @@ for b = 1:numel(expectedBatches)
         ctx.scenarioMaps{scenarioIx},batch.rows,matRad_cfg);
     expectedRows(batch.localIx,:) = expectedRows(batch.localIx,:) + ...
         scenarioWeight .* rows;
+    if ~isempty(progressQueue)
+        send(progressQueue,sprintf('scenario %d/%d, batch %d/%d', ...
+            scenarioIx,numScenarios,b,numel(expectedBatches)));
+    end
 end
 
 if cacheVoiRows
@@ -369,13 +378,18 @@ parallelEnabled = false;
     provider,ctx,cfg,matRad_cfg,'streaming PROB2 Omega',[]);
 if useParallel
     logLevel = matRad_cfg.logLevel;
+    numOmegaBatches = sum(cellfun(@numel,voiBatches));
+    progressReporter = matRad_createScenarioDoseProgressReporter(matRad_cfg, ...
+        cfg,'Omega',numScenarios*numOmegaBatches,true);
+    progressCleanup = onCleanup(progressReporter.cleanup);
+    progressQueue = progressReporter.queue;
     scenarioResults = cell(numScenarios,1);
     parfor s = 1:numScenarios
         workerCfg = MatRad_Config.instance();
         workerCfg.logLevel = logLevel;
         scenarioResults{s} = computeProb2StreamingOmegaScenario( ...
             parallelProvider,dij_prob2,ctx,quantity,cfg,voiBatches,s, ...
-            workerCfg);
+            workerCfg,progressQueue,numScenarios);
     end
 
     telemetryBlocks = cell(numScenarios,1);
@@ -405,6 +419,9 @@ if useParallel
     return;
 end
 
+numOmegaBatches = sum(cellfun(@numel,voiBatches));
+progressReporter = matRad_createScenarioDoseProgressReporter(matRad_cfg, ...
+    cfg,'Omega',numScenarios*numOmegaBatches,false);
 for voiIx = 1:numel(voiRows)
     if isempty(voiRows{voiIx})
         Omega{voiIx} = [];
@@ -424,6 +441,9 @@ for voiIx = 1:numel(voiRows)
                 rows = matRad_readScenarioDoseCacheBlock(provider.cacheContext, ...
                     s,prob2StreamingVoiCacheKind(voiIx),b,batch.rows);
                 centeredRows{s} = rows - dij_prob2.expected(batch.rows,:);
+                progressReporter.update(sprintf( ...
+                    'scenario %d/%d, VOI %d, batch %d/%d', ...
+                    s,numScenarios,voiIx,b,numel(batches)));
             end
             omega = omega + accumulateProb2StreamingCenteredOmegaBatch(centeredRows, ...
                 ctx.scenarioWeights,numBixels);
@@ -441,6 +461,9 @@ for voiIx = 1:numel(voiRows)
                     source,rows,centeredRows);
                 omega = omega + accumulateProb2StreamingCenteredOmegaBatch(centeredRows, ...
                     ctx.scenarioWeights(s),numBixels);
+                progressReporter.update(sprintf( ...
+                    'scenario %d/%d, VOI %d, batch %d/%d', ...
+                    s,numScenarios,voiIx,b,numel(batches)));
             end
             [provider,source] = matRad_endScenarioDoseRowsProvider(provider,source);
         end
@@ -451,7 +474,8 @@ end
 end
 
 function result = computeProb2StreamingOmegaScenario( ...
-    provider,dij_prob2,ctx,quantity,cfg,voiBatches,scenarioIx,matRad_cfg)
+    provider,dij_prob2,ctx,quantity,cfg,voiBatches,scenarioIx,matRad_cfg, ...
+    progressQueue,numScenarios)
 localProvider = provider;
 if ~isfield(localProvider,'sizeTelemetry') || isempty(localProvider.sizeTelemetry)
     localProvider.sizeTelemetry = matRad_initializeScenarioDoseSizeTelemetry();
@@ -489,6 +513,11 @@ for voiIx = 1:numel(voiBatches)
         end
         omega = omega + accumulateProb2StreamingCenteredOmegaBatch( ...
             centeredRows,ctx.scenarioWeights(scenarioIx),numBixels);
+        if ~isempty(progressQueue)
+            send(progressQueue,sprintf( ...
+                'scenario %d/%d, VOI %d, batch %d/%d', ...
+                scenarioIx,numScenarios,voiIx,b,numel(batches)));
+        end
     end
     Omega{voiIx} = omega;
 end

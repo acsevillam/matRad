@@ -1,11 +1,14 @@
-function pln = matRad_makeWorkerSafePlan(pln)
+function pln = matRad_makeWorkerSafePlan(pln,engine)
 % matRad_makeWorkerSafePlan prepares a plan for worker execution
 %
 % call
 %   pln = matRad_makeWorkerSafePlan(pln)
+%   pln = matRad_makeWorkerSafePlan(pln,engine)
 %
 % input
 %   pln:        matRad plan struct
+%   engine:     optional resolved dose engine whose public configuration
+%               should be serialized into pln.propDoseCalc
 %
 % output
 %   pln:        copy of the plan with nested dose parallelism disabled and
@@ -29,11 +32,17 @@ function pln = matRad_makeWorkerSafePlan(pln)
 %
 % %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-pln.propDoseCalc = makeSerialPropDoseCalc(pln);
+if nargin < 2
+    engine = [];
 end
 
-function propDoseCalc = makeSerialPropDoseCalc(pln)
-if isfield(pln,'propDoseCalc') && ...
+pln.propDoseCalc = makeSerialPropDoseCalc(pln,engine);
+end
+
+function propDoseCalc = makeSerialPropDoseCalc(pln,engine)
+if isa(engine,'DoseEngines.matRad_DoseEngineBase')
+    propDoseCalc = doseEngineToPropDoseCalcStruct(engine);
+elseif isfield(pln,'propDoseCalc') && ...
         isa(pln.propDoseCalc,'DoseEngines.matRad_DoseEngineBase')
     propDoseCalc = doseEngineToPropDoseCalcStruct(pln.propDoseCalc);
 elseif isfield(pln,'propDoseCalc') && isstruct(pln.propDoseCalc)
