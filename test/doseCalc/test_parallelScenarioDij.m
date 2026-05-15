@@ -177,6 +177,46 @@ function test_parallel_pencil_beam_multiscen_uses_parfor_when_available
     end
     assertDijAlmostEqual(dijSerial,dijParallel);
 
+function test_parallel_pencil_beam_multiscen_respects_worker_upper_bound
+    if ~parallelComputingAvailable()
+        moxunit_throw_test_skipped_exception('Parallel Computing Toolbox is unavailable.');
+    end
+
+    [ct,cst,pln,stf] = photonTestDataFixture();
+    pln.multScen = rangeRandomScenario(ct);
+    pln.propDoseCalc.UseParallel = true;
+    pln.propDoseCalc.enableDijSampling = false;
+    pln.propDoseCalc.parallelOptions = struct('workerUpperBound',1);
+    engine = DoseEngines.matRad_DoseEngineBase.getEngineFromPln(pln);
+
+    [dij,useParallel] = matRad_calcDoseInfluenceParallelScenarios( ...
+        ct,cst,stf,pln,engine);
+
+    assertFalse(useParallel);
+    assertTrue(isempty(dij));
+
+function test_parallel_pencil_beam_multiscen_rejects_unknown_parallel_option
+    [ct,cst,pln,stf] = photonTestDataFixture();
+    pln.multScen = rangeRandomScenario(ct);
+    pln.propDoseCalc.UseParallel = true;
+    pln.propDoseCalc.enableDijSampling = false;
+    pln.propDoseCalc.parallelOptions = struct('workers',2);
+    engine = DoseEngines.matRad_DoseEngineBase.getEngineFromPln(pln);
+
+    assertExceptionThrown(@() matRad_calcDoseInfluenceParallelScenarios( ...
+        ct,cst,stf,pln,engine),'matRad:Error');
+
+function test_parallel_pencil_beam_multiscen_rejects_fractional_worker_upper_bound
+    [ct,cst,pln,stf] = photonTestDataFixture();
+    pln.multScen = rangeRandomScenario(ct);
+    pln.propDoseCalc.UseParallel = true;
+    pln.propDoseCalc.enableDijSampling = false;
+    pln.propDoseCalc.parallelOptions = struct('workerUpperBound',1.5);
+    engine = DoseEngines.matRad_DoseEngineBase.getEngineFromPln(pln);
+
+    assertExceptionThrown(@() matRad_calcDoseInfluenceParallelScenarios( ...
+        ct,cst,stf,pln,engine),'matRad:Error');
+
 function test_parallel_pencil_beam_multiscen_engine_handle_is_worker_safe
     if ~parallelComputingAvailable()
         moxunit_throw_test_skipped_exception('Parallel Computing Toolbox is unavailable.');
@@ -220,6 +260,22 @@ function test_parallel_pencil_beam_multiscen_falls_back_for_stochastic_sampling
 
     assertFalse(useParallel);
     assertTrue(isempty(dij));
+
+function test_parallel_support_query_rejects_stochastic_photon_dij
+    [~,~,pln,~] = photonTestDataFixture();
+
+    [isSupported,reason] = matRad_supportsParallelScenarioDij(pln);
+
+    assertFalse(isSupported);
+    assertEqual(reason,'stochasticDijSampling');
+
+function test_parallel_support_query_accepts_analytical_particle_dij
+    [~,~,pln,~] = particleBioTestDataFixture();
+
+    [isSupported,reason] = matRad_supportsParallelScenarioDij(pln);
+
+    assertTrue(isSupported);
+    assertEqual(reason,'');
 
 function test_parallel_particle_bio_multiscen_matches_serial_when_available
     if ~parallelComputingAvailable()

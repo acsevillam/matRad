@@ -1,5 +1,4 @@
-function [useParallel,pPool,memoryEstimate] = matRad_configureSafeDoseParallelPool( ...
-    workerMemoryBytes,numTasks,matRad_cfg,calculationName,varargin)
+function [useParallel,pPool,memoryEstimate] = matRad_configureSafeDoseParallelPool(workerMemoryBytes,numTasks,matRad_cfg,calculationName,varargin)
 % matRad_configureSafeDoseParallelPool configures safe dose parallelism
 %   The helper may create a parallel pool or reduce an existing pool when
 %   the memory estimate says fewer workers are safe for the requested dose
@@ -14,12 +13,23 @@ function [useParallel,pPool,memoryEstimate] = matRad_configureSafeDoseParallelPo
 %   numTasks:          number of independent parallel tasks
 %   matRad_cfg:        MatRad_Config instance
 %   calculationName:   text used in diagnostics
+%   varargin:          optional Name-Value pair arguments
+%
+% input (optional Name-Value pairs)
+%   fallbackDescription:  text used when serial execution is selected
+%   safetyFactor:         factor applied to the per-worker estimate
+%   reserveFraction:      fraction of system memory kept in reserve
+%   minWorkerMemoryBytes: lower bound applied before safetyFactor
+%   workerUpperBound:     explicit upper bound for the worker count
 %
 % output
 %   useParallel:       true if a pool with at least two workers is ready
 %   pPool:             configured parallel pool, or []
 %   memoryEstimate:    memory estimate returned by
 %                      matRad_estimateMemoryLimitedWorkerCount
+%
+% References
+%   -
 %
 % %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
@@ -60,7 +70,9 @@ end
 [poolSizeLimit,memoryEstimate] = matRad_estimateMemoryLimitedWorkerCount( ...
     workerMemoryBytes,'numTasks',numTasks, ...
     'safetyFactor',options.safetyFactor, ...
-    'minWorkerMemoryBytes',options.minWorkerMemoryBytes);
+    'reserveFraction',options.reserveFraction, ...
+    'minWorkerMemoryBytes',options.minWorkerMemoryBytes, ...
+    'workerUpperBound',options.workerUpperBound);
 
 if isfield(memoryEstimate,'workerBytes') && ...
         ~isempty(memoryEstimate.workerBytes)
@@ -101,7 +113,9 @@ function options = parseOptions(varargin)
 options = struct();
 options.fallbackDescription = 'serial dose calculation';
 options.safetyFactor = 1.2;
+options.reserveFraction = 0.10;
 options.minWorkerMemoryBytes = 512 * 1024^2;
+options.workerUpperBound = [];
 
 if mod(numel(varargin),2) ~= 0
     matRad_cfg = MatRad_Config.instance();
@@ -119,12 +133,30 @@ for i = 1:2:numel(varargin)
             options.fallbackDescription = value;
         case 'safetyfactor'
             options.safetyFactor = value;
+        case 'reservefraction'
+            options.reserveFraction = value;
         case 'minworkermemorybytes'
             options.minWorkerMemoryBytes = value;
+        case 'workerupperbound'
+            validateOptionalPositiveInteger(value,'workerUpperBound');
+            options.workerUpperBound = value;
         otherwise
             matRad_cfg = MatRad_Config.instance();
             matRad_cfg.dispError('Unknown parallel pool option "%s".',name);
     end
+end
+end
+
+function validateOptionalPositiveInteger(value,valueName)
+if isempty(value)
+    return;
+end
+
+if ~(isnumeric(value) && isscalar(value) && isfinite(value) && ...
+        round(value) == value && value >= 1)
+    matRad_cfg = MatRad_Config.instance();
+    matRad_cfg.dispError('%s must be a positive integer scalar or empty.', ...
+        valueName);
 end
 end
 

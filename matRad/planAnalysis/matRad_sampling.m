@@ -31,6 +31,8 @@ function [caSampRes,mSampDose,pln,resultGUInomScen] = matRad_sampling(ct,stf,cst
 %               when autoLimitWorkers is enabled
 %   minWorkerMemoryBytes: lower bound for the estimated per-worker memory
 %               footprint before applying workerMemorySafetyFactor
+%   workerUpperBound: explicit upper bound for the memory-limited worker
+%               count. Empty means no explicit bound.
 %
 % note
 %   Multi-CT sampled doses are always mapped to the reference CT scenario
@@ -81,7 +83,10 @@ p.addParameter('workerMemorySafetyFactor',1.2,@(x) isnumeric(x) && isscalar(x) &
 p.addParameter('memoryReserveFraction',0.10,@(x) isnumeric(x) && isscalar(x) && isfinite(x) && x >= 0 && x < 1);
 p.addParameter('minWorkerMemoryBytes',defaultMinWorkerMemoryBytes, ...
     @(x) isnumeric(x) && isscalar(x) && isfinite(x) && x >= 0);
+p.addParameter('workerUpperBound',[],@(x) true);
 p.parse(varargin{:});
+workerUpperBound = validateOptionalWorkerUpperBound( ...
+    p.Results.workerUpperBound,matRad_cfg);
 
 if isfield(ct,'refScen') && ~isempty(ct.refScen)
     refScen = ct.refScen;
@@ -229,7 +234,8 @@ if parallelToolboxLicensed
             'numTasks',numSamples, ...
             'safetyFactor',p.Results.workerMemorySafetyFactor, ...
             'reserveFraction',p.Results.memoryReserveFraction, ...
-            'minWorkerMemoryBytes',p.Results.minWorkerMemoryBytes);
+            'minWorkerMemoryBytes',p.Results.minWorkerMemoryBytes, ...
+            'workerUpperBound',workerUpperBound);
         samplingMemoryEstimate.workerLimit = memoryEstimate;
     end
     matRad_logEstimatedSamplingMemory(samplingMemoryEstimate,memoryEstimate,matRad_cfg);
@@ -380,6 +386,18 @@ if ~isfinite(maxDose) || maxDose <= 0
     maxDose = 1;
 end
 dvhDoseGrid = linspace(0,maxDose*1.05,1000);
+end
+
+function workerUpperBound = validateOptionalWorkerUpperBound(workerUpperBound,matRad_cfg)
+if isempty(workerUpperBound)
+    return;
+end
+
+if ~(isnumeric(workerUpperBound) && isscalar(workerUpperBound) && ...
+        isfinite(workerUpperBound) && round(workerUpperBound) == workerUpperBound && ...
+        workerUpperBound >= 1)
+    matRad_cfg.dispError('workerUpperBound must be a positive integer scalar or empty.');
+end
 end
 
 function p = configureSamplingPool(poolSizeLimit,matRad_cfg)

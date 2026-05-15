@@ -35,7 +35,7 @@ classdef matRad_OptimizerFmincon < matRad_Optimizer
             matRad_cfg = MatRad_Config.instance();
 
             if ~matRad_OptimizerFmincon.IsAvailable()
-                matRad_cfg.dipsError('matRad_OptimizerFmincon can not be constructed as fmincon is not available!');
+                matRad_cfg.dispError('matRad_OptimizerFmincon can not be constructed as fmincon is not available!');
             end
             
             obj.wResult = [];
@@ -55,7 +55,7 @@ classdef matRad_OptimizerFmincon < matRad_Optimizer
                 optDisplay = 'off';
             end
 
-            if matRad_cfg.disableGUI
+            if ~matRad_isInteractiveSession('requireFigureWindows',true)
                 pltFcns = {[]};                
             else
                 pltFcns = {@optimplotfval,@optimplotx,@optimplotfunccount,@optimplotconstrviolation,@optimplotstepsize,@optimplotfirstorderopt};

@@ -37,6 +37,7 @@ classdef (Abstract) matRad_DoseEngineBase < handle
         UseParallel;                % request safe available dose parallelism
                                     % matRad may create or reduce a parallel
                                     % pool and falls back to serial calculation
+        parallelOptions;            % resource options for safe parallel pools
     end
     
     % Protected properties with public get access
@@ -274,6 +275,7 @@ classdef (Abstract) matRad_DoseEngineBase < handle
             this.multScen                   = 'nomScen';
             this.selectVoxelsInScenarios    = matRad_cfg.defaults.propDoseCalc.selectVoxelsInScenarios;
             this.UseParallel                = false;
+            this.parallelOptions            = struct();
         end
     end
     

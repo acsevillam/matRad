@@ -692,6 +692,7 @@ function test_interval2_streaming_collect_timing_reports_real_parallel_when_avai
     cfg.UseParallel = true;
     cfg.CollectTiming = true;
     cfg.ProgressLevel = 'detailed';
+    cfg.parallelOptions = struct('workerUpperBound',2);
 
     [logCleanup,startLogCount] = captureMatRadLog();
     [plnStream,~] = matRad_calcDoseInterval2Streaming(ct,cst,stf,pln,cfg);
@@ -705,6 +706,9 @@ function test_interval2_streaming_collect_timing_reports_real_parallel_when_avai
         moxunit_throw_test_skipped_exception(['Parallel INTERVAL2 ', ...
             'streaming could not be activated in this environment.']);
     end
+    pPool = gcp('nocreate');
+    assertTrue(~isempty(pPool));
+    assertTrue(pPool.NumWorkers <= 2);
     assertTrue(timing.parallelScenario.firstPass);
     assertTrue(timing.parallelScenario.targetExtreme);
     assertFalse(timing.parallelScenario.oarRadiusFactors);
@@ -720,6 +724,24 @@ function test_interval_streaming_rejects_duplicate_precomputed_dij_inputs
 
     assertExceptionThrown(@() matRad_calcDoseIntervalStreaming(ct,cst,[],pln,dij,cfg), ...
         'matRad:Error');
+
+function test_interval_streaming_rejects_unknown_parallel_option
+    [ct,cst,pln,dij,cfg] = singleCtFixture();
+    cfg.IntervalMode = 'INTERVAL2';
+    cfg.UseParallel = true;
+    cfg.parallelOptions = struct('workers',2);
+
+    assertExceptionThrown(@() matRad_calcDoseIntervalStreaming( ...
+        ct,cst,[],pln,dij,cfg),'matRad:Error');
+
+function test_interval_streaming_rejects_fractional_worker_upper_bound
+    [ct,cst,pln,dij,cfg] = singleCtFixture();
+    cfg.IntervalMode = 'INTERVAL2';
+    cfg.UseParallel = true;
+    cfg.parallelOptions = struct('workerUpperBound',1.5);
+
+    assertExceptionThrown(@() matRad_calcDoseIntervalStreaming( ...
+        ct,cst,[],pln,dij,cfg),'matRad:Error');
 
 function test_interval2_streaming_recompute_extreme_matches_existing
     [ct,cst,pln,dij,cfg] = singleCtFixture();

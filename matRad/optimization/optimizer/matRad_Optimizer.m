@@ -39,6 +39,49 @@ classdef (Abstract) matRad_Optimizer < handle
         function [msg,statusflag] = GetStatus(obj)
             throw(MException('MATLAB:class:AbstractMember','Abstract function GetStatus needs to be implemented!'));
         end
+
+        function obj = applyOptions(obj,options)
+            if nargin < 2 || isempty(options)
+                return;
+            end
+
+            matRad_cfg = MatRad_Config.instance();
+            if ~isstruct(options) || ~isscalar(options)
+                matRad_cfg.dispError('Optimizer options must be a scalar struct.');
+            end
+
+            optionNames = fieldnames(options);
+            for i = 1:numel(optionNames)
+                obj = obj.applyOption(optionNames{i},options.(optionNames{i}));
+            end
+        end
+
+        function obj = applyOption(obj,optionName,optionValue)
+            matRad_cfg = MatRad_Config.instance();
+            optionName = char(optionName);
+
+            if isstruct(obj.options)
+                if ~isfield(obj.options,optionName)
+                    matRad_cfg.dispError('Unsupported optimizer option ''%s'' for optimizer ''%s''.', ...
+                        optionName,class(obj));
+                end
+                obj.options.(optionName) = optionValue;
+                return;
+            end
+
+            if isobject(obj.options) && isprop(obj.options,optionName)
+                try
+                    obj.options.(optionName) = optionValue;
+                catch ME
+                    matRad_cfg.dispError('Could not set optimizer option ''%s'' for optimizer ''%s'': %s', ...
+                        optionName,class(obj),ME.message);
+                end
+                return;
+            end
+
+            matRad_cfg.dispError('Unsupported optimizer option ''%s'' for optimizer ''%s''.', ...
+                optionName,class(obj));
+        end
     end
     
     methods (Static)
@@ -47,4 +90,3 @@ classdef (Abstract) matRad_Optimizer < handle
         end
     end
 end
-

@@ -21,7 +21,7 @@ function [resultGUI,optimizer] = matRad_fluenceOptimization(dij,cst,pln,wInit)
 %
 % %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
-% Copyright 2016 the matRad development team.
+% Copyright 2016-2026 the matRad development team.
 %
 % This file is part of the matRad project. It is subject to the license
 % terms in the LICENSE file found in the top-level directory of this
@@ -372,20 +372,10 @@ if ~isfield(pln.propOpt,'optimizer')
     pln.propOpt.optimizer = 'IPOPT';
 end
 
-switch pln.propOpt.optimizer
-    case 'IPOPT'
-        optimizer = matRad_OptimizerIPOPT;
-    case 'fmincon'
-        optimizer = matRad_OptimizerFmincon;
-    case 'simulannealbnd'
-        optimizer = matRad_OptimizerSimulannealbnd;
-    otherwise
-        warning(['Optimizer ''' pln.propOpt.optimizer ''' not known! Fallback to IPOPT!']);
-        optimizer = matRad_OptimizerIPOPT;
-end
-        
-if ~optimizer.IsAvailable()
-    matRad_cfg.dispError(['Optimizer ''' pln.propOpt.optimizer ''' not available!']);
+optimizer = matRad_createOptimizer(pln.propOpt.optimizer, ...
+    'fallbackOptimizer','IPOPT');
+if isfield(pln.propOpt,'optimizerOptions')
+    optimizer = optimizer.applyOptions(pln.propOpt.optimizerOptions);
 end
 
 optimizer = optimizer.optimize(wInit,optiProb,dij,cst);

@@ -33,7 +33,7 @@ classdef matRad_OptimizerSimulannealbnd < matRad_Optimizer
             matRad_cfg = MatRad_Config.instance();
 
             if ~matRad_OptimizerSimulannealbnd.IsAvailable()
-                matRad_cfg.dipsError('matRad_OptimizerSimulannealbnd cannot be constructed as simulannealbnd is not available!');
+                matRad_cfg.dispError('matRad_OptimizerSimulannealbnd cannot be constructed as simulannealbnd is not available!');
             end
             
             obj.wResult = [];
@@ -49,7 +49,7 @@ classdef matRad_OptimizerSimulannealbnd < matRad_Optimizer
                 optDisplay = 'off';
             end
 
-            if matRad_cfg.disableGUI
+            if ~matRad_isInteractiveSession('requireFigureWindows',true)
                 pltFcns = {[]};                
             else
                 pltFcns = {@saplotbestf,@saplotbestx, @saplotf,@saplotx,@saplotstopping,@saplottemperature};

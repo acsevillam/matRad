@@ -52,9 +52,12 @@ if isempty(workerMemoryBytes)
         parallelProvider,provider,ctx);
 end
 
+parallelOptions = matRad_doseParallelPoolOptions( ...
+    cfg,matRad_cfg,'parallelOptions');
 [useParallel,~,~] = matRad_configureSafeDoseParallelPool( ...
     workerMemoryBytes,numScenarios,matRad_cfg,stageName, ...
-    'fallbackDescription','serial streaming');
+    'fallbackDescription','serial streaming', ...
+    parallelOptions{:});
 end
 
 function provider = stripPreloadedScenarioDij(provider)

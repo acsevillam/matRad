@@ -113,7 +113,7 @@ classdef matRad_OptimizerIPOPT < matRad_Optimizer
                 matRad_cfg.dispError('IPOPT mex interface not available for %s!',obj.env);
             end
 
-            if matRad_cfg.disableGUI || (matRad_cfg.isOctave && isequal(graphics_toolkit(),'gnuplot'))
+            if ~matRad_isInteractiveSession('requireFigureWindows',true)
                 obj.showPlot = false;
             end
 
@@ -151,7 +151,7 @@ classdef matRad_OptimizerIPOPT < matRad_Optimizer
 
             % set Callback
             qCallbackSet = false;
-            if ~isdeployed % only if _not_ running as standalone
+            if matRad_isInteractiveSession('requireDesktop',true)
                 switch obj.env
                     case 'MATLAB'
                         try
@@ -165,8 +165,9 @@ classdef matRad_OptimizerIPOPT < matRad_Optimizer
                             set(h_cw, 'KeyPressedCallback', @(h,event) obj.abortCallbackKey(h,event));
                             matRad_cfg.dispInfo('Press q to terminate the optimization...\n');
                             qCallbackSet = true;
-                        catch
+                        catch ME
                             matRad_cfg.dispInfo('Manual termination with q not possible due to failing callback setup.\n');
+                            matRad_cfg.dispDebug('Command-window callback setup failed: %s\n',ME.message);
                         end
                 end
             end

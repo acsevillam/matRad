@@ -83,6 +83,7 @@ cfg = setDefault(cfg,'refScen',getDefaultReferenceScenario(ct));
 cfg = setDefault(cfg,'targetStructSel',[]);
 cfg = setDefault(cfg,'OARStructSel',[]);
 cfg = setDefault(cfg,'UseParallel',false);
+cfg = setDefault(cfg,'parallelOptions',[]);
 cfg = setDefault(cfg,'CollectTiming',false);
 cfg = setDefault(cfg,'MemoryLimitMB',[]);
 cfg = setDefault(cfg,'BatchSize',[]);
@@ -105,6 +106,7 @@ end
 
 cfg.UseParallel = logicalScalar(cfg.UseParallel,'UseParallel',matRad_cfg);
 cfg.CollectTiming = logicalScalar(cfg.CollectTiming,'CollectTiming',matRad_cfg);
+matRad_doseParallelPoolOptions(cfg,matRad_cfg,'parallelOptions');
 
 if ~isempty(cfg.MemoryLimitMB) && ...
    (~isnumeric(cfg.MemoryLimitMB) || ~isscalar(cfg.MemoryLimitMB) || ...

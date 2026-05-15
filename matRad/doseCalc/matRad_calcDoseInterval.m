@@ -531,83 +531,16 @@ if ~cfg.UseParallel || numBatches < 2
     return;
 end
 
-if ~isParallelComputingAvailable()
-    matRad_cfg.dispWarning(['UseParallel was requested for INTERVAL3 OAR ', ...
-        'radius factor, but the Parallel Computing Toolbox is unavailable. ', ...
-        'Falling back to serial batch accumulation.\n']);
-    return;
-end
-
 workerMemoryBytes = estimateOARRadiusFactorBatchWorkerMemoryBytes(numScenarios, ...
     numBixels,batchSize,cfg) + estimateOARRadiusFactorParallelBroadcastBytes( ...
     quantity,scenarioMaps);
-[poolSizeLimit,memoryEstimate] = matRad_estimateMemoryLimitedWorkerCount( ...
-    workerMemoryBytes,'numTasks',numBatches,'safetyFactor',1.2, ...
-    'minWorkerMemoryBytes',512 * 1024^2);
-
-matRad_cfg.dispInfo(['matRad: Estimated INTERVAL3 OAR radius factor memory ', ...
-    'per parallel worker is %.2f MB, including broadcast data.\n'], ...
-    memoryEstimate.workerBytes / 1e6);
-
-if isempty(poolSizeLimit) || poolSizeLimit < 2
-    matRad_cfg.dispWarning(['UseParallel was requested for INTERVAL3 OAR ', ...
-        'radius factor, but the estimated memory only allows one worker. ', ...
-        'Falling back to serial batch accumulation.\n']);
-    return;
-end
-
-try
-    pPool = configureDoseIntervalParallelPool(poolSizeLimit,matRad_cfg);
-catch
-    matRad_cfg.dispWarning(['Could not configure a parallel pool for ', ...
-        'INTERVAL3 OAR radius factor. Falling back to serial batch ', ...
-        'accumulation.\n']);
-    return;
-end
-
-if isempty(pPool) || pPool.NumWorkers < 2
-    matRad_cfg.dispWarning(['UseParallel was requested for INTERVAL3 OAR ', ...
-        'radius factor, but fewer than two workers are available. Falling ', ...
-        'back to serial batch accumulation.\n']);
-    return;
-end
-
-matRad_cfg.dispInfo(['matRad: Parallel INTERVAL3 OAR radius factor uses %d ', ...
-    'worker(s) for %d batches.\n'],pPool.NumWorkers,numBatches);
-useParallel = true;
-end
-
-function available = isParallelComputingAvailable()
-available = false;
-if exist('parpool','file') ~= 2 || exist('gcp','file') ~= 2
-    return;
-end
-
-try
-    [available,~] = license('checkout','Distrib_Computing_Toolbox');
-catch
-    available = false;
-end
-
-if isempty(available)
-    available = false;
-end
-available = logical(available);
-end
-
-function pPool = configureDoseIntervalParallelPool(poolSizeLimit,matRad_cfg)
-pPool = gcp('nocreate');
-
-if isempty(pPool)
-    pPool = parpool(poolSizeLimit);
-elseif pPool.NumWorkers > poolSizeLimit
-    matRad_cfg.dispWarning(['Reducing parallel pool from ', ...
-        num2str(pPool.NumWorkers),' to ',num2str(poolSizeLimit), ...
-        ' worker(s) to keep INTERVAL3 OAR radius factor within the ', ...
-        'estimated available memory.\n']);
-    delete(pPool);
-    pPool = parpool(poolSizeLimit);
-end
+parallelOptions = matRad_doseParallelPoolOptions( ...
+    cfg,matRad_cfg,'parallelOptions');
+[useParallel,~,~] = matRad_configureSafeDoseParallelPool( ...
+    workerMemoryBytes,numBatches,matRad_cfg, ...
+    'INTERVAL3 OAR radius factor', ...
+    'fallbackDescription','serial batch accumulation', ...
+    parallelOptions{:});
 end
 
 function workerMemoryBytes = estimateOARRadiusFactorBatchWorkerMemoryBytes(numScenarios, ...

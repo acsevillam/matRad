@@ -27,6 +27,50 @@ function test_requires_expected_context_fields
 
     assertExceptionThrown(@() matRad_estimateSamplingMemory(samplingContext),'matRad:Error');
 
+function test_worker_upper_bound_limits_memory_limited_worker_count
+    [maxWorkers,memoryEstimate] = matRad_estimateMemoryLimitedWorkerCount(1, ...
+        'numTasks',100, ...
+        'workerUpperBound',3, ...
+        'limitToDefaultPool',false);
+
+    if isempty(maxWorkers)
+        moxunit_throw_test_skipped_exception('System memory information is unavailable.');
+    end
+
+    assertEqual(maxWorkers,3);
+    assertEqual(memoryEstimate.workerUpperBound,3);
+    assertEqual(memoryEstimate.maxWorkers,3);
+
+function test_worker_upper_bound_one_limits_to_serial_worker_count
+    [maxWorkers,memoryEstimate] = matRad_estimateMemoryLimitedWorkerCount(1, ...
+        'numTasks',100, ...
+        'workerUpperBound',1, ...
+        'limitToDefaultPool',false);
+
+    if isempty(maxWorkers)
+        moxunit_throw_test_skipped_exception('System memory information is unavailable.');
+    end
+
+    assertEqual(maxWorkers,1);
+    assertEqual(memoryEstimate.workerUpperBound,1);
+    assertEqual(memoryEstimate.maxWorkers,1);
+
+function test_worker_upper_bound_rejects_non_integer
+    assertExceptionThrown(@() matRad_estimateMemoryLimitedWorkerCount(1, ...
+        'workerUpperBound',1.5),'matRad:Error');
+
+function test_worker_upper_bound_rejects_zero
+    assertExceptionThrown(@() matRad_estimateMemoryLimitedWorkerCount(1, ...
+        'workerUpperBound',0),'matRad:Error');
+
+function test_worker_upper_bound_rejects_inf
+    assertExceptionThrown(@() matRad_estimateMemoryLimitedWorkerCount(1, ...
+        'workerUpperBound',Inf),'matRad:Error');
+
+function test_worker_upper_bound_rejects_text
+    assertExceptionThrown(@() matRad_estimateMemoryLimitedWorkerCount(1, ...
+        'workerUpperBound','2'),'matRad:Error');
+
 function samplingContext = samplingMemoryFixture()
     samplingContext = struct();
     samplingContext.ct = struct('cubeDim',[2 2 1]);

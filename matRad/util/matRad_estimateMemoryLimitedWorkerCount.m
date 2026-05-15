@@ -49,10 +49,13 @@ p.addRequired('workerMemoryBytes',@(x) isnumeric(x) && isscalar(x) && isfinite(x
 p.addParameter('numTasks',Inf,@(x) isempty(x) || (isnumeric(x) && isscalar(x) && x >= 1));
 p.addParameter('safetyFactor',1,@(x) isnumeric(x) && isscalar(x) && isfinite(x) && x >= 1);
 p.addParameter('reserveFraction',0.10,@(x) isnumeric(x) && isscalar(x) && isfinite(x) && x >= 0 && x < 1);
-p.addParameter('workerUpperBound',[],@(x) isempty(x) || (isnumeric(x) && isscalar(x) && isfinite(x) && x >= 1));
+p.addParameter('workerUpperBound',[],@(x) true);
 p.addParameter('minWorkerMemoryBytes',0,@(x) isnumeric(x) && isscalar(x) && isfinite(x) && x >= 0);
 p.addParameter('limitToDefaultPool',true,@(x) (islogical(x) || isnumeric(x)) && isscalar(x));
 p.parse(workerMemoryBytes,varargin{:});
+
+workerUpperBound = validateOptionalPositiveInteger( ...
+    p.Results.workerUpperBound,'workerUpperBound');
 
 maxWorkers = [];
 memoryInfo = matRad_getSystemMemoryInfo('reserveFraction',p.Results.reserveFraction, ...
@@ -62,7 +65,7 @@ memoryEstimate.rawWorkerBytes = workerMemoryBytes;
 memoryEstimate.workerBytes = [];
 memoryEstimate.memoryLimitedWorkers = [];
 memoryEstimate.defaultPoolSize = [];
-memoryEstimate.workerUpperBound = p.Results.workerUpperBound;
+memoryEstimate.workerUpperBound = workerUpperBound;
 memoryEstimate.numTasks = p.Results.numTasks;
 memoryEstimate.safetyFactor = p.Results.safetyFactor;
 memoryEstimate.reserveFraction = p.Results.reserveFraction;
@@ -81,8 +84,8 @@ memoryEstimate.memoryLimitedWorkers = max(1,floor(memoryEstimate.usableBytes / m
 
 maxWorkers = memoryEstimate.memoryLimitedWorkers;
 
-if ~isempty(p.Results.workerUpperBound)
-    maxWorkers = min(maxWorkers,p.Results.workerUpperBound);
+if ~isempty(workerUpperBound)
+    maxWorkers = min(maxWorkers,workerUpperBound);
 elseif p.Results.limitToDefaultPool && ~isempty(memoryEstimate.defaultPoolSize)
     maxWorkers = min(maxWorkers,memoryEstimate.defaultPoolSize);
 end
@@ -92,6 +95,19 @@ if ~isempty(p.Results.numTasks) && isfinite(p.Results.numTasks)
 end
 
 memoryEstimate.maxWorkers = maxWorkers;
+end
+
+function value = validateOptionalPositiveInteger(value,valueName)
+if isempty(value)
+    return;
+end
+
+if ~(isnumeric(value) && isscalar(value) && isfinite(value) && ...
+        round(value) == value && value >= 1)
+    matRad_cfg = MatRad_Config.instance();
+    matRad_cfg.dispError('%s must be a positive integer scalar or empty.', ...
+        valueName);
+end
 end
 
 function defaultPoolSize = getDefaultParallelPoolSize()
