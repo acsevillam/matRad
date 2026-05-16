@@ -171,7 +171,7 @@ function test_calcBiologicalQuantitiesForBixel_LEM
 %     pln.propDoseCalc.doseGrid.resolution.z = 8;
 %     pln.propDoseCalc.calcLET = false;
 % 
-%     pln.multScen = matRad_multScen(ct, 'nomScen');
+%     pln.multScen = matRad_ScenarioModel.create('nomScen', ct);
 % 
 %     stf = matRad_generateStf(ct,cst,pln);
 %     %Dose calc

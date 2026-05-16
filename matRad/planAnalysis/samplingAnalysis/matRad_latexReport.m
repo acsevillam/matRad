@@ -167,18 +167,18 @@ line = cell(0);
 % raw input
 multScen = pln.multScen;
 % shift parameters
-line =  [line; '\newcommand{\numOfShiftScen}{', num2str(multScen.numOfShiftScen), '}'];
-line =  [line; '\newcommand{\shiftSize}{', num2str(max(multScen.isoShift)), '}'];
-line =  [line; '\newcommand{\shiftGenType}{', num2str(multScen.shiftGenType), '}'];
-line =  [line; '\newcommand{\shiftCombType}{', num2str(multScen.shiftCombType), '}'];
+line =  [line; '\newcommand{\scenarioModelName}{', ...
+          helper_scenarioText(multScen, 'name', 'Scenario Model'), '}'];
+line =  [line; '\newcommand{\numOfTotalScen}{', num2str(multScen.totNumScen), '}'];
+line =  [line; '\newcommand{\numOfShiftScen}{', num2str(multScen.totNumShiftScen), '}'];
+line =  [line; '\newcommand{\shiftSize}{', num2str(helper_maxAbsValue(multScen.isoShift)), '}'];
+line =  [line; '\newcommand{\shiftCombType}{', helper_scenarioCombinationText(multScen), '}'];
 
 % range parameters
-line =  [line; '\newcommand{\numOfRangeShiftScen}{', num2str(multScen.numOfRangeShiftScen), '}'];
-line =  [line; '\newcommand{\maxAbsRangeShift}{', num2str(max(multScen.absRangeShift)), '}'];
-line =  [line; '\newcommand{\maxRelRangeShift}{', num2str(max(multScen.relRangeShift)), '}'];
-line =  [line; '\newcommand{\rangeCombType}{', num2str(multScen.rangeCombType), '}'];
-line =  [line; '\newcommand{\rangeGenType}{', num2str(multScen.rangeGenType), '}'];
-line =  [line; '\newcommand{\scenCombType}{', num2str(multScen.scenCombType), '}'];
+line =  [line; '\newcommand{\numOfRangeShiftScen}{', num2str(multScen.totNumRangeScen), '}'];
+line =  [line; '\newcommand{\maxAbsRangeShift}{', num2str(helper_maxAbsValue(multScen.absRangeShift)), '}'];
+line =  [line; '\newcommand{\maxRelRangeShift}{', num2str(helper_maxAbsValue(multScen.relRangeShift)), '}'];
+line =  [line; '\newcommand{\rangeCombType}{', helper_rangeCombinationText(multScen), '}'];
 
 % gamma analysis parameters
 line =  [line; '\newcommand{\gammaDoseAgreement}{', num2str(doseStat.gammaAnalysis.doseAgreement), '}'];
@@ -190,13 +190,13 @@ else
     line =  [line; '\newcommand{\ctScen}{true}'];
 end
 
-if pln.multScen.numOfRangeShiftScen <= 1
+if pln.multScen.totNumRangeScen <= 1
     line =  [line; '\newcommand{\rangeScen}{false}'];
 else
     line =  [line; '\newcommand{\rangeScen}{true}'];
 end
 
-if pln.multScen.numOfShiftScen <= 1
+if pln.multScen.totNumShiftScen <= 1
     line =  [line; '\newcommand{\shiftScen}{false}'];
 else
     line =  [line; '\newcommand{\shiftScen}{true}'];
@@ -488,6 +488,49 @@ end
 function [y, argmin] = cutAtArgmin(x)
   [~,argmin] = min(x);
   y = x(1:argmin);
+end
+
+function value = helper_maxAbsValue(values)
+if isempty(values)
+    value = 0;
+else
+    value = max(abs(values(:)));
+end
+end
+
+function text = helper_scenarioText(multScen, propertyName, defaultText)
+if isprop(multScen, propertyName)
+    value = multScen.(propertyName);
+    if isstring(value) && isscalar(value)
+        text = char(value);
+    elseif ischar(value)
+        text = value;
+    else
+        text = num2str(value);
+    end
+else
+    text = defaultText;
+end
+end
+
+function text = helper_scenarioCombinationText(multScen)
+if isprop(multScen, 'combinations')
+    text = multScen.combinations;
+else
+    text = 'sampled';
+end
+end
+
+function text = helper_rangeCombinationText(multScen)
+if isprop(multScen, 'combineRange')
+    if multScen.combineRange
+        text = 'combined';
+    else
+        text = 'separate';
+    end
+else
+    text = 'sampled';
+end
 end
 
 function text = parseFromDicom(dicomStruct, field, default)

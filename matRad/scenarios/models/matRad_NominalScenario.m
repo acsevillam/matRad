@@ -89,7 +89,7 @@ classdef matRad_NominalScenario < matRad_ScenarioModel
             
             %Return variable
             scenarios = this.scenForProb;
-            this.refreshScenarioMetadataFromLegacy();
+            this.finalizeScenarioRealizations();
             
 
             if totNumScen ~= this.totNumScen

@@ -136,7 +136,7 @@ obj.pln.radiationMode   = radiationMode; % either photons / protons / carbon
 obj.pln.numOfFractions  = planInfo.FractionGroupSequence.Item_1.NumberOfFractionsPlanned;
 
 % set handling of multiple scenarios -> default: only nominal
-obj.pln.multScen = matRad_multScen(obj.ct,'nomScen');
+obj.pln.multScen = matRad_ScenarioModel.create('nomScen', obj.ct);
 if isfield(BeamSequence.Item_1, 'TreatmentMachineName')
     obj.pln.machine         = BeamSequence.Item_1.TreatmentMachineName;
 else 

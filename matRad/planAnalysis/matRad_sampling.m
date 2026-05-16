@@ -37,7 +37,7 @@ matRad_cfg = MatRad_Config.instance();
 % save nonSampling pln for nominal scenario calculation and add dummy fields
 plnNominal = pln;
 % create nominal scenario
-plnNominal.multScen = matRad_multScen(ct,'nomScen');
+plnNominal.multScen = matRad_ScenarioModel.create('nomScen', ct);
 
 % check for different ct scenarios
 ctSamp = ct;

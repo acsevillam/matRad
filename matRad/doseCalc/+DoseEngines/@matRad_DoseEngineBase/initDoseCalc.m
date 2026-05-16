@@ -62,7 +62,7 @@ radiationMode = radiationMode{1};
 
 %Scenario Model
 if ~isa(this.multScen,'matRad_ScenarioModel')
-    this.multScen = matRad_multScen(ct,this.multScen);
+    this.multScen = matRad_ScenarioModel.create(this.multScen, ct);
 end
 
 % load machine file from base data folder
@@ -206,4 +206,3 @@ this.cstDoseGrid = matRad_resizeCstToGrid(this.cstDoseGrid,dij.ctGrid.x,dij.ctGr
 this.robustVoxelsOnGrid = matRad_selectVoxelsFromCst(this.cstDoseGrid, dij.doseGrid, this.selectVoxelsInScenarios);
 
 end
-

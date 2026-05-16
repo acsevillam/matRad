@@ -246,7 +246,7 @@ classdef (Abstract) matRad_GriddedScenariosAbstract < matRad_ScenarioModel
             %Finalize probabilities
             this.scenProb = tmpPhaseProb .* tmpScenProb;
             this.scenWeight = this.scenProb./sum(this.scenProb);  
-            this.refreshScenarioMetadataFromLegacy();
+            this.finalizeScenarioRealizations();
 
             %TODO: Discard scenarios with probability 0?
         end

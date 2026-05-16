@@ -1044,7 +1044,7 @@ classdef matRad_PlanWidget < matRad_Widget
                 ct = evalin('base','ct');
                 pln.numOfVoxels     = prod(ct.cubeDim);
                 pln.voxelDimensions = ct.cubeDim;
-                pln.multScen =  matRad_multScen(ct,contentMultScen{get(handles.popMenuMultScen,'Value')});
+                pln.multScen = matRad_ScenarioModel.create(contentMultScen{get(handles.popMenuMultScen,'Value')}, ct);
             end
 
             % checkIsoCenter checkbox

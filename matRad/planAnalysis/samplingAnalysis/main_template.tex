@@ -126,15 +126,16 @@ The following parameters were used as scenarios, set by the user \operator.
   \label{table:userParameters}
   \begin{tabular}{rl}
     \toprule
-    Number of shifts       & \numOfShiftScen \\
-    Shift size             & \shiftSize  \\
-    Shift combination     & \shiftCombType  \\
-    Number of range shifts & \numOfRangeShiftScen \\
-    Max abs. range Shift   & \maxAbsRangeShift  \\
-    Max rel. range Shift   & \maxRelRangeShift  \\
-    Range shift combination & \rangeCombType  \\
-    Total scen combination & \scenCombType  \\
-    Computation time & \computationTime  \\
+    Scenario model & \scenarioModelName \\
+    Total scenarios & \numOfTotalScen \\
+    Number of setup scenarios & \numOfShiftScen \\
+    Max setup shift & \shiftSize \\
+    Setup combination & \shiftCombType \\
+    Number of range scenarios & \numOfRangeShiftScen \\
+    Max abs. range shift & \maxAbsRangeShift \\
+    Max rel. range shift & \maxRelRangeShift \\
+    Range combination & \rangeCombType \\
+    Computation time & \computationTime \\
     \bottomrule
   \end{tabular}
 \end{table}
@@ -189,11 +190,8 @@ Therefore the probability assigned to a scenario $i$ is the product of the proba
 \end{equation}
 
 \subsubsection{Parameters}
-The complete explaination of parameters can be found next to the usage in every \textit{setupStudy.m}.
-\paragraph{shiftGenIsotropy} is set by default to \textit{+-}, which means that shifts go from negative to positive direction.
-One can also choose to only use positive or negative shifts.
-\paragraph{Combination Type} is a paremeter which is used for shift scenarios, range scenarios and the total combination of both (i.e. shiftCombType, rangeCombType, scenCombType).
-It can be set to \textit{individual}, where one type is computed after the other, \textit{combined} combines both types directly and \textit{permuted} is only available for shifts, where every possible permutation of the given x-, y- and z-shifts is being sampled.
+\paragraph{Scenario Model} The scenario model defines the sampled uncertainty dimensions and their realization grid or sampling strategy.
+\paragraph{Combination Type} describes how a scenario model combines setup and range uncertainty components.
 
 
 

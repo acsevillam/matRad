@@ -232,7 +232,7 @@ classdef (Abstract) matRad_ScenarioModel < handle
             newInstance.linearMask          = [newInstance.ctScenIx 1 1];
             
             newInstance.scenMask(newInstance.linearMask(:,1),newInstance.linearMask(:,2),newInstance.linearMask(:,3)) = true;
-            newInstance.refreshScenarioMetadataFromLegacy();
+            newInstance.finalizeScenarioRealizations();
             %newInstance.updateScenarios();
         end
         
@@ -409,11 +409,14 @@ classdef (Abstract) matRad_ScenarioModel < handle
     end
 
     methods (Access = protected)
-        function refreshScenarioMetadataFromLegacy(this)
+        function finalizeScenarioRealizations(this)
             components = this.getScenarioComponents();
             scenarioValues = this.scenForProb(:,2:end);
             if numel(components) ~= size(scenarioValues,2)
-                components = components(1:size(scenarioValues,2));
+                matRad_cfg = MatRad_Config.instance();
+                matRad_cfg.dispError(['Scenario realization values do not match the declared uncertainty ' ...
+                    'components. Found %d value columns for %d components.'], ...
+                    size(scenarioValues,2), numel(components));
             end
 
             this.scenarioComponents = components;
@@ -442,7 +445,7 @@ classdef (Abstract) matRad_ScenarioModel < handle
             if any(strcmp(scenarioDimensionActive,'gantry')) || any(strcmp(scenarioDimensionActive,'couch'))
                 matRad_cfg = MatRad_Config.instance();
                 matRad_cfg.dispError(['Gantry/couch uncertainty dimensions are declared in the scenario architecture ' ...
-                    'but are not enabled by the legacy scenario generators in this block.']);
+                    'but are not supported by this scenario model. Use an angular-capable scenario model instead.']);
             end
         end
 
@@ -586,7 +589,7 @@ classdef (Abstract) matRad_ScenarioModel < handle
                     if matRad_ispropCompat(model,field)
                         model.(field) = matRad_recursiveFieldAssignment(model.(field),modelMetadata.(field),true);
                     else
-                        matRad_cfg.dispWarning('Not able to assign property ''%s'' from multScen struct to Scenario Model!',field);
+                        matRad_cfg.dispWarning('Not able to assign property ''%s'' from scenario model struct!',field);
                     end
                 catch ME
                     % catch exceptions when the model has no properties,
@@ -597,7 +600,7 @@ classdef (Abstract) matRad_ScenarioModel < handle
                     matRad_cfg = MatRad_Config.instance();
                     switch ME.identifier
                         case 'MATLAB:noPublicFieldForClass'
-                            matRad_cfg.dispWarning('Not able to assign property from multScen struct to scenario model: %s',ME.message);
+                            matRad_cfg.dispWarning('Not able to assign property from scenario model struct: %s',ME.message);
                         otherwise
                             matRad_cfg.dispWarning('Problem while setting up scenario Model from struct:%s %s',field,ME.message);
                     end
