@@ -229,8 +229,10 @@ classdef (Abstract) matRad_ScenarioModel < handle
         function classList = getAvailableModels()
             matRad_cfg = MatRad_Config.instance();
             
-            %Use the root folder and the scenarios folder only
-            folders = {fileparts(mfilename('fullpath'))};
+            % Use the scenarios root folder so models can live in a
+            % dedicated subfolder while keeping the public class names.
+            scenariosRoot = fileparts(fileparts(mfilename('fullpath')));
+            folders = {scenariosRoot};
             folders = [folders matRad_cfg.userfolders];
 
             persistent metaScenarioModels lastOptionalPaths
@@ -327,4 +329,3 @@ classdef (Abstract) matRad_ScenarioModel < handle
         end
     end
 end
-
