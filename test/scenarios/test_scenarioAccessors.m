@@ -55,7 +55,31 @@ assertTrue(applicators{5}.supportsComponent('couch.beam1'));
 assertEqual(model.getGantryAngleOffset(1), zeros(1, model.numOfBeams));
 assertEqual(model.getCouchAngleOffset(1), zeros(1, model.numOfBeams));
 
-function test_scenarioAccessorsRejectUnsupportedAngularActivation
+function test_scenarioAccessorsRandomScenarioSupportsAngularComponents
+rngState = rng;
+randomCleaner = onCleanup(@() rng(rngState));
+rng(0);
+
+model = matRad_RandomScenarios();
+model.nSamples = 3;
+model.numOfBeams = 2;
+model.scenarioDimensionActive = {'ct', 'setup', 'range', 'gantry', 'couch'};
+
+expectedValueNames = {'setup.x', 'setup.y', 'setup.z', ...
+                      'range.absolute', 'range.relative', ...
+                      'gantry.beam1', 'gantry.beam2', ...
+                      'couch.beam1', 'couch.beam2'};
+
+assertEqual(model.scenarioValueNames, expectedValueNames);
+assertEqual(size(model.scenarioValues), [3, 9]);
+assertEqual(size(model.linearMask), [3, 5]);
+assertEqual(size(model.scenMask), [1, 3, 3, 3, 3]);
+assertEqual(model.totNumGantryScen, 3);
+assertEqual(model.totNumCouchScen, 3);
+assertEqual(model.getGantryAngleOffset(1), model.scenarioValues(1, 6:7));
+assertEqual(model.getCouchAngleOffset(1), model.scenarioValues(1, 8:9));
+
+function test_scenarioAccessorsRejectUnsupportedLegacyAngularActivation
 model = matRad_NominalScenario();
 
 assertExceptionThrown(@() helper_setAngularDimension(model), 'matRad:Error');

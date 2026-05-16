@@ -98,82 +98,89 @@ classdef matRad_RandomScenarios < matRad_ScenarioModel
             matRad_cfg = MatRad_Config.instance();
 
             this.numOfCtScen = size(this.ctScenProb,1);
-            
-            %Multivariate Normal Sampling
-            Sigma = diag([this.shiftSD,this.rangeAbsSD,this.rangeRelSD./100].^2);
-            d = size(Sigma,1);
-            [cs,p] = chol(Sigma);
-            
-            %The lower part is there but commented for completeness, we do
-            %not need it since we know we that sigma is PSD
-            %if p ~= 0 %for the positive semi-definite case, we don't check for negative definite
-            %      %      [V,L] = eig(Sigma);
-            %      cs = sqrt(L) * V';
-            %end
-            %transform normal samples, mean is always zero
-            scenarios = randn(this.nSamples,d) * cs;
+            components = this.getScenarioComponents();
+            activeIx = [components.active];
+            nScenarioSamples = scenarioCountForActiveDimension(any(activeIx),this.nSamples);
+
+            % Multivariate normal sampling over active components only.
+            scenarios = zeros(nScenarioSamples,numel(components));
+            if any(activeIx)
+                scales = [components(activeIx).scale];
+                Sigma = diag(scales.^2);
+                cs = chol(Sigma);
+                scenarios(:,activeIx) = randn(nScenarioSamples,sum(activeIx)) * cs;
+            end
 
             if this.includeNominalScenario
-                %We include the nominal scenario by just replacing the  
-                %first one to keep the number of scenarios the same 
-                scenarios(1,:) = 0; 
+                % We include the nominal scenario by just replacing the
+                % first one to keep the number of scenarios the same.
+                scenarios(1,:) = 0;
             end
 
-            %Handle 4D phases
-            phases = repmat(this.ctScenProb(:,1)',size(scenarios,1),1);
-            phases = phases(:);
-            scenarios = horzcat(phases, repmat(scenarios,[this.numOfCtScen 1]));
-            this.ctScenIx = phases;
-            
-            %Scenario Probability from pdf
+            % Handle 4D CT scenario ids.
+            ctScenIds = repmat(this.ctScenProb(:,1)',size(scenarios,1),1);
+            ctScenIds = ctScenIds(:);
+            scenarios = horzcat(ctScenIds, repmat(scenarios,[this.numOfCtScen 1]));
+            this.ctScenIx = ctScenIds;
             this.scenForProb = scenarios;
-            
-            %Create phase and setup/range probabilities
-            tmpScenProb = (2*pi)^(-d/2) * exp(-0.5*sum((scenarios(:,2:end)/cs).^2, 2)) / prod(diag(cs));
-            
-            %Now we combine with the 4D ct phase probabilities (multiply)
-            tmpPhaseProb = arrayfun(@(phase) this.ctScenProb(find(this.ctScenProb(:,1) == phase),2),phases);
-            
-            %Finalize Probability
-            this.scenProb = tmpPhaseProb .* tmpScenProb;
-                
-            %Scenario weight
+
+            this.scenProb = matRad_computeScenarioProbabilities(components,scenarios(:,2:end), ...
+                this.ctScenProb,ctScenIds);
+
+            % Scenario weight.
             this.scenWeight = [];
             for sCt = 1:this.numOfCtScen
-                %equal weights within a phase since they have been randomly sampled 
-                %(not entirely true if the Nominal scenario was forced) 
-                this.scenWeight = [this.scenWeight; this.ctScenProb(sCt,2) * ones(this.nSamples,1)./this.nSamples];
+                % Equal weights within a phase since they have been randomly
+                % sampled; this is approximate when the nominal scenario is forced.
+                this.scenWeight = [this.scenWeight; ...
+                    this.ctScenProb(sCt,2) * ones(nScenarioSamples,1)./nScenarioSamples];
             end
 
-            %set variables
-            this.totNumShiftScen = this.nSamples;
-            this.totNumRangeScen = this.nSamples;
-            this.totNumScen = this.nSamples * this.numOfCtScen; %check because of CT scenarios
-            %this.totNumCtScen = 
-            %this.numOfShiftScen = [nSamples,nSamples,nSamples];
-            %this.numOfRangeShiftScen = nSamples;
-            
-            %Individual shifts
+            setupActive = any(strcmp({components.applicator},'setup') & [components.active]);
+            rangeActive = any(strcmp({components.applicator},'range') & [components.active]);
+            gantryActive = any(strcmp({components.applicator},'gantry') & [components.active]);
+            couchActive = any(strcmp({components.applicator},'couch') & [components.active]);
+            this.totNumShiftScen = scenarioCountForActiveDimension(setupActive,this.nSamples);
+            this.totNumRangeScen = scenarioCountForActiveDimension(rangeActive,this.nSamples);
+            this.totNumGantryScen = scenarioCountForActiveDimension(gantryActive,this.nSamples);
+            this.totNumCouchScen = scenarioCountForActiveDimension(couchActive,this.nSamples);
+            this.totNumScen = nScenarioSamples * this.numOfCtScen;
+
             this.relRangeShift = scenarios(:,6);
             this.absRangeShift = scenarios(:,5);
             this.isoShift = scenarios(:,2:4);
-
             this.maxAbsRangeShift = max(this.absRangeShift);
             this.maxRelRangeShift = max(this.relRangeShift);
 
-            %Mask for scenario selection
-            this.scenMask = false(this.numOfAvailableCtScen,this.totNumShiftScen,this.totNumRangeScen);
-
+            linearMaskAll = zeros(this.totNumScen,5);
+            rowIx = 0;
             for sCt = 1:this.numOfCtScen
-                scenIx = this.ctScenProb(sCt,1);
-                this.scenMask(scenIx,:,:) = diag(true(this.nSamples,1));
+                ctScenId = this.ctScenProb(sCt,1);
+                for sampleIx = 1:nScenarioSamples
+                    rowIx = rowIx + 1;
+                    linearMaskAll(rowIx,:) = [ctScenId, ...
+                        scenarioIndexForSample(setupActive,sampleIx), ...
+                        scenarioIndexForSample(rangeActive,sampleIx), ...
+                        scenarioIndexForSample(gantryActive,sampleIx), ...
+                        scenarioIndexForSample(couchActive,sampleIx)];
+                end
             end
-            
 
-            tmpScenMask = permute(this.scenMask,[3 2 1]);
-            [x{3}, x{2}, x{1}] = ind2sub(size(tmpScenMask),find(tmpScenMask));
-            this.linearMask    = cell2mat(x);
-            totNumScen    = sum(this.scenMask(:));
+            if gantryActive || couchActive
+                scenMaskSize = [this.numOfAvailableCtScen,this.totNumShiftScen, ...
+                    this.totNumRangeScen,this.totNumGantryScen,this.totNumCouchScen];
+                this.linearMask = linearMaskAll;
+            else
+                scenMaskSize = [this.numOfAvailableCtScen,this.totNumShiftScen, ...
+                    this.totNumRangeScen];
+                this.linearMask = linearMaskAll(:,1:3);
+            end
+
+            this.scenMask = false(scenMaskSize);
+            maskSubscripts = mat2cell(this.linearMask, size(this.linearMask,1), ...
+                ones(1,size(this.linearMask,2)));
+            this.scenMask(sub2ind(scenMaskSize,maskSubscripts{:})) = true;
+            totNumScen = sum(this.scenMask(:));
             this.refreshScenarioMetadataFromLegacy();
 
             if totNumScen ~= this.totNumScen
@@ -183,5 +190,33 @@ classdef matRad_RandomScenarios < matRad_ScenarioModel
         end
     end
 
+    methods (Access = protected)
+
+        function validateScenarioDimensionSupport(~,~)
+            % Random sampling supports all currently declared continuous
+            % scenario dimensions.
+        end
+
+    end
+
+end
+
+function n = scenarioCountForActiveDimension(isActive,nSamples)
+
+if isActive
+    n = nSamples;
+else
+    n = 1;
+end
+
+end
+
+function scenIx = scenarioIndexForSample(isActive,sampleIx)
+
+if isActive
+    scenIx = sampleIx;
+else
+    scenIx = 1;
+end
 
 end
