@@ -89,6 +89,7 @@ classdef matRad_NominalScenario < matRad_ScenarioModel
             
             %Return variable
             scenarios = this.scenForProb;
+            this.refreshScenarioMetadataFromLegacy();
             
 
             if totNumScen ~= this.totNumScen
@@ -100,4 +101,3 @@ classdef matRad_NominalScenario < matRad_ScenarioModel
         
     end
 end
-

@@ -174,6 +174,7 @@ classdef matRad_RandomScenarios < matRad_ScenarioModel
             [x{3}, x{2}, x{1}] = ind2sub(size(tmpScenMask),find(tmpScenMask));
             this.linearMask    = cell2mat(x);
             totNumScen    = sum(this.scenMask(:));
+            this.refreshScenarioMetadataFromLegacy();
 
             if totNumScen ~= this.totNumScen
                 matRad_cfg.dispWarning('Check Implementation of Total Scenario computation - given %d but found %d!',this.totNumScen,totNumScen);
@@ -184,4 +185,3 @@ classdef matRad_RandomScenarios < matRad_ScenarioModel
 
 
 end
-
