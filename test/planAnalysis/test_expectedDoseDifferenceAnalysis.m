@@ -99,6 +99,22 @@ assertElementsAlmostEqual(get(imageHandle, 'CData'), analysis.signedExpectedDose
 assertElementsAlmostEqual(caxis(axesHandle), analysis.doseWindow, 'absolute', 1e-12);
 assertEqual(get(get(colorBarHandle, 'YLabel'), 'String'), 'E[D - ref] [Gy]');
 
+function test_plotWithoutAxesHandleCreatesIndependentFigure
+figureCleaner = onCleanup(@() close('all'));
+ct = helper_createPlotCt();
+cst = cell(0, 6);
+referenceCube = ones(ct.cubeDim);
+sampleDoseMatrix = ones(numel(referenceCube), 2);
+analysis = matRad_expectedDoseDifferenceAnalysis(sampleDoseMatrix, referenceCube);
+existingFig = figure('Visible', 'off');
+axes('Parent', existingFig);
+
+newFig = matRad_plotExpectedDoseDifferenceAnalysis(analysis, ct, cst, 1);
+
+assertFalse(isequal(newFig, existingFig));
+plotAxes = findobj(newFig, 'Type', 'Axes');
+assertFalse(isempty(plotAxes));
+
 function test_plotUsesRbeDoseUnitLabel
 figureCleaner = onCleanup(@() close('all'));
 referenceCube = ones(2, 2);
@@ -124,3 +140,10 @@ analysis = matRad_expectedDoseDifferenceAnalysis(sampleDoseMatrix, referenceCube
 assertEqual(analysis.status, 'skippedInvalidInput');
 assertFalse(isempty(strfind(analysis.reason, 'scenario weights')));
 assertTrue(all(isnan(analysis.overReferenceProbabilityCube(:))));
+
+function ct = helper_createPlotCt
+ct.cubeDim = [2 2 1];
+ct.resolution.x = 1;
+ct.resolution.y = 1;
+ct.resolution.z = 1;
+ct.cubeHU = {zeros(ct.cubeDim)};

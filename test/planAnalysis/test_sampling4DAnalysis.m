@@ -189,12 +189,15 @@ assertElementsAlmostEqual(doseStat.expectedDoseDifferenceAnalysis.nearReferenceP
 assertTrue(isnan(doseStat.expectedDoseDifferenceAnalysis.overReferenceProbabilityCube(2)));
 
 function test_samplingAnalysisComputesGammaForFullSampling
+figureCleaner = onCleanup(@() close('all'));
 ct = helper_createFullCoverageCt();
 cst = helper_createCst();
 pln = helper_createFullCoveragePlan(ct);
 caSampRes = helper_createSamplingResults();
 mSampDose = ones(prod(ct.cubeDim), numel(caSampRes));
 resultGUInomScen = helper_createFullCoverageNominalResult(ct, cst);
+existingFig = figure('Visible', 'off');
+axes('Parent', existingFig);
 
 [~, doseStat, ~, gammaFig, ~, ~, expectedDoseDifferenceFig] = ...
     matRad_samplingAnalysis(ct, cst, pln, caSampRes, mSampDose, ...
@@ -210,6 +213,8 @@ assertElementsAlmostEqual(doseStat.expectedDoseDifferenceAnalysis.doseWindow, [-
 assertElementsAlmostEqual(doseStat.expectedDoseDifferenceAnalysis.nearReferenceProbabilityCube(1), ...
                           1, 'absolute', 1e-12);
 assertFalse(isempty(gammaFig));
+assertFalse(isequal(gammaFig, existingFig));
+assertEqual(get(gammaFig, 'Name'), 'Gamma index analysis');
 assertFalse(isempty(expectedDoseDifferenceFig));
 helper_closeFigure(gammaFig);
 helper_closeFigure(expectedDoseDifferenceFig);

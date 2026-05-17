@@ -55,7 +55,7 @@ axesHandle = p.Results.axesHandle;
 if isempty(axesHandle)
     robustnessFig = figure('Name', 'Sampling robustness analysis');
     set(robustnessFig, 'Color', [1 1 1]);
-    axesHandle = gca;
+    axesHandle = axes('Parent', robustnessFig);
 else
     robustnessFig = ancestor(axesHandle, 'figure');
 end

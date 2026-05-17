@@ -33,6 +33,22 @@ textHandle = findobj(robustnessFig, 'Tag', 'matRadMetricTextbox');
 assertEqual(numel(textHandle), 1);
 assertEqual(get(textHandle, 'String'), 'RI = 0.7500');
 
+function test_samplingRobustnessPlotWithoutAxesHandleCreatesIndependentFigure
+figureCleaner = onCleanup(@() close('all'));
+ct = helper_createPlotCt();
+cst = cell(0, 6);
+analysis.index1.robustnessCube = zeros(ct.cubeDim);
+analysis.index1.robustnessIndex = 1;
+existingFig = figure('Visible', 'off');
+axes('Parent', existingFig);
+
+newFig = matRad_plotSamplingRobustnessAnalysis(analysis, ct, cst, 1, ...
+                                               'method', 'index1');
+
+assertFalse(isequal(newFig, existingFig));
+plotAxes = findobj(newFig, 'Type', 'Axes');
+assertFalse(isempty(plotAxes));
+
 function test_index2UsesBinaryCriteria
 ct = helper_createCt();
 cst = helper_createTargetCst([1; 2; 3; 4], 5);
@@ -82,11 +98,19 @@ assertElementsAlmostEqual(analysis.index1.robPassRate, 100, 'absolute', 1e-12);
 assertElementsAlmostEqual(analysis.index2.robPassRate, 100, 'absolute', 1e-12);
 
 function ct = helper_createCt()
-ct.cubeDim = [2 2 1];
+ct.cubeDim = [2 2];
 ct.refScen = 1;
 ct.resolution.x = 1;
 ct.resolution.y = 1;
 ct.resolution.z = 1;
+
+function ct = helper_createPlotCt()
+ct.cubeDim = [2 2 2];
+ct.refScen = 1;
+ct.resolution.x = 1;
+ct.resolution.y = 1;
+ct.resolution.z = 1;
+ct.cubeHU = {zeros(ct.cubeDim)};
 
 function cst = helper_createTargetCst(voxels, refDoseTotal)
 cst = cell(1, 6);
