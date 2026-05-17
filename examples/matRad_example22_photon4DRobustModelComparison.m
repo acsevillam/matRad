@@ -229,6 +229,11 @@ dvhDoseWindow = [0 1.6 * prescriptionDose];
 dvhSamplingDoseWindow = matRad_convertFromEvaluationMode(dvhDoseWindow, pln, evaluationMode);
 dvhSamplingArgs = {'dvhDoseWindow', dvhSamplingDoseWindow};
 samplingMultScen = pln.multScen;
+doseUnitLabel = 'Gy';
+if strncmp(quantityOpt, 'RBExD', 5) || strncmp(quantityOpt, 'RBExDose', 8)
+    doseUnitLabel = 'Gy(RBE)';
+end
+stdColorBarLabel = ['Standard deviation [' doseUnitLabel ']'];
 
 planSamples(1).label = 'Nominal';
 planSamples(1).cst = cstNominal;
@@ -259,7 +264,21 @@ for i = 1:numel(planSamples)
     [planSamples(i).cstStat, planSamples(i).doseStat, planSamples(i).meta] = ...
         matRad_samplingAnalysis(ct, planSamples(i).cst, planSamples(i).plnSamp, ...
                                 planSamples(i).caSamp, planSamples(i).mSampDose, ...
-                                planSamples(i).resultGUINomScen);
+                                planSamples(i).resultGUINomScen, 'plane', plane);
+
+    if ~isempty(planSamples(i).doseStat.robustnessAnalysis.index1.robustnessIndex)
+        fprintf('%s robustness index1/index2 pass fractions: %.4f / %.4f\n', ...
+                planSamples(i).label, ...
+                planSamples(i).doseStat.robustnessAnalysis.index1.robustnessIndex, ...
+                planSamples(i).doseStat.robustnessAnalysis.index2.robustnessIndex);
+    end
+    fprintf('%s gamma analysis status: %s\n', planSamples(i).label, ...
+            planSamples(i).doseStat.gammaAnalysis.status);
+    fprintf('%s expected dose difference status: %s, max expected over/under dose difference: %.4f / %.4f\n', ...
+            planSamples(i).label, ...
+            planSamples(i).doseStat.expectedDoseDifferenceAnalysis.status, ...
+            planSamples(i).doseStat.expectedDoseDifferenceAnalysis.summary.maxOverReferenceExpectedDoseDifference, ...
+            planSamples(i).doseStat.expectedDoseDifferenceAnalysis.summary.maxUnderReferenceExpectedDoseDifference);
 end
 
 %% Compare DVH trustbands
@@ -275,6 +294,29 @@ for i = 1:numel(planSamples)
                                'scenWeights', planSamples(i).meta.scenWeights);
     title(planSamples(i).label);
     ylim([0 105]);
+end
+
+%% Compare sampling robustness index
+figure('Name', 'Robustness index 1 from 4D sampling');
+for i = 1:numel(planSamples)
+    subplot(numPlotRows, numPlotCols, i);
+    matRad_plotSamplingRobustnessAnalysis(planSamples(i).doseStat.robustnessAnalysis, ...
+                                          ct, planSamples(i).cst, slice, ...
+                                          'axesHandle', gca, 'method', 'index1', ...
+                                          'plane', plane, 'contourColorMap', colorcube);
+    title([planSamples(i).label ' robustness index 1']);
+end
+
+%% Compare expected dose difference over/under nominal
+figure('Name', 'Expected dose difference over/under nominal');
+for i = 1:numel(planSamples)
+    subplot(numPlotRows, numPlotCols, i);
+    matRad_plotExpectedDoseDifferenceAnalysis( ...
+                                              planSamples(i).doseStat.expectedDoseDifferenceAnalysis, ...
+                                              ct, planSamples(i).cst, slice, ...
+                                              'axesHandle', gca, 'plane', plane, ...
+                                              'contourColorMap', colorcube);
+    title([planSamples(i).label ' E[D - D_{nom}]']);
 end
 
 %% Compare sampled dose standard deviation
@@ -295,6 +337,6 @@ for i = 1:numel(planSamples)
     matRad_plotSlice(ct, 'axesHandle', gca, 'cst', planSamples(i).cst, ...
                      'cubeIdx', 1, 'dose', planSamples(i).doseStat.stdCube, ...
                      'plane', plane, 'slice', slice, 'contourColorMap', colorcube, ...
-                     'doseWindow', stdDoseWindow);
+                     'doseWindow', stdDoseWindow, 'colorBarLabel', stdColorBarLabel);
     title(planSamples(i).label);
 end
