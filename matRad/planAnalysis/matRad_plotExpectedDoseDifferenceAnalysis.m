@@ -54,7 +54,7 @@ axesHandle = p.Results.axesHandle;
 if isempty(axesHandle)
     expectedDoseDifferenceFig = figure('Name', 'Expected dose difference analysis');
     set(expectedDoseDifferenceFig, 'Color', [1 1 1]);
-    axesHandle = gca;
+    axesHandle = axes('Parent', expectedDoseDifferenceFig);
 else
     expectedDoseDifferenceFig = ancestor(axesHandle, 'figure');
 end

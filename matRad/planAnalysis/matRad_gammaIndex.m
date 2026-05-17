@@ -1,4 +1,6 @@
-function [gammaCube,gammaPassRateCell] = matRad_gammaIndex(cube1,cube2,resolution,criteria,slice,n,localglobal,cst)
+function [gammaCube, gammaPassRateCell, gammaFig] = matRad_gammaIndex(cube1, cube2, ...
+                                                                      resolution, criteria, slice, n, ...
+                                                                      localglobal, cst)
 % gamma index calculation 
 % according to http://www.ncbi.nlm.nih.gov/pubmed/9608475
 % 
@@ -25,6 +27,7 @@ function [gammaCube,gammaPassRateCell] = matRad_gammaIndex(cube1,cube2,resolutio
 %
 %   gammaCube:          result of gamma index calculation
 %   gammaPassRateCell:  rate of voxels passing the specified gamma criterion, evaluated for every structure listed in 'cst'. Note that only voxels exceeding the dose threshold are considered.
+%   gammaFig:           gamma index figure handle if a slice was requested
 %
 % References
 %   [1]  http://www.ncbi.nlm.nih.gov/pubmed/9608475
@@ -43,6 +46,7 @@ function [gammaCube,gammaPassRateCell] = matRad_gammaIndex(cube1,cube2,resolutio
 % %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 [env, ~] = matRad_getEnvironment();
+gammaFig = [];
 
 % set parameters for gamma index calculation
 if exist('criteria','var')
@@ -190,16 +194,17 @@ if exist('cst','var')
 end
 
 % visualize if applicable
-if exist('slice','var') && ~isempty(slice)
-    figure
-    set(gcf,'Color',[1 1 1]);
-    imagesc(gammaCube(:,:,slice),[0 2])
+if exist('slice', 'var') && ~isempty(slice)
+    gammaFig = figure('Name', 'Gamma index analysis');
+    set(gammaFig, 'Color', [1 1 1]);
+    axesHandle = axes('Parent', gammaFig);
+    imagesc(axesHandle, gammaCube(:, :, slice), [0 2]);
     myColormap = matRad_getColormap('gammaIndex');
 
-    colormap(gca,myColormap);
-    colorbar
+    colormap(axesHandle, myColormap);
+    colorbar(axesHandle);
 
-    title({[num2str(gammaPassRate,5) '% of points > ' num2str(relDoseThreshold) ...
-            '% pass gamma criterion (' num2str(relDoseThreshold) '% / ' ...
-            num2str(dist2AgreeMm) 'mm)']; ['with ' num2str(2^n-1) ' interpolation points']});
+    title(axesHandle, {[num2str(gammaPassRate, 5) '% of points > ' num2str(relDoseThreshold) ...
+                        '% pass gamma criterion (' num2str(relDoseThreshold) '% / ' ...
+                        num2str(dist2AgreeMm) 'mm)']; ['with ' num2str(2^n - 1) ' interpolation points']});
 end
