@@ -17,6 +17,8 @@ function [cstStat, doseStat, meta, gammaFig, robustnessFig1, robustnessFig2, exp
 %   varargin:           optional Name/Value pairs for additional custom
 %                       settings
 %                       - 'GammaCriterion': 1x2 vector [%  mm]
+%                       - 'ExpectedDoseDifferenceDoseWindow': 1x2 signed
+%                         dose-difference color window
 %                       - 'Percentiles':    vector with desired percentiles
 %                       between (0,1)
 %
@@ -110,6 +112,7 @@ p.addParameter('robustnessCriteria', [5 5], @matRad_isPositiveTwoVector);
 p.addParameter('robustnessTargetMode', 'all', @matRad_isScalarText);
 p.addParameter('robustnessTargets', [], @matRad_isStructureSelection);
 p.addParameter('expectedDoseDifferenceTolerance', 0, @matRad_isNonNegativeScalar);
+p.addParameter('expectedDoseDifferenceDoseWindow', [], @matRad_isDoseWindow);
 p.addParameter('ctScenProb', [], @matRad_isCtScenarioProbabilityOverride);
 p.addParameter('slice', [], @matRad_isOptionalPositiveIntegerScalar);
 p.addParameter('plane', 3, @matRad_isValidPlane);
@@ -138,6 +141,11 @@ end
 
 function tf = matRad_isNonNegativeScalar(value)
 tf = isnumeric(value) && isscalar(value) && isfinite(value) && value >= 0;
+end
+
+function tf = matRad_isDoseWindow(value)
+tf = isempty(value) || (isnumeric(value) && isvector(value) && numel(value) == 2 && ...
+                        all(isfinite(value(:))) && value(2) > value(1));
 end
 
 function tf = matRad_isCtScenarioProbabilityOverride(value)
@@ -248,13 +256,16 @@ expectedDoseDifferenceAnalysis = matRad_expectedDoseDifferenceAnalysis( ...
                                                                        analysisContext.evaluationModeBase, ...
                                                                        'referenceName', ...
                                                                        ['resultGUInomScen.' ...
-                                                                        analysisContext.quantity]);
+                                                                        analysisContext.quantity], ...
+                                                                       'doseWindow', ...
+                                                                       meta.expectedDoseDifferenceDoseWindow);
 expectedDoseDifferenceAnalysis = matRad_attachSamplingAnalysisContext(expectedDoseDifferenceAnalysis, ...
                                                                       analysisContext, true);
 if ~isempty(meta.slice)
     expectedDoseDifferenceFig = ...
         matRad_plotExpectedDoseDifferenceAnalysis(expectedDoseDifferenceAnalysis, ct, cst, ...
-                                                  meta.slice, 'plane', meta.plane);
+                                                  meta.slice, 'plane', meta.plane, ...
+                                                  'doseWindow', meta.expectedDoseDifferenceDoseWindow);
 end
 end
 

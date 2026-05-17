@@ -43,6 +43,18 @@ assertElementsAlmostEqual(analysis.summary.maxAbsSignedExpectedDoseDifference, 0
                           'absolute', 1e-12);
 assertElementsAlmostEqual(analysis.doseWindow, [-0.4 0.4], 'absolute', 1e-12);
 
+function test_configuredDoseWindowIsStoredInAnalysis
+referenceCube = ones(2, 2);
+sampleDoseMatrix = [1.4 0.9; ...
+                    1.1 1.2; ...
+                    0.8 1.0; ...
+                    1.0 1.0];
+
+analysis = matRad_expectedDoseDifferenceAnalysis(sampleDoseMatrix, referenceCube, ...
+                                                 'doseWindow', [-2 3]);
+
+assertElementsAlmostEqual(analysis.doseWindow, [-2 3], 'absolute', 1e-12);
+
 function test_partialMaskLeavesUnsampledVoxelsAsNaN
 referenceCube = reshape([1; 1; 2; 4], [2 2]);
 sampleDoseMatrix = [2 0 2; ...

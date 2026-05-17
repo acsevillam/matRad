@@ -18,6 +18,7 @@ function expectedDoseDifferenceAnalysis = matRad_expectedDoseDifferenceAnalysis(
 %                       - 'quantity': dose quantity name
 %                       - 'evaluationModeBase': internal dose unit mode
 %                       - 'referenceName': descriptive name of referenceCube
+%                       - 'doseWindow': signed dose-difference color window
 %
 % output
 %   expectedDoseDifferenceAnalysis: analysis struct containing status, metadata,
@@ -52,6 +53,7 @@ p.addParameter('evaluationModeBase', 'perFraction', @(value) ischar(value) || ..
                (isstring(value) && isscalar(value)));
 p.addParameter('referenceName', 'referenceCube', @(value) ischar(value) || ...
                (isstring(value) && isscalar(value)));
+p.addParameter('doseWindow', [], @matRad_isExpectedDoseDifferenceDoseWindow);
 parse(p, varargin{:});
 
 expectedDoseDifferenceAnalysis = matRad_initializeExpectedDoseDifferenceAnalysis(referenceCube, p.Results);
@@ -123,7 +125,7 @@ expectedDoseDifferenceAnalysis.underReferenceExpectedDoseDifferenceCube = ...
     underReferenceExpectedDoseDifferenceCube;
 expectedDoseDifferenceAnalysis.signedExpectedDoseDifferenceCube = signedExpectedDoseDifferenceCube;
 expectedDoseDifferenceAnalysis.doseWindow = ...
-    matRad_getExpectedDoseDifferenceDoseWindow(signedExpectedDoseDifferenceCube);
+    matRad_getExpectedDoseDifferenceDoseWindow(signedExpectedDoseDifferenceCube, p.Results.doseWindow);
 expectedDoseDifferenceAnalysis.summary = ...
     matRad_summarizeExpectedDoseDifference(overReferenceProbabilityCube, ...
                                            underReferenceProbabilityCube, ...
@@ -156,7 +158,8 @@ expectedDoseDifferenceAnalysis.signedReferenceProbabilityCube = NaN(size(referen
 expectedDoseDifferenceAnalysis.overReferenceExpectedDoseDifferenceCube = NaN(size(referenceCube));
 expectedDoseDifferenceAnalysis.underReferenceExpectedDoseDifferenceCube = NaN(size(referenceCube));
 expectedDoseDifferenceAnalysis.signedExpectedDoseDifferenceCube = NaN(size(referenceCube));
-expectedDoseDifferenceAnalysis.doseWindow = [-1 1];
+expectedDoseDifferenceAnalysis.doseWindow = ...
+    matRad_getExpectedDoseDifferenceDoseWindow(NaN(size(referenceCube)), parserResults.doseWindow);
 expectedDoseDifferenceAnalysis.summary = matRad_emptyExpectedDoseDifferenceSummary();
 end
 
@@ -244,7 +247,17 @@ else
 end
 end
 
-function doseWindow = matRad_getExpectedDoseDifferenceDoseWindow(signedDoseCube)
+function tf = matRad_isExpectedDoseDifferenceDoseWindow(value)
+tf = isempty(value) || (isnumeric(value) && isvector(value) && numel(value) == 2 && ...
+                        all(isfinite(value(:))) && value(2) > value(1));
+end
+
+function doseWindow = matRad_getExpectedDoseDifferenceDoseWindow(signedDoseCube, requestedDoseWindow)
+if nargin > 1 && ~isempty(requestedDoseWindow)
+    doseWindow = requestedDoseWindow(:)';
+    return
+end
+
 finiteValues = signedDoseCube(isfinite(signedDoseCube));
 if isempty(finiteValues)
     doseWindow = [-1 1];
