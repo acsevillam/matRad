@@ -198,12 +198,15 @@ resultGUInomScen = helper_createFullCoverageNominalResult(ct, cst);
 
 [~, doseStat, ~, gammaFig, ~, ~, expectedDoseDifferenceFig] = ...
     matRad_samplingAnalysis(ct, cst, pln, caSampRes, mSampDose, ...
-                            resultGUInomScen, 'slice', 1, 'plane', 3);
+                            resultGUInomScen, 'slice', 1, 'plane', 3, ...
+                            'expectedDoseDifferenceDoseWindow', [-2 2]);
 
 assertEqual(doseStat.gammaAnalysis.status, 'computedFullCube');
 assertElementsAlmostEqual(doseStat.gammaAnalysis.gammaPassRate, 100, 'absolute', 1e-12);
 assertFalse(any(isnan(doseStat.gammaAnalysis.gammaCube(:))));
 assertEqual(doseStat.expectedDoseDifferenceAnalysis.status, 'computedFullCube');
+assertElementsAlmostEqual(doseStat.expectedDoseDifferenceAnalysis.doseWindow, [-2 2], ...
+                          'absolute', 1e-12);
 assertElementsAlmostEqual(doseStat.expectedDoseDifferenceAnalysis.nearReferenceProbabilityCube(1), ...
                           1, 'absolute', 1e-12);
 assertFalse(isempty(gammaFig));
