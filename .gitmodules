@@ -25,3 +25,7 @@
 	path = submodules/planWorkflow
 	url = https://github.com/acsevillam/planWorkflow.git
 	branch = main
+[submodule "userdata/patients"]
+	path = userdata/patients
+	url = https://github.com/acsevillam/clinical_cases.git
+	branch = planWorkflow

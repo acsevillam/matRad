@@ -1,0 +1,6 @@
+.DS_Store
+*.asv
+*.m~
+output/
+patients/*
+!patients/README.md
