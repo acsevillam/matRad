@@ -6,8 +6,8 @@ initTestSuite;
 
 %Add automated instance tests for avaiable models
 ct.numOfCtScen = 5;
-models = {matRad_NominalScenario(),matRad_WorstCaseScenarios(),matRad_ImportanceScenarios(),matRad_TruncatedImportanceScenarios(),matRad_RandomScenarios(),...
-    matRad_NominalScenario(ct),matRad_WorstCaseScenarios(ct),matRad_ImportanceScenarios(ct),matRad_TruncatedImportanceScenarios(ct),matRad_RandomScenarios(ct)};
+models = {matRad_NominalScenario(),matRad_WorstCaseScenarios(),matRad_ImportanceScenarios(),matRad_TruncatedImportanceScenarios(),matRad_RandomScenarios(),matRad_TruncatedRandomScenarios(),...
+    matRad_NominalScenario(ct),matRad_WorstCaseScenarios(ct),matRad_ImportanceScenarios(ct),matRad_TruncatedImportanceScenarios(ct),matRad_RandomScenarios(ct),matRad_TruncatedRandomScenarios(ct)};
 
 instanceTests = cellfun(@func2str,test_functions,'UniformOutput',false);
 funIx = ~cellfun(@isempty,strfind(instanceTests,'instanceTest_'));

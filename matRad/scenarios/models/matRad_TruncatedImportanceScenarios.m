@@ -1,9 +1,10 @@
 classdef matRad_TruncatedImportanceScenarios < matRad_GriddedScenariosAbstract
     %  matRad_TruncatedImportanceScenarios
     %  Implements gridded importance scenarios truncated to the wcSigma
-    %  normalized uncertainty radius. The grid is first created like
-    %  matRad_ImportanceScenarios and then scenarios outside the configured
-    %  normalized radius are removed.
+    %  normalized uncertainty radius equivalent to a diagonal Mahalanobis
+    %  distance in the active uncertainty component space. The grid is first
+    %  created like matRad_ImportanceScenarios and then scenarios outside the
+    %  configured normalized radius are removed.
     %
     % constructor
     %   matRad_TruncatedImportanceScenarios()
