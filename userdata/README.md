@@ -9,7 +9,8 @@ integration checkout.
   `planWorkflow`.
 - `hluts`: local Hounsfield-unit lookup tables.
 - `machines`: local machine data.
-- `patients`: patient-data submodule required by the integration workflows.
+- `patients`: local clinical cases required by the integration workflows. This
+  folder is ignored.
 - `output`: generated workflow outputs and caches. This folder is ignored.
 - `scripts`: standalone user scripts.
 
@@ -33,12 +34,10 @@ submodules/planWorkflow
 
 ## Patient Data
 
-The integration patient data is tracked as a submodule:
+The integration clinical cases are expected locally under `userdata/patients`.
+They are intentionally ignored and are not tracked as a submodule or as Git
+files. Populate this folder from the local clinical cases checkout before
+running workflows.
 
-```text
-userdata/patients -> https://github.com/acsevillam/clinical_cases.git
-branch: planWorkflow
-```
-
-Generated outputs and additional local patient data stay local to the
-integration environment and should not be committed unless explicitly reviewed.
+Generated outputs and local patient data stay local to the integration
+environment and should not be committed.
