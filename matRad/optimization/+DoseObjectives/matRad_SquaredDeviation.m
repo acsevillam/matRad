@@ -78,7 +78,6 @@ classdef matRad_SquaredDeviation < DoseObjectives.matRad_DoseObjective
     methods (Static)
         function rob = availableRobustness()
             rob = DoseObjectives.matRad_DoseObjective.availableRobustness();
-            rob{end+1} = 'PROB'; %By default, no robustness is available
         end
     end
     

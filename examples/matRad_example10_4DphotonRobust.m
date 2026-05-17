@@ -165,7 +165,7 @@ pln.machine       = 'Generic';
 pln.bioModel      = 'none';
 
 % retrieve 9 worst case scenarios for dose calculation and optimziation
-pln.multScen = matRad_multScen(ct,'wcScen');       
+pln.multScen = matRad_WorstCaseScenarios(ct);
 pln.multScen.listAllScenarios();
 
 
@@ -186,6 +186,7 @@ pln.propDoseCalc.doseGrid.resolution.z = 5; % [mm]
 
 % Optimization Settings
 pln.propOpt.quantityOpt = 'physicalDose';
+pln.propOpt.quantityVis = pln.propOpt.quantityOpt;
 
 %% Generate Beam Geometry STF
 stf = matRad_generateStf(ct,cst,pln);
@@ -267,9 +268,11 @@ matRad_plotSlice(ct, 'axesHandle', gca, 'cst', cst, 'cubeIdx', 1, 'dose', result
 %matRad_plotSliceWrapper(gca,ct,cst,1,resultGUIrobust.([pln.propOpt.quantityOpt '_scen' num2str(round(numScen))]),plane,slice,[],[],colorcube,[],[0 maxDose],doseIsoLevels);
 
 [env,envver] = matRad_getEnvironment();
-if strcmp(env,'MATLAB') || str2double(envver(1)) >= 5
+numScenarios = pln.multScen.numScenarios();
+if numScenarios > 1 && (strcmp(env,'MATLAB') || str2double(envver(1)) >= 5)
+    sliderStep = 1 / (numScenarios - 1);
     b = uicontrol('Parent',f,'Style','slider','Position',[50,5,419,23],...
-        'value',numScen, 'min',1, 'max',pln.multScen.totNumScen,'SliderStep', [1/(pln.multScen.totNumScen-1) , 1/(pln.multScen.totNumScen-1)]);
+        'value',numScen, 'min',1, 'max',numScenarios,'SliderStep', [sliderStep, sliderStep]);
     set(b,'Callback',@(es,ed)  matRad_plotSlice(ct, 'axesHandle', gca, 'cst', cst, 'cubeIdx', round(get(es,'Value')), 'dose', resultGUIrobust.([pln.propOpt.quantityOpt '_scen' num2str(round(get(es,'Value')))]) ,'plane', plane, 'slice', slice, 'contourColorMap', colorcube, 'doseWindow', [0 maxDose], 'doseIsoLevels', doseIsoLevels)); 
     %matRad_plotSliceWrapper(gca,ct,cst,round(get(es,'Value')),resultGUIrobust.([pln.propOpt.quantityOpt '_scen' num2str(round(get(es,'Value')))]),plane,slice,[],[],colorcube,[],[0 maxDose],doseIsoLevels));
 end
@@ -295,6 +298,3 @@ matRad_plotSlice(ct, 'axesHandle', gca, 'cst', cst, 'cubeIdx', 1, 'dose', result
 figure,title('std dose cube based on sampling - robust')
 matRad_plotSlice(ct, 'axesHandle', gca, 'cst', cst, 'cubeIdx', 1, 'dose', resultGUISampRob.stdCube  ,'plane', plane, 'slice', slice, 'contourColorMap', colorcube, 'doseWindow', [0 max(resultGUISampRob.stdCube(:))]);
 %matRad_plotSliceWrapper(gca,ct,cst,1,resultGUISampRob.stdCube,plane,slice,[],[],colorcube,[],[0 max(resultGUISampRob.stdCube(:))]);
-
-
-

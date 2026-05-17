@@ -69,20 +69,25 @@ if angleActive
     end
 end
 
+dimensions = matRad_getScenarioDimensionRegistry(shiftSD, rangeAbsSD, ...
+                                                 rangeRelSD, numOfBeams, gantryAngleSD, couchAngleSD);
 components = struct('name', {}, 'applicator', {}, 'unit', {}, 'active', {}, 'scale', {});
-components(end + 1) = helper_createComponent('setup.x', 'setup', 'mm', shiftSD(1), activeDimensionNames);
-components(end + 1) = helper_createComponent('setup.y', 'setup', 'mm', shiftSD(2), activeDimensionNames);
-components(end + 1) = helper_createComponent('setup.z', 'setup', 'mm', shiftSD(3), activeDimensionNames);
-components(end + 1) = helper_createComponent('range.absolute', 'range', 'mm', rangeAbsSD, activeDimensionNames);
-components(end + 1) = helper_createComponent('range.relative', 'range', 'fraction', rangeRelSD ./ 100, activeDimensionNames);
 
-if angleActive
-    for i = 1:numOfBeams
-        components(end + 1) = helper_createComponent(sprintf('gantry.beam%d', i), 'gantry', 'deg', gantryAngleSD, activeDimensionNames);
+for i = 1:numel(dimensions)
+    dimension = dimensions(i);
+    if isempty(dimension.componentNames)
+        continue
     end
 
-    for i = 1:numOfBeams
-        components(end + 1) = helper_createComponent(sprintf('couch.beam%d', i), 'couch', 'deg', couchAngleSD, activeDimensionNames);
+    if dimension.requiresContext && ~any(strcmp(activeDimensionNames, dimension.name))
+        continue
+    end
+
+    for j = 1:numel(dimension.componentNames)
+        componentName = dimension.componentNames{j};
+        unit = dimension.units{j};
+        scale = dimension.defaultScale(j);
+        components(end + 1) = helper_createComponent(componentName, dimension.name, unit, scale, activeDimensionNames);
     end
 end
 

@@ -60,10 +60,7 @@ end
 machine = machine{1};
 radiationMode = radiationMode{1};
 
-%Scenario Model
-if ~isa(this.multScen,'matRad_ScenarioModel')
-    this.multScen = matRad_ScenarioModel.create(this.multScen, ct);
-end
+this.initializeScenarioModel(ct, stf);
 
 % load machine file from base data folder
 this.machine = this.loadMachine(radiationMode,machine);
@@ -119,7 +116,9 @@ dij.doseGrid.cubeCoordOffset = [dij.doseGrid.resolution.x - dij.ctGrid.resolutio
 
 % meta information for dij
 dij.numOfBeams         = numel(stf);
-dij.numOfScenarios     = this.multScen.totNumScen;
+dij.numOfScenarios     = this.multScen.numScenarios();
+dij.scenarioModel      = this.multScen;
+dij.scenarioIds        = this.multScen.scenarioIds();
 
 dij.numOfRaysPerBeam   = [stf(:).numOfRays];
 dij.totalNumOfBixels   = sum([stf(:).totalNumOfBixels]);

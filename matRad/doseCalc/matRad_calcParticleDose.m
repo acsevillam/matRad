@@ -11,7 +11,7 @@ function dij = matRad_calcParticleDose(ct,stf,pln,cst,calcDoseDirect)
 %   cst:            matRad cst struct
 %   calcDoseDirect: boolian switch to bypass dose influence matrix
 %                   computation and directly calculate dose; only makes
-%                   sense in combination with matRad_calcDoseDirect.m
+%                   sense in combination with matRad_calcDoseForward.m
 %
 % output:
 %   dij:            matRad dij struct

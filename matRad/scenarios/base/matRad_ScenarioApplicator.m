@@ -28,5 +28,8 @@ classdef matRad_ScenarioApplicator < handle
             tf = any(strcmp(this.componentNames, componentName));
         end
 
+        function stf = applyToStf(~, ~, ~, stf)
+        end
+
     end
 end

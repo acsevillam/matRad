@@ -35,9 +35,6 @@ matRad_cfg = MatRad_Config.instance();
 optiProb.BP.compute(dij,w);
 d = optiProb.BP.GetResult();
 
-% get probabilistic quantities (nearly no overhead if empty)
-[dExp,dOmega] = optiProb.BP.GetResultProb();
-
 % get the used scenarios
 useScen  = optiProb.BP.scenarios;
 scenProb = optiProb.BP.scenarioProb;
@@ -54,11 +51,16 @@ f = 0;
 % required for COWC opt
 f_COWC = zeros(numel(useScen),1);
 
+% required for c-COWC Cheap-Minimax opt
+f_CCOWC = zeros(numel(useScen),1);
+has_CCOWC = false;
+
 % compute objective function for every VOI.
 for  i = 1:size(cst,1)
     
     % Only take OAR or target VOI.
-    if ~isempty(cst{i,4}{1}) && any(strcmp(cst{i,3},{'OAR','TARGET','EXTERNAL'}))
+    if ~isempty(cst{i,4}) && any(strcmp(cst{i,3},{'OAR','TARGET','EXTERNAL'}))
+        probVarianceAdded = false;
         
         % loop over the number of constraints for the current VOI
         for j = 1:numel(cst{i,6})
@@ -73,7 +75,12 @@ for  i = 1:size(cst,1)
 
                 % retrieve the robustness type
                 robustness = objective.robustness;
-                
+
+                if ~any(strcmp(robustness, {'PROB','PROB2','INTERVAL2','INTERVAL3'})) && ...
+                      (~iscell(cst{i,4}) || isempty(cst{i,4}{1}))
+                    continue;
+                end
+
                 switch robustness
                     case 'none' % if conventional opt: just sum objectives of nominal dose
                         for ixScen = useNominalCtScen
@@ -93,16 +100,29 @@ for  i = 1:size(cst,1)
                         end
 
                     case 'PROB' % if prob opt: sum up expectation value of objectives
-
-                        d_i = dExp{1}(cst{i,4}{1});
+                        stats = optiProb.GetResultProbabilistic(w,dij,cst,i);
+                        d_i = stats.dExp;
 
                         f   = f +  objective.penalty*objective.computeDoseObjectiveFunction(d_i);
 
-                        p = objective.penalty/numel(cst{i,4}{1});
-
                         % only one variance term per VOI
-                        if j == 1
-                            f = f + p * w' * dOmega{i,1};
+                        if ~probVarianceAdded
+                            if isempty(stats.meanVariance)
+                                matRad_cfg.dispError('PROB objectives require dij_prob.Omega{%d}!',i);
+                            end
+                            f = f + objective.penalty * stats.meanVariance;
+                            probVarianceAdded = true;
+                        end
+
+                    case 'PROB2' % scenario-free probabilistic optimization
+                        stats = optiProb.GetResultProbabilistic(w,dij,cst,i);
+
+                        if isa(objective,'DoseObjectives.matRad_MeanVariance')
+                            f = f + objective.penalty * ...
+                                objective.computeProb2ObjectiveFunction(stats);
+                        else
+                            f = f + objective.penalty * ...
+                                objective.computeDoseObjectiveFunction(stats.dExp);
                         end
 
                     case 'VWWC'  % voxel-wise worst case - takes minimum dose in TARGET and maximum in OAR
@@ -167,6 +187,30 @@ for  i = 1:size(cst,1)
                             f_COWC(s) = f_COWC(s) + objective.penalty*objective.computeDoseObjectiveFunction(d_i);
                         end
 
+                    case 'c-COWC'  % Cheap-Minimax composite worst case
+
+                        has_CCOWC = true;
+
+                        for s = 1:numel(useScen)
+                            ixScen = useScen(s);
+                            ixContour = contourScen(s);
+
+                            d_i = d{ixScen}(cst{i,4}{ixContour});
+
+                            f_CCOWC(s) = f_CCOWC(s) + objective.penalty*objective.computeDoseObjectiveFunction(d_i);
+                        end
+
+                    case {'INTERVAL2','INTERVAL3'}
+                        stats = optiProb.GetResultInterval(w,cst,i,objective);
+
+                        if isequal(cst{i,3},'TARGET')
+                            f = f + objective.computeDoseObjectiveFunction(w,stats.subIx, ...
+                                optiProb.theta1,optiProb.dij_interval);
+                        else
+                            f = f + objective.penalty * ...
+                                objective.computeDoseObjectiveFunction(stats.doseForObjective);
+                        end
+
                     case 'OWC'   % objective-wise worst case considers the worst individual objective function value
 
                         f_OWC = zeros(numel(useScen),1);
@@ -220,3 +264,12 @@ if fMax > 0
 end
 %Sum up max of composite worst case part
 f = f + fMax;
+
+if has_CCOWC
+    scenProb_CCOWC = scenProb(:);
+    if numel(scenProb_CCOWC) ~= numel(useScen)
+        scenProb_CCOWC = scenProb_CCOWC(useScen);
+    end
+
+    f = f + optiProb.cheapCOWC(f_CCOWC,scenProb_CCOWC);
+end

@@ -24,6 +24,7 @@ function uncertaintyDimensionNames = matRad_defaultScenarioUncertaintyDimensions
 %
 % %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-uncertaintyDimensionNames = {'ct', 'setup', 'range', 'gantry', 'couch'};
+dimensions = matRad_getScenarioDimensionRegistry([1 1 1], 1, 1, 0, 1, 1);
+uncertaintyDimensionNames = {dimensions.name};
 
 end

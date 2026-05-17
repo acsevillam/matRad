@@ -72,17 +72,38 @@ expectedValueNames = {'setup.x', 'setup.y', 'setup.z', ...
 
 assertEqual(model.scenarioValueNames, expectedValueNames);
 assertEqual(size(model.scenarioValues), [3, 9]);
-assertEqual(size(model.linearMask), [3, 5]);
-assertEqual(size(model.scenMask), [1, 3, 3, 3, 3]);
+assertEqual(model.scenarioStoragePolicy, 'compact-realization');
+assertEqual(size(model.linearMask), [3, 2]);
+assertEqual(size(model.scenMask), [3, 1]);
 assertEqual(model.totNumGantryScen, 3);
 assertEqual(model.totNumCouchScen, 3);
+assertEqual(model.getDijScenarioIndex(1), 1);
+assertExceptionThrown(@() model.sub2scenIx(1, 1, 1), 'matRad:Error');
 assertEqual(model.getGantryAngleOffset(1), model.scenarioValues(1, 6:7));
 assertEqual(model.getCouchAngleOffset(1), model.scenarioValues(1, 8:9));
 
-function test_scenarioAccessorsRejectUnsupportedLegacyAngularActivation
-model = matRad_NominalScenario();
+singleScenario = model.extractSingleScenario(2);
+assertEqual(singleScenario.scenarioStoragePolicy, 'compact-realization');
+assertEqual(size(singleScenario.scenarioValues), [1, 9]);
+assertEqual(singleScenario.scenarioValues, model.scenarioValues(2, :));
+assertEqual(singleScenario.getGantryAngleOffset(1), model.getGantryAngleOffset(2));
+assertEqual(singleScenario.getCouchAngleOffset(1), model.getCouchAngleOffset(2));
+
+function test_scenarioAccessorsRejectUnsupportedGriddedAngularActivation
+model = matRad_WorstCaseScenarios();
 
 assertExceptionThrown(@() helper_setAngularDimension(model), 'matRad:Error');
+
+function test_scenarioAccessorsExposeDimensionRegistry
+dimensions = matRad_getScenarioDimensionRegistry([1 2 3], 4, 5, 2, 6, 7);
+dimensionNames = {dimensions.name};
+
+assertEqual(dimensionNames, {'ct', 'setup', 'range', 'gantry', 'couch'});
+assertEqual(dimensions(2).componentNames, {'setup.x', 'setup.y', 'setup.z'});
+assertEqual(dimensions(3).defaultScale, [4 0.05]);
+assertEqual(dimensions(4).componentNames, {'gantry.beam1', 'gantry.beam2'});
+assertEqual(dimensions(4).defaultScale, [6 6]);
+assertTrue(dimensions(4).requiresContext);
 
 function test_scenarioAccessorsDoNotPolluteStructCreation
 ct.numOfCtScen = 3;
@@ -101,6 +122,35 @@ modelStruct.model = model.shortName;
 createdModel = matRad_ScenarioModel.create(modelStruct, ct);
 
 assertEqual(createdModel.numScenarios(), model.numScenarios());
+
+function test_scenarioAccessorsUseCanonicalStorageMapping
+model = helper_createModelWithStorage([3 1; 1 1; 2 1], [3 1]);
+
+assertEqual(model.getDijScenarioIndex(1), 3);
+assertEqual(model.getDijScenarioIndex(2), 1);
+assertEqual(model.getDijScenarioIndex(3), 2);
+assertEqual(model.getScenarioRowIndexFromDijIndex(3), 1);
+assertEqual(model.getScenarioRowIndexFromDijIndex(1), 2);
+assertEqual(model.getScenarioRowIndexFromDijIndex(2), 3);
+
+function test_scenarioAccessorsRejectInvalidStorageMapping
+assertExceptionThrown(@() helper_createModelWithStorage([1 1; 1 1], [2 1]), ...
+                      'matRad:Error');
+assertExceptionThrown(@() helper_createModelWithStorage([3 1], [2 1]), ...
+                      'matRad:Error');
+
+function test_scenarioAccessorsExposePhaseDoseOutputSemantics
+ct.numOfCtScen = 3;
+phaseModel = matRad_NominalScenario(ct);
+robustModel = matRad_WorstCaseScenarios(ct);
+compactModel = matRad_RandomScenarios(ct);
+compactModel.nSamples = 2;
+compactModel.numOfBeams = 1;
+compactModel.scenarioDimensionActive = {'ct', 'setup', 'range', 'gantry'};
+
+assertTrue(phaseModel.usesPhaseDoseOutput());
+assertFalse(robustModel.usesPhaseDoseOutput());
+assertFalse(compactModel.usesPhaseDoseOutput());
 
 function helper_assertScenarioAccessors(model)
 ids = model.scenarioIds();
@@ -161,6 +211,22 @@ function helper_setAngularDimension(model)
 
 model.numOfBeams = 1;
 model.scenarioDimensionActive = {'ct', 'setup', 'range', 'gantry'};
+
+function model = helper_createModelWithStorage(storageSubscripts, storageSize)
+model = matRad_NominalScenario();
+components = matRad_createScenarioComponents([1 1 1], 1, 1, ...
+                                             {'ct', 'setup', 'range'}, 0);
+numScenarios = size(storageSubscripts, 1);
+scenarioValues = zeros(numScenarios, numel(components));
+ctScenIds = ones(numScenarios, 1);
+scenProb = ones(numScenarios, 1) ./ numScenarios;
+scenWeight = scenProb;
+scenForProb = [ctScenIds scenarioValues];
+
+model.setScenarioRealizations(components, scenarioValues, ctScenIds, ...
+                              scenProb, scenWeight, scenForProb, ...
+                              storageSubscripts, storageSize, ...
+                              'compact-realization');
 
 function structWarnState = helper_disableStructWarning()
 if moxunit_util_platform_is_octave()

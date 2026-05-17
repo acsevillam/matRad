@@ -63,7 +63,7 @@ pln.propOpt.quantityOpt = 'physicalDose';
 
 % Enable/Disable local computation with TOPAS. Enabling this will generate
 % the necessary TOPAS files to run the simulation on any machine or server.
-% pln.propMC.externalCalculation = true;
+% pln.propDoseCalc.externalCalculation = 'write';
 
 %% generate steering file
 stf = matRad_generateStf(ct,cst,pln);

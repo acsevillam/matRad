@@ -40,9 +40,6 @@ matRad_cfg = MatRad_Config.instance();
 optiProb.BP.compute(dij,w);
 d = optiProb.BP.GetResult();
 
-% also get probabilistic quantities (nearly no overhead if empty)
-[dExp,dOmega] = optiProb.BP.GetResultProb();
-
 % get the used scenarios
 useScen  = optiProb.BP.scenarios;
 scenProb = optiProb.BP.scenarioProb;
@@ -56,17 +53,21 @@ contourScen   = fullScen{1};
 doseGradient          = cell(size(dij.physicalDose));
 doseGradient(useScen) = {zeros(dij.doseGrid.numOfVoxels,1)};
 
-%For probabilistic optimization
-vOmega = 0;
-
 %For COWC
 f_COWC = zeros(size(dij.physicalDose));
+
+% For c-COWC Cheap-Minimax
+f_CCOWC = zeros(numel(useScen),1);
+
+%For objectives that are already expressed in fluence space
+directWeightGradient = zeros(dij.totalNumOfBixels,1);
 
 % compute objective function for every VOI.
 for  i = 1:size(cst,1)
    
     % Only take OAR or target VOI.
-    if ~isempty(cst{i,4}{1}) && any(strcmp(cst{i,3},{'OAR','TARGET','EXTERNAL'}))
+    if ~isempty(cst{i,4}) && any(strcmp(cst{i,3},{'OAR','TARGET','EXTERNAL'}))
+        probVarianceAdded = false;
         
         % loop over the number of constraints and objectives for the current VOI
         for j = 1:numel(cst{i,6})
@@ -79,7 +80,12 @@ for  i = 1:size(cst,1)
                 
                 % retrieve the robustness type
                 robustness = objective.robustness;
-                
+
+                if ~any(strcmp(robustness, {'PROB','PROB2','INTERVAL2','INTERVAL3'})) && ...
+                      (~iscell(cst{i,4}) || isempty(cst{i,4}{1}))
+                    continue;
+                end
+
                 % rescale dose parameters to biological optimization quantity if required
                 objective = optiProb.BP.setBiologicalDosePrescriptions(objective,cst{i,5}.alphaX,cst{i,5}.betaX);
                 
@@ -105,18 +111,34 @@ for  i = 1:size(cst,1)
                         end
                         
                     case 'PROB' % use the expectation value and the integral variance influence matrix
-                        %First check the speficic cache for probabilistic
-                        if ~exist('doseGradientExp','var')
-                            doseGradientExp{1} = zeros(dij.doseGrid.numOfVoxels,1);
+                        stats = optiProb.GetResultProbabilistic(w,dij,cst,i);
+                        doseGradientProb = objective.penalty * ...
+                            objective.computeDoseObjectiveGradient(stats.dExp);
+                        directWeightGradient = directWeightGradient + ...
+                            stats.expectedRows' * doseGradientProb;
+
+                        if ~probVarianceAdded
+                            if isempty(stats.gradMeanVariance)
+                                matRad_cfg.dispError('PROB objectives require dij_prob.Omega{%d}!',i);
+                            end
+                            directWeightGradient = directWeightGradient + ...
+                                objective.penalty * stats.gradMeanVariance;
+                            probVarianceAdded = true;
                         end
-                        
-                        d_i = dExp{1}(cst{i,4}{1});
-                        
-                        doseGradientExp{1}(cst{i,4}{1}) = doseGradientExp{1}(cst{i,4}{1}) + objective.penalty*objective.computeDoseObjectiveGradient(d_i);
-                        
-                        p = objective.penalty/numel(cst{i,4}{1});
-                        
-                        vOmega = vOmega + p * dOmega{i,1};
+
+                    case 'PROB2' % scenario-free probabilistic optimization
+                        stats = optiProb.GetResultProbabilistic(w,dij,cst,i);
+
+                        if isa(objective,'DoseObjectives.matRad_MeanVariance')
+                            directWeightGradient = directWeightGradient + ...
+                                objective.penalty * ...
+                                objective.computeProb2ObjectiveGradient(stats);
+                        else
+                            doseGradientProb2 = objective.penalty * ...
+                                objective.computeDoseObjectiveGradient(stats.dExp);
+                            directWeightGradient = directWeightGradient + ...
+                                stats.expectedRows' * doseGradientProb2;
+                        end
                     
                     case 'VWWC'  % voxel-wise worst case - takes minimum dose in TARGET and maximum in OAR
                         contourIx = unique(contourScen);
@@ -218,6 +240,38 @@ for  i = 1:size(cst,1)
                             f_COWC(ixScen) = f_COWC(ixScen) + objective.penalty*objective.computeDoseObjectiveFunction(d_i);
                             delta_COWC{ixScen}(cst{i,4}{ixContour}) = delta_COWC{ixScen}(cst{i,4}{ixContour}) + objective.penalty*objective.computeDoseObjectiveGradient(d_i);
                         end
+
+                    case 'c-COWC' % Cheap-Minimax composite worst case
+                        if ~exist('delta_CCOWC','var')
+                            delta_CCOWC = cell(size(doseGradient));
+                            delta_CCOWC(useScen) = {zeros(dij.doseGrid.numOfVoxels,1)};
+                        end
+
+                        for s = 1:numel(useScen)
+                            ixScen = useScen(s);
+                            ixContour = contourScen(s);
+
+                            d_i = d{ixScen}(cst{i,4}{ixContour});
+
+                            f_CCOWC(s) = f_CCOWC(s) + objective.penalty*objective.computeDoseObjectiveFunction(d_i);
+                            delta_CCOWC{ixScen}(cst{i,4}{ixContour}) = ...
+                                delta_CCOWC{ixScen}(cst{i,4}{ixContour}) + ...
+                                objective.penalty*objective.computeDoseObjectiveGradient(d_i);
+                        end
+
+                    case {'INTERVAL2','INTERVAL3'}
+                        stats = optiProb.GetResultInterval(w,cst,i,objective);
+
+                        if isequal(cst{i,3},'TARGET')
+                            directWeightGradient = directWeightGradient + ...
+                                objective.computeFluenceObjectiveGradient(w,stats.subIx, ...
+                                optiProb.theta1,optiProb.dij_interval);
+                        else
+                            doseGradientInterval = objective.penalty * ...
+                                objective.computeDoseObjectiveGradient(stats.doseForObjective);
+                            directWeightGradient = directWeightGradient + ...
+                                stats.gradDoseForObjective' * doseGradientInterval;
+                        end
                         
                     case 'OWC' % objective-wise worst case consideres the worst individual objective function value
                         %First check the speficic cache for COWC
@@ -298,6 +352,22 @@ if exist('delta_COWC','var')
     end
 end
 
+if exist('delta_CCOWC','var')
+    scenProb_CCOWC = scenProb(:);
+    if numel(scenProb_CCOWC) ~= numel(useScen)
+        scenProb_CCOWC = scenProb_CCOWC(useScen);
+    end
+
+    [~,fGrad] = optiProb.cheapCOWC(f_CCOWC,scenProb_CCOWC);
+
+    for s = 1:numel(useScen)
+        ixScen = useScen(s);
+        if fGrad(s) ~= 0
+            doseGradient{ixScen} = doseGradient{ixScen} + fGrad(s)*delta_CCOWC{ixScen};
+        end
+    end
+end
+
 weightGradient = zeros(dij.totalNumOfBixels,1);
 
 optiProb.BP.computeGradient(dij,doseGradient,w);
@@ -307,10 +377,4 @@ for s = 1:numel(useScen)
    weightGradient = weightGradient + g{useScen(s)};
 end
 
-if vOmega ~= 0
-    optiProb.BP.computeGradientProb(dij,doseGradientExp,vOmega,w);
-    gProb = optiProb.BP.GetGradientProb();
-    
-    %Only implemented for first scenario now
-    weightGradient = weightGradient + gProb{1};
-end
+weightGradient = weightGradient + directWeightGradient;

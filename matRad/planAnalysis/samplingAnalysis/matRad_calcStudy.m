@@ -57,7 +57,7 @@ listOfQI = p.Results.ListOfQI;
 operator = p.Results.OperatorName;
 
 % require minimum number of scenarios to ensure proper statistics
-if multScen.totNumScen < 20
+if multScen.numScenarios() < 20
     matRad_cfg.dispWarning('Detected a low number of scenarios. Proceeding is not recommended.');
     sufficientStatistics = false;
     pause(1);

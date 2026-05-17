@@ -48,7 +48,7 @@ classdef (Abstract) matRad_DoseConstraint < matRad_DoseOptimizationFunction
 
     methods (Static)
         function rob = availableRobustness()
-            rob = {'none','PROB','VWWC','VWWC_INV',}; %By default, no robustness is available
+            rob = {'none','PROB','PROB2','VWWC','VWWC_INV',}; %By default, no robustness is available
         end 
     end
     
@@ -74,4 +74,3 @@ classdef (Abstract) matRad_DoseConstraint < matRad_DoseOptimizationFunction
         end
     end
 end
-

@@ -99,7 +99,7 @@ resultGUI = matRad_fluenceOptimization(dij,cst,pln);
 %% Trigger robust optimization
 % Make the objective to a composite worst case objective
 
-ROBUST_OPT = {'COWC'}; %{'STOCH','VWWC','VWWC_INV','COWC','OWC','PROB'};
+ROBUST_OPT = {'COWC'}; % Alternatives: 'STOCH', 'VWWC', 'VWWC_INV', 'COWC', 'OWC', 'PROB'
 
 for ixRob = 1:numel(ROBUST_OPT)
    cst{ixTarget,6}{1}.robustness  = ROBUST_OPT{1,ixRob};
@@ -136,9 +136,11 @@ matRad_plotSlice(ct, 'axesHandle', gca, 'cst', cst, 'cubeIdx', 1, 'dose', result
 %matRad_plotSliceWrapper(gca,ct,cst,1,resultGUIrobust.(['RBExDose_scen' num2str(round(numScen))]),plane,slice,[],[],colorcube,[],doseWindow,[]);
 
 [env,envver] = matRad_getEnvironment();
-if strcmp(env,'MATLAB') || str2double(envver(1)) >= 5
+numScenarios = pln.multScen.numScenarios();
+if numScenarios > 1 && (strcmp(env,'MATLAB') || str2double(envver(1)) >= 5)
+    sliderStep = 1 / (numScenarios - 1);
     b = uicontrol('Parent',f,'Style','slider','Position',[50,5,419,23],...
-        'value',numScen, 'min',1, 'max',pln.multScen.totNumScen,'SliderStep', [1/(pln.multScen.totNumScen-1) , 1/(pln.multScen.totNumScen-1)]);
+        'value',numScen, 'min',1, 'max',numScenarios,'SliderStep', [sliderStep, sliderStep]);
     set(b,'Callback',@(es,ed)  matRad_plotSlice(ct, 'axesHandle', gca, 'cst', cst, 'cubeIdx', 1, 'dose', resultGUIrobust.(['RBExDose_scen' num2str(round(get(es,'Value')))]), 'plane', plane, 'slice', slice, 'contourColorMap', colorcube, 'doseWindow', doseWindow));
         %matRad_plotSliceWrapper(gca,ct,cst,1,resultGUIrobust.(['RBExDose_scen' num2str(round(get(es,'Value')))]),plane,slice,[],[],colorcube,[],doseWindow,[]));
 end
@@ -161,4 +163,3 @@ matRad_plotSlice(ct, 'axesHandle', gca, 'cst', cst, 'cubeIdx', 1, 'dose', result
 figure,title('std dose cube based on sampling - robust')
 matRad_plotSlice(ct, 'axesHandle', gca, 'cst', cst, 'cubeIdx', 1, 'dose', resultGUISampRob.stdCube, 'plane', plane, 'slice', slice, 'contourColorMap', colorcube, 'doseWindow', [0 max(resultGUISampRob.stdCube(:))]);
 %matRad_plotSliceWrapper(gca,ct,cst,1,resultGUISampRob.stdCube,plane,slice,[],[],colorcube,[],[0 max(resultGUISampRob.stdCube(:))]);
-

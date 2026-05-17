@@ -35,6 +35,8 @@ classdef (Abstract) matRad_DoseEngineBase < handle
         selectVoxelsInScenarios;    % which voxels to compute in robustness scenarios
         precision = 'double';       % floating point precision for the dij and computations.
         enableGPU = false;          % whether to use GPU arrays (experimental) for dose calculation (if supported by subclass implementation).
+        UseParallel = false;        % whether multi-scenario dose influence calculation may use scenario-level parallelism
+        parallelOptions = struct();  % resource limits for scenario-level parallelism
         %bioModel;                  % name of the biological model
     end
     
@@ -215,7 +217,8 @@ classdef (Abstract) matRad_DoseEngineBase < handle
             %Set direct dose calculation and compute "dij"
             this.directWeights = w;
             this.calcDoseDirect = true;
-            dij = this.calcDose(ct,cst,stf);
+            this.initializeScenarioModel(ct, stf);
+            dij = this.calcDose(ct, cst, stf);
             dij = this.finalizeDose(dij);
 
             % calculate cubes; use uniform weights here, weighting with actual fluence 
@@ -227,37 +230,15 @@ classdef (Abstract) matRad_DoseEngineBase < handle
                 this.multScen = matRad_ScenarioModel.create(this.multScen,struct('numOfCtScen',ct.numOfCtScen));
             end
            
-            for i = 1:this.multScen.totNumScen
-                scenSubIx = this.multScen.linearMask(i,:);
-                resultGUItmp = matRad_calcCubes(ones(dij.numOfBeams,1),dij,this.multScen.sub2scenIx(scenSubIx(1),scenSubIx(2),scenSubIx(3)));
+            scenarioIds = this.multScen.scenarioIds();
+            for i = 1:numel(scenarioIds)
+                scenarioId = scenarioIds(i);
+                resultGUItmp = matRad_calcCubes(ones(dij.numOfBeams,1),dij, ...
+                    this.multScen.getDijScenarioIndex(scenarioId));
                 if i == 1
                     resultGUI = resultGUItmp;
                 end
-                if isvector(this.multScen.scenMask) &&  this.multScen.numOfCtScen>1%ctScen
-                    resultGUI.phaseDose{i} = resultGUItmp.physicalDose;
-                    for beamIx = 1:dij.numOfBeams
-                        resultGUI.(['phaseDose_beam', num2str(beamIx)]){i} = resultGUItmp.(['physicalDose_beam', num2str(beamIx)]);
-                    end
-                    if isfield(resultGUItmp, 'alphaDoseCube') && isfield(resultGUItmp, 'SqrtBetaDoseCube')
-                        resultGUI.phaseAlphaDose{i}    = resultGUItmp.alpha .* resultGUItmp.physicalDose;
-                        resultGUI.phaseSqrtBetaDose{i} = sqrt(resultGUItmp.beta) .* resultGUItmp.physicalDose;
-                        resultGUI.phaseRBExDose{i} = resultGUItmp.RBExDose;
-                        for beamIx = 1:dij.numOfBeams
-                            resultGUI.(['phaseAlphaDose_beam', num2str(beamIx)]){i} = resultGUItmp.(['alpha_beam', num2str(beamIx)]).*resultGUItmp.(['physicalDose_beam', num2str(beamIx)]);
-                            resultGUI.(['phaseSqrtBetaDose_beam', num2str(beamIx)]){i} = sqrt(resultGUItmp.(['beta_beam', num2str(beamIx)])).*resultGUItmp.(['physicalDose_beam', num2str(beamIx)]);
-                            resultGUI.(['phaseRBExDose_beam', num2str(beamIx)]){i} = resultGUItmp.(['RBExDose_beam', num2str(beamIx)]);
-                        end
-                    elseif isfield(resultGUItmp,'RBExDose')
-                        resultGUI.phaseRBExDose{i} = resultGUItmp.RBExDose;
-                        for beamIx = 1:dij.numOfBeams
-                          resultGUI.(['phaseRBExDose_beam', num2str(beamIx)]){i} = resultGUItmp.(['RBExDose_beam', num2str(beamIx)]);
-                        end
-                    end
-                else
-                    if this.multScen.totNumScen > 1
-                        resultGUI = matRad_appendResultGUI(resultGUI,resultGUItmp,false,sprintf('scen%d',i));
-                    end
-                end
+                resultGUI = this.appendForwardScenarioResult(resultGUI,resultGUItmp,dij,i);
             end
             
             if isfield(dij,'w')
@@ -273,11 +254,75 @@ classdef (Abstract) matRad_DoseEngineBase < handle
             resultGUI = orderfields(resultGUI);
         end
 
+        function resultGUI = appendForwardScenarioResult(this,resultGUI,resultGUItmp,dij,scenarioIx)
+            if this.multScen.usesPhaseDoseOutput()
+                resultGUI = this.appendForwardPhaseResult(resultGUI,resultGUItmp,dij,scenarioIx);
+            elseif this.multScen.numScenarios() > 1
+                resultGUI = matRad_appendResultGUI(resultGUI,resultGUItmp,false,sprintf('scen%d',scenarioIx));
+            end
+        end
+
+        function resultGUI = appendForwardPhaseResult(~,resultGUI,resultGUItmp,dij,scenarioIx)
+            resultGUI.phaseDose{scenarioIx} = resultGUItmp.physicalDose;
+            for beamIx = 1:dij.numOfBeams
+                resultGUI.(['phaseDose_beam', num2str(beamIx)]){scenarioIx} = resultGUItmp.(['physicalDose_beam', num2str(beamIx)]);
+            end
+
+            if isfield(resultGUItmp, 'alphaDoseCube') && isfield(resultGUItmp, 'SqrtBetaDoseCube')
+                resultGUI.phaseAlphaDose{scenarioIx} = resultGUItmp.alpha .* resultGUItmp.physicalDose;
+                resultGUI.phaseSqrtBetaDose{scenarioIx} = sqrt(resultGUItmp.beta) .* resultGUItmp.physicalDose;
+                resultGUI.phaseRBExDose{scenarioIx} = resultGUItmp.RBExDose;
+                for beamIx = 1:dij.numOfBeams
+                    resultGUI.(['phaseAlphaDose_beam', num2str(beamIx)]){scenarioIx} = resultGUItmp.(['alpha_beam', num2str(beamIx)]) .* resultGUItmp.(['physicalDose_beam', num2str(beamIx)]);
+                    resultGUI.(['phaseSqrtBetaDose_beam', num2str(beamIx)]){scenarioIx} = sqrt(resultGUItmp.(['beta_beam', num2str(beamIx)])) .* resultGUItmp.(['physicalDose_beam', num2str(beamIx)]);
+                    resultGUI.(['phaseRBExDose_beam', num2str(beamIx)]){scenarioIx} = resultGUItmp.(['RBExDose_beam', num2str(beamIx)]);
+                end
+            elseif isfield(resultGUItmp,'RBExDose')
+                resultGUI.phaseRBExDose{scenarioIx} = resultGUItmp.RBExDose;
+                for beamIx = 1:dij.numOfBeams
+                    resultGUI.(['phaseRBExDose_beam', num2str(beamIx)]){scenarioIx} = resultGUItmp.(['RBExDose_beam', num2str(beamIx)]);
+                end
+            end
+        end
+
         function dij = calcDoseInfluence(this,ct,cst,stf)
             this.calcDoseDirect = false;
+            this.initializeScenarioModel(ct, stf);
             dij = this.calcDose(ct,cst,stf);
             dij = this.finalizeDose(dij);
         end
+
+        function applicators = supportedScenarioApplicators(~)
+            applicators = {'ct', 'setup', 'range'};
+        end
+
+        function storagePolicies = supportedScenarioStoragePolicies(~)
+            storagePolicies = {'legacy-grid'};
+        end
+
+        function assertSupportedScenarioDimensions(this)
+            if ~isa(this.multScen, 'matRad_ScenarioModel')
+                return
+            end
+
+            supportedApplicators = this.supportedScenarioApplicators();
+            activeApplicators = this.multScen.scenarioDimensionActive;
+            unsupportedApplicators = setdiff(activeApplicators, supportedApplicators);
+            if ~isempty(unsupportedApplicators)
+                matRad_cfg = MatRad_Config.instance();
+                matRad_cfg.dispError('Dose engine "%s" does not support active scenario dimension "%s".', ...
+                                      this.name, unsupportedApplicators{1});
+            end
+
+            supportedStoragePolicies = this.supportedScenarioStoragePolicies();
+            if ~any(strcmp(this.multScen.scenarioStoragePolicy, supportedStoragePolicies))
+                matRad_cfg = MatRad_Config.instance();
+                matRad_cfg.dispError(['Dose engine "%s" supports only legacy ct/setup/range ', ...
+                                      'scenario grid storage. Compact or angular scenario dimensions require ', ...
+                                      'a dedicated engine refactor.'], this.name);
+            end
+        end
+
         function setDefaults(this)
             % future code for property validation on creation here
             matRad_cfg = MatRad_Config.instance();
@@ -286,10 +331,25 @@ classdef (Abstract) matRad_DoseEngineBase < handle
             this.doseGrid                   = matRad_cfg.defaults.propDoseCalc.doseGrid;
             this.multScen                   = 'nomScen';
             this.selectVoxelsInScenarios    = matRad_cfg.defaults.propDoseCalc.selectVoxelsInScenarios;
+            this.UseParallel                = false;
+            this.parallelOptions            = struct();
         end
     end
     
     methods(Access  =  protected)
+
+        function initializeScenarioModel(this, ct, stf)
+            if ~isa(this.multScen, 'matRad_ScenarioModel')
+                this.multScen = matRad_ScenarioModel.create(this.multScen, ct);
+            end
+
+            if this.multScen.hasActiveAngularScenarioDimension() && ...
+                    this.multScen.numOfBeams ~= numel(stf)
+                this.multScen.numOfBeams = numel(stf);
+            end
+
+            this.assertSupportedScenarioDimensions();
+        end
         
         % method for setting and preparing the inition parameters for the 
         % dose calculation.

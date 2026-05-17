@@ -33,14 +33,18 @@ function jacob = matRad_constraintJacobian(optiProb,w,dij,cst)
 %
 % %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+matRad_cfg = MatRad_Config.instance();
+
 % get current dose / effect / RBExDose vector
 %d = matRad_backProjection(w,dij,optiProb);
 %d = optiProb.matRad_backProjection(w,dij);
 optiProb.BP.compute(dij,w);
 d = optiProb.BP.GetResult();
+optiProb.validateProb2Configuration(cst,w);
 
 % initialize jacobian (only single scenario supported in optimization)
-jacob = sparse([]);
+jacob = sparse(0,dij.totalNumOfBixels);
+jacobBlocks = {};
 
 % initialize projection matrices and id containers
 DoseProjection{1}          = sparse([]);
@@ -62,7 +66,7 @@ contourScen   = fullScen{1};
 for i = 1:size(cst,1)
    
    % Only take OAR or target VOI.
-   if ~isempty(cst{i,4}{1}) && any(strcmp(cst{i,3},{'OAR','TARGET','EXTERNAL'}))
+   if ~isempty(cst{i,4}) && any(strcmp(cst{i,3},{'OAR','TARGET','EXTERNAL'}))
       
       % loop over the number of constraints for the current VOI
       for j = 1:numel(cst{i,6})
@@ -71,9 +75,17 @@ for i = 1:size(cst,1)
          
          % only perform computations for constraints
          if isa(constraint,'DoseConstraints.matRad_DoseConstraint')
-            
+
+            jacobSub = [];
+            directConstraintJacob = [];
+
             % retrieve the robustness type
             robustness = constraint.robustness;
+
+            if ~any(strcmp(robustness, {'PROB','PROB2'})) && ...
+                  (~iscell(cst{i,4}) || isempty(cst{i,4}{1}))
+               continue;
+            end
             
             % rescale dose parameters to biological optimization quantity if required
             constraint = optiProb.BP.setBiologicalDosePrescriptions(constraint,cst{i,5}.alphaX,cst{i,5}.betaX);
@@ -85,9 +97,23 @@ for i = 1:size(cst,1)
                      jacobSub = constraint.computeDoseConstraintJacobian(d_i);
                   
                case 'PROB' % if prob opt: sum up expectation value of objectives
-                  
-                  d_i = dExp{1}(cst{i,4}{1});
+                  if isa(constraint, 'DoseConstraints.matRad_MinMaxMeanVariance')
+                      matRad_cfg.dispError('MinMaxMeanVariance constraints are only supported for PROB2 robustness!');
+                  end
+                  stats = optiProb.GetResultProbabilistic(w,dij,cst,i);
+                  d_i = stats.dExp;
                   jacobSub = constraint.computeDoseConstraintJacobian(d_i);
+                  directConstraintJacob = jacobSub' * stats.expectedRows;
+
+               case 'PROB2' % scenario-free probabilistic optimization
+                  stats = optiProb.GetResultProbabilistic(w,dij,cst,i);
+                  if isa(constraint, 'DoseConstraints.matRad_MinMaxMeanVariance')
+                      directConstraintJacob = ...
+                          constraint.computeProb2ConstraintJacobian(stats)';
+                  else
+                      jacobSub = constraint.computeDoseConstraintJacobian(stats.dExp);
+                      directConstraintJacob = jacobSub' * stats.expectedRows;
+                  end
                   
                case 'VWWC'  % voxel-wise worst case - takes minimum dose in TARGET and maximum in OAR
                   contourIx = unique(contourScen);
@@ -143,10 +169,19 @@ for i = 1:size(cst,1)
                   matRad_cfg.dispError('Robustness setting %s not yet supported!',constraint.robustness);
             end
             
+            if ~isempty(directConstraintJacob)
+               jacobBlocks{end+1} = struct('type', 'direct', ...
+                                            'rows', sparse(directConstraintJacob)); %#ok<AGROW>
+               continue;
+            end
+
             nConst = size(jacobSub,2);
             
             %Iterate through columns of the sub-jacobian
-            if isa(optiProb.BP,'matRad_DoseProjection') && ~isempty(jacobSub) || isa(optiProb.BP,'matRad_ConstantRBEProjection')
+            if (isa(optiProb.BP,'matRad_DoseProjection') || ...
+                  isa(optiProb.BP,'matRad_ConstantRBEProjection')) && ~isempty(jacobSub)
+               jacobBlocks{end+1} = struct('type', 'projected', ...
+                                            'nRows', nConst); %#ok<AGROW>
                
                startIx = size(DoseProjection{1},2) + 1;
                %First append the Projection matrix with sparse zeros
@@ -156,6 +191,8 @@ for i = 1:size(cst,1)
                DoseProjection{1}(cst{i,4}{1},startIx:end) = jacobSub;
                
             elseif isa(optiProb.BP,'matRad_EffectProjection') && ~isempty(jacobSub)
+               jacobBlocks{end+1} = struct('type', 'projected', ...
+                                            'nRows', nConst); %#ok<AGROW>
                
                if isa(optiProb.BP,'matRad_VariableRBEProjection')
                   scaledEffect = (dij.gamma(cst{i,4}{1}) + d_i);
@@ -222,3 +259,19 @@ elseif isa(optiProb.BP,'matRad_EffectProjection')
    end
 end
 
+if ~isempty(jacobBlocks)
+   projectedJacob = jacob;
+   jacob = sparse(0,dij.totalNumOfBixels);
+   projectedStart = 1;
+
+   for blockIx = 1:numel(jacobBlocks)
+      block = jacobBlocks{blockIx};
+      if strcmp(block.type,'direct')
+         jacob = [jacob; block.rows]; %#ok<AGROW>
+      else
+         projectedStop = projectedStart + block.nRows - 1;
+         jacob = [jacob; projectedJacob(projectedStart:projectedStop,:)]; %#ok<AGROW>
+         projectedStart = projectedStop + 1;
+      end
+   end
+end

@@ -40,6 +40,17 @@ classdef matRad_StfGeneratorParticleIMPT < matRad_StfGeneratorParticleRayBixelAb
 
     methods (Access = protected)
 
+        function initialize(this)
+            initialize@matRad_StfGeneratorParticleRayBixelAbstract(this);
+
+            if ~this.multScen.isLegacyGridStorage()
+                matRad_cfg = MatRad_Config.instance();
+                matRad_cfg.dispError(['The Particle IMPT steering generator currently supports only legacy ' ...
+                    'ct/setup/range scenario grid storage. Compact or angular scenario dimensions require ' ...
+                    'a dedicated steering refactor.']);
+            end
+        end
+
         function beam = initBeamData(this,beam)
             beam = this.initBeamData@matRad_StfGeneratorParticleRayBixelAbstract(beam);
             beam.longitudinalSpotSpacing = this.longitudinalSpotSpacing;

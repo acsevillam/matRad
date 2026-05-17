@@ -33,9 +33,12 @@ function c = matRad_constraintFunctions(optiProb,w,dij,cst)
 % %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 
+matRad_cfg = MatRad_Config.instance();
+
 % get current dose / effect / RBExDose vector
 optiProb.BP.compute(dij,w);
 d = optiProb.BP.GetResult();
+optiProb.validateProb2Configuration(cst,w);
 
 % get the used scenarios
 useScen  = optiProb.BP.scenarios;
@@ -53,7 +56,7 @@ c = [];
 for  i = 1:size(cst,1)
    
    % Only take OAR or target VOI.
-   if ~isempty(cst{i,4}{1}) && any(strcmp(cst{i,3},{'OAR','TARGET','EXTERNAL'}))
+   if ~isempty(cst{i,4}) && any(strcmp(cst{i,3},{'OAR','TARGET','EXTERNAL'}))
       
       % loop over the number of constraints for the current VOI
       for j = 1:numel(cst{i,6})
@@ -68,6 +71,11 @@ for  i = 1:size(cst,1)
             
             % retrieve the robustness type
             robustness = constraint.robustness;
+
+            if ~any(strcmp(robustness, {'PROB','PROB2'})) && ...
+                  (~iscell(cst{i,4}) || isempty(cst{i,4}{1}))
+               continue;
+            end
             
             switch robustness
                case 'none' % if conventional opt: just sum objectives of nominal dose
@@ -75,9 +83,20 @@ for  i = 1:size(cst,1)
                    c = [c; constraint.computeDoseConstraintFunction(d_i)];
                   
                case 'PROB' % if prob opt: sum up expectation value of objectives
-                  
-                  d_i = dExp{1}(cst{i,4}{1});
+                  if isa(constraint, 'DoseConstraints.matRad_MinMaxMeanVariance')
+                      matRad_cfg.dispError('MinMaxMeanVariance constraints are only supported for PROB2 robustness!');
+                  end
+                  stats = optiProb.GetResultProbabilistic(w,dij,cst,i);
+                  d_i = stats.dExp;
                   c = [c; constraint.computeDoseConstraintFunction(d_i)];
+
+               case 'PROB2' % scenario-free probabilistic optimization
+                  stats = optiProb.GetResultProbabilistic(w,dij,cst,i);
+                  if isa(constraint, 'DoseConstraints.matRad_MinMaxMeanVariance')
+                      c = [c; constraint.computeProb2ConstraintFunction(stats)];
+                  else
+                      c = [c; constraint.computeDoseConstraintFunction(stats.dExp)];
+                  end
                   
                case 'VWWC'  % voxel-wise worst case - takes minimum dose in TARGET and maximum in OAR
                   contourIx = unique(contourScen);

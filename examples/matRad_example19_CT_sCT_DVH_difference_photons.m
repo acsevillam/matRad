@@ -281,7 +281,7 @@ matRadGUI;
 
 %% Perform the dose calculation for synthetic CT by using the weights of plan, calculated on real CT 
 % (i.e., obtain the dij variable) for the synthetic CT image. 
-resultGUI = matRad_calcDoseDirect(ct,stf,pln,cst, weights);
+resultGUI = matRad_calcDoseForward(ct, cst, stf, pln, weights);
 resultGUI = matRad_planAnalysis(resultGUI,ct,cst,stf,pln);
 matRadGUI;
 %Get the plan parameters calculated on synthetic CT

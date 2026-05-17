@@ -117,54 +117,11 @@ Patient's sex  & \patientSex \\
   \end{tabular}
 \end{table}
 
-\subsection{Parameter for Uncertainty Analysis}
+\subsection{Scenario Model Summary}
 \input{data/uncertaintyParameters.tex}
-The following parameters were used as scenarios, set by the user \operator.
-\begin{table}[!h]
-  \centering
-  %\caption{My caption}
-  \label{table:userParameters}
-  \begin{tabular}{rl}
-    \toprule
-    Scenario model & \scenarioModelName \\
-    Total scenarios & \numOfTotalScen \\
-    Number of setup scenarios & \numOfShiftScen \\
-    Max setup shift & \shiftSize \\
-    Setup combination & \shiftCombType \\
-    Number of range scenarios & \numOfRangeShiftScen \\
-    Max abs. range shift & \maxAbsRangeShift \\
-    Max rel. range shift & \maxRelRangeShift \\
-    Range combination & \rangeCombType \\
-    Computation time & \computationTime \\
-    \bottomrule
-  \end{tabular}
-\end{table}
-The following uncertainties were incorporated in this analysis.
-\begin{table}[!h]
-  \centering
-  %\caption{My caption}
-  \label{table:typeUncertainty}
-  \begin{tabular}{rl}
-    \toprule
-    Ct uncertainties   & \ctScen \\
-    Shift uncertainties    & \shiftScen  \\
-    Range uncertainties & \rangeScen \\
-    \bottomrule
-  \end{tabular}
-\end{table}
-Assuming the uncertainties above to be distributed by a normally around 0 with standard deviaton
-\begin{table}[!h]
-  \centering
-  %\caption{My caption}
-  \label{table:uncertaintySD}
-  \begin{tabular}{rl}
-    \toprule
-    $\sigma_{shift} $    & \shiftSD  \ mm\\
-    $\sigma_{relRange} $ & \rangeRelSD \ \% \\
-    $\sigma_{absRange} $ & \rangeAbsSD \ mm \\
-    \bottomrule
-  \end{tabular}
-\end{table}
+The following tables summarize the scenario model used for uncertainty analysis.
+\input{data/scenarioModelSummary.tex}
+\input{data/scenarioComponentSummary.tex}
 
 \subsection{Explenatory Information}
 In section \ref{sec:usa} common quality indictors are used to examine their behaviour under the influence of uncertainties. 

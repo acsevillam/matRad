@@ -44,7 +44,7 @@ pln.propDoseCalc.doseGrid.resolution.z = 5; % [mm]
 % Start with a simple physical dose model
 pln.bioParam = matRad_bioModel(pln.radiationMode,'none');
 
-pln.multScen = matRad_multScen(ct, 'nomScen');
+pln.multScen = matRad_NominalScenario(ct);
 
 stf = matRad_generateStf(ct,cst,pln);
 

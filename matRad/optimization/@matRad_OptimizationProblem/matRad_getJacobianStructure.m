@@ -29,30 +29,48 @@ function jacobStruct = matRad_getJacobianStructure(optiProb,w,dij,cst)
 % propagated, or distributed except according to the terms contained in the 	
 % LICENSE file.	
 %	
-jacobStruct = sparse([]);
+jacobStruct = sparse(0,dij.totalNumOfBixels);
+matRad_cfg = MatRad_Config.instance();
 
 tmp = false(size(dij.physicalDose{1},1),1);
- % compute objective function for every VOI.	
-for i = 1:size(cst,1)	
-     % Only take OAR or target VOI.	
-    if ~any(cellfun(@isempty,cst{i,4})) && any(strcmp(cst{i,3},{'OAR','TARGET','EXTERNAL'}))
-         % loop over the number of constraints for the current VOI	
-        for j = 1:numel(cst{i,6})	
-            	
-            obj = cst{i,6}{j};	
-            	
-            % only perform computations for constraints	
-              if isa(obj,'DoseConstraints.matRad_DoseConstraint')
-              	tmp(:) = false;
-                tmp(cst{i,4}{1}) = true;
-                	
-                % get the jacobian structure depending on dose	
-                jacobDoseStruct = obj.getDoseConstraintJacobianStructure(numel(cst{i,4}{1}));	
-                nRows = size(jacobDoseStruct,2);	
-                %jacobStruct = [jacobStruct; repmat(spones(mean(dij.physicalDose{1}(cst{i,4}{1},:),1)),nRows,1)];	
-                jacobStruct = [jacobStruct; repmat(spones(double(tmp') * dij.physicalDose{1}),nRows,1)];
-                 
-             end	
-         end	
-     end	
- end
+for i = 1:size(cst,1)
+    if ~isempty(cst{i,4}) && any(strcmp(cst{i,3},{'OAR','TARGET','EXTERNAL'}))
+        for j = 1:numel(cst{i,6})
+            obj = cst{i,6}{j};
+            if ~isa(obj,'DoseConstraints.matRad_DoseConstraint')
+                continue;
+            end
+
+            if any(strcmp(obj.robustness, {'PROB','PROB2'}))
+                stats = optiProb.GetResultProbabilistic(w,dij,cst,i);
+                if isa(obj,'DoseConstraints.matRad_MinMaxMeanVariance')
+                    if strcmp(obj.robustness,'PROB')
+                        matRad_cfg.dispError('MinMaxMeanVariance constraints are only supported for PROB2 robustness!');
+                    end
+                    if isempty(stats.Omega)
+                        matRad_cfg.dispError('PROB2 mean variance requires dij_prob.Omega{%d}!',i);
+                    end
+                    jacobStruct = [jacobStruct; ...
+                                   spones(sum(spones(stats.Omega),1))];
+                else
+                    jacobDoseStruct = obj.getDoseConstraintJacobianStructure(numel(stats.subIx));
+                    jacobStruct = [jacobStruct; ...
+                                   spones(jacobDoseStruct' * stats.expectedRows)];
+                end
+                continue;
+            end
+
+            if ~iscell(cst{i,4}) || isempty(cst{i,4}{1})
+                continue;
+            end
+
+            tmp(:) = false;
+            tmp(cst{i,4}{1}) = true;
+
+            jacobDoseStruct = obj.getDoseConstraintJacobianStructure(numel(cst{i,4}{1}));
+            nRows = size(jacobDoseStruct,2);
+            jacobStruct = [jacobStruct; ...
+                           repmat(spones(double(tmp') * dij.physicalDose{1}),nRows,1)];
+        end
+    end
+end

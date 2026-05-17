@@ -155,7 +155,7 @@ pln.propOpt.runDAO          = false;  % 1/true: run DAO, 0/false: don't / will b
 pln.propOpt.runSequencing   = false;  % 1/true: run sequencing, 0/false: don't / will be ignored for particles and also triggered by runDAO below
 
 % retrieve scenarios for dose calculation and optimziation
-pln.multScen = matRad_multScen(ct,'nomScen');
+pln.multScen = matRad_NominalScenario(ct);
 
 
 quantityOpt   = 'physicalDose';            % either  physicalDose / effect / RBExDose
@@ -171,6 +171,9 @@ stf = matRad_generateSingleBixelStf(ct,cst,pln);
 
 % Select existing BDL file to load and fit
 pln.loadExistingBDL = 'BDL_matRad.txt';
+pln.propDoseCalc.engine = 'MCsquare';
+pln.propDoseCalc.forceBDL = pln.loadExistingBDL;
+pln.propDoseCalc.numHistoriesDirect = 1e5;
 
 % read MC phase space data
 dataMC = importdata(pln.loadExistingBDL, ' ', 16);       
@@ -185,9 +188,6 @@ corMC    = (dataMC.data(:, 8) + dataMC.data(:,11)) / 2;
 minEnergy = 70;
 maxEnergy = 225;
 nEnergy   = 75;
-
-% Number of histories for the MC simulation
-pln.propMC.numHistories = 1e5;
 
 % We create a figure to display the fit
 hf = figure();
@@ -211,8 +211,8 @@ for currentEnergy = linspace(minEnergy, maxEnergy, nEnergy)
     % assign energy to stf and run MC simulation
     stf.ray.energy = currentEnergy;
     
-    %% needs to use correct BDL file in calcParticleDoseMC
-    resultGUI = matRad_calcDoseDirectMC(ct,stf,pln,cst,1);          
+    %% needs to use correct BDL file in MCsquare
+    resultGUI = matRad_calcDoseForward(ct, cst, stf, pln, 1);
     
     machine.data(count) = matRad_fitBaseData(resultGUI.physicalDose, ct.resolution, currentEnergy, mcData);
     

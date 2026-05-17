@@ -39,7 +39,7 @@ pln.bioModel        = 'constRBE';
 % retrieve scenarios for dose calculation and optimziation.
 % A nominal Scenario Model will consider all 4D scenarios as they are not
 % "uncertainty" per se
-pln.multScen = matRad_multScen(ct, 'nomScen');
+pln.multScen = matRad_NominalScenario(ct);
 
 % beam geometry settings
 pln.propStf.bixelWidth      = 5; % [mm] / also corresponds to lateral spot spacing for particles
@@ -93,4 +93,3 @@ imagesc(resultGUI.RBExDose(:,:,slice) - resultGUI.accRBExDose(:,:,slice)) ,color
 title('static dose distribution - accumulated (4D) dose distribution [Gy (RBE)]')
 
 axis equal
-

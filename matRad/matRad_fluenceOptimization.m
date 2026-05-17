@@ -328,31 +328,43 @@ linIxDIJ = find(~cellfun(@isempty,dij.physicalDose(scen4D,:,:)))';
 %Only select the indexes of the nominal ct Scenarios
 linIxDIJ_nominalCT = find(~cellfun(@isempty,dij.physicalDose(scen4D,1,1)))';
 
-FLAG_CALC_PROB = false;
-FLAG_ROB_OPT   = false;
+FLAG_PROBABILISTIC   = false;
+FLAG_INTERVAL        = false;
+FLAG_CHEAP_COWC      = false;
+FLAG_USE_SCENARIO_DOSE = false;
 
 
 for i = 1:size(cst,1)
     for j = 1:numel(cst{i,6})
-        if strcmp(cst{i,6}{j}.robustness,'PROB') && numel(linIxDIJ) > 1
-            FLAG_CALC_PROB = true;
-        end
-        if ~strcmp(cst{i,6}{j}.robustness,'none') && numel(linIxDIJ) > 1
-            FLAG_ROB_OPT = true;
+        robustness = cst{i,6}{j}.robustness;
+
+        if any(strcmp(robustness, {'PROB', 'PROB2'}))
+            FLAG_PROBABILISTIC = true;
+        elseif any(strcmp(robustness, {'INTERVAL2', 'INTERVAL3'}))
+            FLAG_INTERVAL = true;
+        elseif strcmp(robustness, 'c-COWC')
+            FLAG_CHEAP_COWC = true;
+            FLAG_USE_SCENARIO_DOSE = true;
+        elseif ~strcmp(robustness, 'none') && numel(linIxDIJ) > 1
+            FLAG_USE_SCENARIO_DOSE = true;
         end
     end
 end
 
-if FLAG_CALC_PROB
-    [dij] = matRad_calculateProbabilisticQuantities(dij,cst,pln);
+if FLAG_PROBABILISTIC && (~isfield(pln, 'propOpt') || ~isfield(pln.propOpt, 'dij_prob'))
+    matRad_cfg.dispError('PROB/PROB2 optimization requires pln.propOpt.dij_prob. Run matRad_calculateProbabilisticQuantities first.');
+end
+
+if FLAG_INTERVAL && (~isfield(pln, 'propOpt') || ~isfield(pln.propOpt, 'dij_interval'))
+    matRad_cfg.dispError('INTERVAL optimization requires pln.propOpt.dij_interval. Run matRad_calcDoseInterval first.');
 end
 
 
 % set optimization options
-if ~FLAG_ROB_OPT || FLAG_CALC_PROB     % if multiple robust objectives are defined for one structure then remove FLAG_CALC_PROB from the if clause
-    ixForOpt = scen4D;
-else
+if FLAG_USE_SCENARIO_DOSE
     ixForOpt = linIxDIJ;
+else
+    ixForOpt = scen4D;
 end
 
 
@@ -363,10 +375,48 @@ backProjection.nominalCtScenarios = linIxDIJ_nominalCT;
 %backProjection.scenDim      = pln.multScen
 
 optiProb = matRad_OptimizationProblem(backProjection);
+optiProb.quantityOpt = pln.propOpt.quantityOpt;
 
-if isfield(pln,'propOpt') && isfield(pln.propOpt,'useLogSumExpForRobOpt')
-    optiProb.useLogSumExpForRobOpt = pln.propOpt.useLogSumExpForRobOpt;
+if isfield(pln, 'propOpt') && isfield(pln.propOpt, 'useLogSumExpForRobOpt')
+    if pln.propOpt.useLogSumExpForRobOpt
+        optiProb.useMaxApprox = 'logsumexp';
+    else
+        optiProb.useMaxApprox = 'none';
+    end
 end
+
+if isfield(pln, 'propOpt')
+    if isfield(pln.propOpt, 'theta1')
+        optiProb.theta1 = pln.propOpt.theta1;
+    end
+
+    if isfield(pln.propOpt, 'theta2')
+        optiProb.theta2 = pln.propOpt.theta2;
+    end
+
+    if isfield(pln.propOpt, 'p1')
+        optiProb.p1 = pln.propOpt.p1;
+    end
+
+    if isfield(pln.propOpt, 'p2')
+        optiProb.p2 = pln.propOpt.p2;
+    end
+
+    if isfield(pln.propOpt, 'dij_interval')
+        optiProb.dij_interval = pln.propOpt.dij_interval;
+    end
+
+    if isfield(pln.propOpt, 'dij_prob')
+        optiProb.dij_prob = pln.propOpt.dij_prob;
+    end
+end
+
+if FLAG_CHEAP_COWC
+    optiProb.validateCheapCOWCParameters(numel(ixForOpt));
+end
+
+optiProb.validateIntervalConfiguration(cst, wInit);
+optiProb.validateProb2Configuration(cst, wInit);
 
 %Get Bounds
 if ~isfield(pln.propOpt,'boundMU')
@@ -443,10 +493,11 @@ resultGUI.usedOptimizer = optimizer;
 resultGUI.info = info;
 
 %Robust quantities
-if pln.multScen.totNumScen > 1
-    for i = 1:pln.multScen.totNumScen
-        scenSubIx = pln.multScen.linearMask(i,:);
-        resultGUItmp = matRad_calcCubes(wOpt,dij,pln.multScen.sub2scenIx(scenSubIx(1),scenSubIx(2),scenSubIx(3)));
+if pln.multScen.numScenarios() > 1
+    scenarioIds = pln.multScen.scenarioIds();
+    for i = 1:numel(scenarioIds)
+        resultGUItmp = matRad_calcCubes(wOpt,dij, ...
+            pln.multScen.getDijScenarioIndex(scenarioIds(i)));
         resultGUI = matRad_appendResultGUI(resultGUI,resultGUItmp,false,sprintf('scen%d',i));
     end
 end

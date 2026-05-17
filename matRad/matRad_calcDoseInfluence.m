@@ -1,9 +1,9 @@
-function dij = matRad_calcDoseInfluence(ct,cst,stf,pln)
+function dij = matRad_calcDoseInfluence(ct, cst, stf, pln)
 % matRad dose calculation automaticly creating the appropriate dose engine
 % for the given pln struct and called the associated dose calculation funtion
 %
 % call:
-%   dij =  matRad_calcDoseInfluence(ct,cst,stf,pln)
+%   dij = matRad_calcDoseInfluence(ct,cst,stf,pln)
 %
 % input:
 %   ct:         ct cube
@@ -31,20 +31,29 @@ function dij = matRad_calcDoseInfluence(ct,cst,stf,pln)
 %
 % %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-
 matRad_cfg = MatRad_Config.instance();
 
-%Deprecation warnings
-if ~isfield(stf,'machine')
-    matRad_cfg.dispDeprecationWarning('stf should contain the machine name in the ''machine'' field since matRad 3. Manually adding ''%s'' from pln.',pln.machine);
-    for i=1:numel(stf)
+% Deprecation warnings
+if ~isfield(stf, 'machine')
+    matRad_cfg.dispDeprecationWarning(['stf should contain the machine name in the ', ...
+                                       '''machine'' field since matRad 3. Manually ', ...
+                                       'adding ''%s'' from pln.'], pln.machine);
+    for i = 1:numel(stf)
         stf(i).machine = pln.machine;
     end
 end
 
 engine = DoseEngines.matRad_DoseEngineBase.getEngineFromPln(pln);
 
-%call the calcDose funktion
-dij = engine.calcDoseInfluence(ct,cst,stf);
+if engine.UseParallel
+    [dij, useParallel] = ...
+        ScenarioBatch.Parallel.matRad_calcDoseInfluenceParallelScenarios(ct, cst, stf, pln, engine);
+    if useParallel
+        return
+    end
+end
+
+% Call the calcDose function
+dij = engine.calcDoseInfluence(ct, cst, stf);
 
 end

@@ -59,6 +59,10 @@ operator = p.Results.OperatorName;
 sufficientStatistics = p.Results.SufficientStatistics;
 dPres = p.Results.PrescribedDose;
 
+if ~isa(pln.multScen, 'matRad_ScenarioModel')
+    pln.multScen = matRad_ScenarioModel.create(pln.multScen, ct);
+end
+
 dataPath = [outputPath filesep 'data'];
 mkdir(dataPath);
 mkdir(fullfile(dataPath,'frames'));
@@ -67,7 +71,8 @@ mkdir(fullfile(dataPath,'figures'));
 
 %% correct cst for unwanted characters and disable commonly not wanted structures
 
-doseCube = nominalScenario.(pln.bioModel.quantityVis);
+quantityVis = matRad_resolveDoseAnalysisQuantity(nominalScenario, pln, '');
+doseCube = nominalScenario.(quantityVis);
 
 fillPrescription = isempty(dPres);
 
@@ -162,55 +167,29 @@ end
 fclose(fid);
 
 %% analysis parameters
-line = cell(0);
-
-% raw input
 multScen = pln.multScen;
-% shift parameters
-line =  [line; '\newcommand{\scenarioModelName}{', ...
-          helper_scenarioText(multScen, 'name', 'Scenario Model'), '}'];
-line =  [line; '\newcommand{\numOfTotalScen}{', num2str(multScen.totNumScen), '}'];
-line =  [line; '\newcommand{\numOfShiftScen}{', num2str(multScen.totNumShiftScen), '}'];
-line =  [line; '\newcommand{\shiftSize}{', num2str(helper_maxAbsValue(multScen.isoShift)), '}'];
-line =  [line; '\newcommand{\shiftCombType}{', helper_scenarioCombinationText(multScen), '}'];
-
-% range parameters
-line =  [line; '\newcommand{\numOfRangeShiftScen}{', num2str(multScen.totNumRangeScen), '}'];
-line =  [line; '\newcommand{\maxAbsRangeShift}{', num2str(helper_maxAbsValue(multScen.absRangeShift)), '}'];
-line =  [line; '\newcommand{\maxRelRangeShift}{', num2str(helper_maxAbsValue(multScen.relRangeShift)), '}'];
-line =  [line; '\newcommand{\rangeCombType}{', helper_rangeCombinationText(multScen), '}'];
+[line, scenarioModelSummaryLines, scenarioComponentSummaryLines] = ...
+    matRad_buildScenarioReportParameters(multScen);
 
 % gamma analysis parameters
 line =  [line; '\newcommand{\gammaDoseAgreement}{', num2str(doseStat.gammaAnalysis.doseAgreement), '}'];
 line =  [line; '\newcommand{\gammaDistAgreement}{', num2str(doseStat.gammaAnalysis.distAgreement), '}'];
 
-if pln.multScen.numOfCtScen <= 1
-    line =  [line; '\newcommand{\ctScen}{false}'];
-else
-    line =  [line; '\newcommand{\ctScen}{true}'];
-end
-
-if pln.multScen.totNumRangeScen <= 1
-    line =  [line; '\newcommand{\rangeScen}{false}'];
-else
-    line =  [line; '\newcommand{\rangeScen}{true}'];
-end
-
-if pln.multScen.totNumShiftScen <= 1
-    line =  [line; '\newcommand{\shiftScen}{false}'];
-else
-    line =  [line; '\newcommand{\shiftScen}{true}'];
-end
-
-line =  [line; '\newcommand{\shiftSD}{', num2str(pln.multScen.shiftSD), '}'];
-line =  [line; '\newcommand{\rangeAbsSD}{', num2str(pln.multScen.rangeAbsSD), '}'];
-line =  [line; '\newcommand{\rangeRelSD}{', num2str(pln.multScen.rangeRelSD), '}'];
-
 fid = fopen(fullfile(dataPath,'uncertaintyParameters.tex'),'w');
 for i = 1:numel(line)
-    text = regexprep(line{i},'\','\\\');
-    fprintf(fid,text);
-    fprintf(fid,'\n');
+    fprintf(fid,'%s\n',line{i});
+end
+fclose(fid);
+
+fid = fopen(fullfile(dataPath,'scenarioModelSummary.tex'),'w');
+for i = 1:numel(scenarioModelSummaryLines)
+    fprintf(fid,'%s\n',scenarioModelSummaryLines{i});
+end
+fclose(fid);
+
+fid = fopen(fullfile(dataPath,'scenarioComponentSummary.tex'),'w');
+for i = 1:numel(scenarioComponentSummaryLines)
+    fprintf(fid,'%s\n',scenarioComponentSummaryLines{i});
 end
 fclose(fid);
 
@@ -235,7 +214,7 @@ for plane=1:3
     for cubesToPlot = 1:3
         figure; ax = gca;
         
-        doseCube = nominalScenario.(pln.bioModel.quantityVis); 
+        doseCube = nominalScenario.(quantityVis);
         
         if cubesToPlot == 1 
             
@@ -317,7 +296,7 @@ for i = 1:size(cst,1)
         x = nominalScenario.dvh(i).doseGrid(1:argmin);        
         h(1) = plot(x,y,'LineWidth',2, 'Color', colors(i,:), 'DisplayName', cst{i,2});      
         ylim([0 100]);
-        if strncmp(pln.bioModel.quantityVis,'RBExDose',5)
+        if strncmp(quantityVis, 'RBExDose', 5) || strncmp(quantityVis, 'RBExD', 5)
             xlabel('Dose RBE x [Gy]');
         else
             xlabel('Dose [Gy]');
@@ -385,7 +364,7 @@ clear filename
 % relative file path (relative to main.tex)
 relativePath = fullfile('data','structures');
 
-if strcmp(pln.bioModel.quantityVis, 'RBExDose')
+if strcmp(quantityVis, 'RBExDose') || strcmp(quantityVis, 'RBExD')
     labelDoseDVH = 'Dose RBE x [Gy]';
 else
    labelDoseDVH = 'Dose [Gy]';
@@ -488,49 +467,6 @@ end
 function [y, argmin] = cutAtArgmin(x)
   [~,argmin] = min(x);
   y = x(1:argmin);
-end
-
-function value = helper_maxAbsValue(values)
-if isempty(values)
-    value = 0;
-else
-    value = max(abs(values(:)));
-end
-end
-
-function text = helper_scenarioText(multScen, propertyName, defaultText)
-if isprop(multScen, propertyName)
-    value = multScen.(propertyName);
-    if isstring(value) && isscalar(value)
-        text = char(value);
-    elseif ischar(value)
-        text = value;
-    else
-        text = num2str(value);
-    end
-else
-    text = defaultText;
-end
-end
-
-function text = helper_scenarioCombinationText(multScen)
-if isprop(multScen, 'combinations')
-    text = multScen.combinations;
-else
-    text = 'sampled';
-end
-end
-
-function text = helper_rangeCombinationText(multScen)
-if isprop(multScen, 'combineRange')
-    if multScen.combineRange
-        text = 'combined';
-    else
-        text = 'separate';
-    end
-else
-    text = 'sampled';
-end
 end
 
 function text = parseFromDicom(dicomStruct, field, default)

@@ -107,7 +107,7 @@ imagesc(resultGUI.RBExDose(:,:,slice)),colorbar, colormap(jet)
 % matRad that it should not convert the HU-cube (ct.cubeHU) to RSP cube 
 % implicitly, but directly use the RSP cube we provide in ct.cube
 % Note that such uncertainty scenarios can also be computed by using the
-% functionalities of matRad_multScen
+% functionalities of matRad_ScenarioModel
 
 pln.propDoseCalc.useGivenEqDensityCube = true;
 ct_manip         = ct;

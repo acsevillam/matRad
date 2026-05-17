@@ -32,14 +32,10 @@ if nargin < 1 || isempty(numOfBeams)
     numOfBeams = 0;
 end
 
-componentNames = {'setup.x', 'setup.y', 'setup.z', 'range.absolute', 'range.relative'};
-
-for i = 1:numOfBeams
-    componentNames{end + 1} = sprintf('gantry.beam%d', i);
-end
-
-for i = 1:numOfBeams
-    componentNames{end + 1} = sprintf('couch.beam%d', i);
+dimensions = matRad_getScenarioDimensionRegistry([1 1 1], 1, 1, numOfBeams, 1, 1);
+componentNames = {};
+for i = 1:numel(dimensions)
+    componentNames = [componentNames dimensions(i).componentNames];
 end
 
 end

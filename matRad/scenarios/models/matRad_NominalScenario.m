@@ -1,103 +1,99 @@
 classdef matRad_NominalScenario < matRad_ScenarioModel
-%  matRad_RandomScenarios
-%  Implements a single nominal planning scenario
-%
-% constructor
-%   matRad_NominalScenario()
-%   matRad_NominalScenario(ct)
-%
-% input:
-%   ct:                 ct cube
-%
-% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%
-% Copyright 2022-2026 the matRad development team.
-%
-% This file is part of the matRad project. It is subject to the license
-% terms in the LICENSE file found in the top-level directory of this
-% distribution and at https://github.com/e0404/matRad/LICENSE.md. No part
-% of the matRad project, including this file, may be copied, modified,
-% propagated, or distributed except according to the terms contained in the
-% LICENSE file.
-%
-% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    
+    %  matRad_RandomScenarios
+    %  Implements a single nominal planning scenario
+    %
+    % constructor
+    %   matRad_NominalScenario()
+    %   matRad_NominalScenario(ct)
+    %
+    % input:
+    %   ct:                 ct cube
+    %
+    % %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    %
+    % Copyright 2022-2026 the matRad development team.
+    %
+    % This file is part of the matRad project. It is subject to the license
+    % terms in the LICENSE file found in the top-level directory of this
+    % distribution and at https://github.com/e0404/matRad/LICENSE.md. No part
+    % of the matRad project, including this file, may be copied, modified,
+    % propagated, or distributed except according to the terms contained in the
+    % LICENSE file.
+    %
+    % %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
     properties (SetAccess = protected)
-        shortName   = 'nomScen';
-        name        = 'Nominal Scenario';
+        shortName   = 'nomScen'
+        name        = 'Nominal Scenario'
     end
 
     methods
+
         function this = matRad_NominalScenario(ct)
-            if nargin == 0 
+            if nargin == 0
                 superclassArgs = {};
             else
                 superclassArgs = {ct};
-            end            
+            end
             this@matRad_ScenarioModel(superclassArgs{:});
 
-            %TODO: We could do this automatically in the superclass
-            %Octave 5 has a bug there and throws an error
+            % TODO: We could do this automatically in the superclass
+            % Octave 5 has a bug there and throws an error
             this.updateScenarios();
         end
-        
-        function scenarios = updateScenarios(this)
-            this.numOfCtScen = size(this.ctScenProb,1);
-            
-            %Scenario weight 
-            this.scenWeight = ones(this.numOfCtScen,1)./this.numOfCtScen;            
-            this.scenWeight = this.ctScenProb(:,2);
-            this.ctScenIx   = this.ctScenProb(:,1);
 
-            %set variables
+        function scenarios = updateScenarios(this)
+            this.numOfCtScen = size(this.ctScenProb, 1);
+
+            % set variables
             this.totNumShiftScen = 1;
             this.totNumRangeScen = 1;
-            this.totNumScen = this.numOfCtScen; 
-            
-            %Individual shifts
-            this.relRangeShift = zeros(this.numOfCtScen,1);
-            this.absRangeShift = zeros(this.numOfCtScen,1);
-            this.isoShift = zeros(this.numOfCtScen,3);            
+            this.totNumGantryScen = 1;
+            this.totNumCouchScen = 1;
+            this.totNumScen = this.numOfCtScen;
 
-            %Probability matrices
-            this.scenForProb = [this.ctScenProb(:,1) zeros(this.numOfCtScen,5)]; %Realization matrix
-            this.scenProb = this.ctScenProb(:,2); %Probabilities for each scenario
+            components = this.getScenarioComponents();
+            ctScenIds = this.ctScenProb(:, 1);
+            scenarioValues = zeros(this.numOfCtScen, numel(components));
+            scenarios = [ctScenIds scenarioValues];
 
-            this.maxAbsRangeShift = max(this.absRangeShift);
-            this.maxRelRangeShift = max(this.absRangeShift);
+            % Get Scenario probability
+            scenProb = matRad_computeScenarioProbabilities(components, scenarioValues, ...
+                                                           this.ctScenProb, ctScenIds);
 
-            %Mask for scenario selection
-            this.scenMask = false(this.numOfAvailableCtScen,this.totNumShiftScen,this.totNumRangeScen);
-            this.scenMask(this.ctScenIx,:,:) = true;
+            % Get relative (normalized) weight of the scenario
+            scenWeight = scenProb ./ sum(scenProb);
 
-            %generic code
-            [x{1}, x{2}, x{3}] = ind2sub(size(this.scenMask),find(this.scenMask));
-            this.linearMask    = cell2mat(x);
-            totNumScen    = sum(this.scenMask(:));
-            
-            %Get Scenario probability
-            Sigma = diag([this.shiftSD,this.rangeAbsSD,this.rangeRelSD./100].^2);
-            d = size(Sigma,1);
-            [cs,p] = chol(Sigma);
-            tmpScenProb = (2*pi)^(-d/2) * exp(-0.5*sum((this.scenForProb(:,2:end)/cs).^2, 2)) / prod(diag(cs));
-            
-            %Multiply with 4D phase probability
-            this.scenProb = this.ctScenProb(:,2) .* tmpScenProb;
-            
-            %Get relative (normalized) weight of the scenario
-            this.scenWeight = this.scenProb./sum(this.scenProb); 
-            
-            %Return variable
-            scenarios = this.scenForProb;
-            this.finalizeScenarioRealizations();
-            
+            if this.hasOnlyLegacyScenarioDimensions()
+                storagePolicy = 'legacy-grid';
+                storageSize = [this.numOfAvailableCtScen, this.totNumShiftScen, this.totNumRangeScen];
+                storageSubscripts = [ctScenIds ones(this.numOfCtScen, 2)];
+            else
+                storagePolicy = 'compact-realization';
+                storageSize = [this.numOfCtScen 1];
+                storageSubscripts = [(1:this.numOfCtScen)' ones(this.numOfCtScen, 1)];
+            end
 
-            if totNumScen ~= this.totNumScen
+            this.setScenarioRealizations(components, scenarioValues, ctScenIds, ...
+                                         scenProb, scenWeight, scenarios, storageSubscripts, storageSize, ...
+                                         storagePolicy);
+
+            if sum(this.scenMask(:)) ~= this.totNumScen
                 matRad_cfg = MatRad_Config.instance();
-                matRad_cfg.dispWarning('Check Implementation of Total Scenario computation - given %d but found %d!',this.totNumScen,totNumScen);
-                this.totNumScen = totNumScen;
+                matRad_cfg.dispWarning(['Check Implementation of Total Scenario computation - given %d ' ...
+                                        'but found %d!'], this.totNumScen, sum(this.scenMask(:)));
+                this.totNumScen = sum(this.scenMask(:));
             end
         end
-        
+
+    end
+
+    methods (Access = protected)
+
+        function validateScenarioDimensionSupport(~, ~)
+            % Nominal scenarios can represent any registered dimension at its
+            % nominal value.
+        end
+
     end
 end
