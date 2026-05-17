@@ -16,6 +16,12 @@ function [caSampRes, mSampDose, pln, resultGUInomScen] = matRad_sampling(ct, stf
 %               vector
 %   dvhDoseWindow: (optional) per-fraction dose window for the common DVH grid
 %   dvhDoseGrid:   (optional) explicit per-fraction DVH dose grid
+%   autoLimitWorkers: (optional) reduce the parallel pool size based on
+%               available system memory and estimated memory per worker
+%   workerMemorySafetyFactor: (optional) safety factor for worker memory
+%   memoryReserveFraction: (optional) system memory fraction kept in reserve
+%   minWorkerMemoryBytes: (optional) lower bound for per-worker memory
+%   workerUpperBound: (optional) explicit upper bound for workers
 %
 % output:
 %   caSampRes:         cell array of sampling results depicting plan parameter
@@ -50,6 +56,12 @@ end
 parser = inputParser;
 parser.addParameter('dvhDoseWindow', [], @(x) isempty(x) || (isnumeric(x) && numel(x) >= 2));
 parser.addParameter('dvhDoseGrid', [], @(x) isempty(x) || (isnumeric(x) && isvector(x)));
+parser.addParameter('autoLimitWorkers', true, @(x) (islogical(x) || isnumeric(x)) && isscalar(x));
+parser.addParameter('workerMemorySafetyFactor', 1.2, @(x) isnumeric(x) && isscalar(x) && isfinite(x) && x >= 1);
+parser.addParameter('memoryReserveFraction', 0.10, @(x) isnumeric(x) && isscalar(x) && isfinite(x) && x >= 0 && x < 1);
+parser.addParameter('minWorkerMemoryBytes', 1024^3, @(x) isnumeric(x) && isscalar(x) && isfinite(x) && x >= 0);
+parser.addParameter('workerUpperBound', [], @(x) isempty(x) || ...
+                    (isnumeric(x) && isscalar(x) && isfinite(x) && round(x) == x && x >= 1));
 parser.parse(varargin{:});
 
 refScen = matRad_resolveSamplingReferenceScenario(ct);
@@ -151,27 +163,37 @@ resultGUInomScen.evaluationModeBase = 'perFraction';
 
 samplingContext = matRad_buildSamplingContext(ct, stf, cst, pln, w, cstEval, subIx, ...
                                               dvhPoints, refGy, refVol, doseMapping, quantityVis);
+samplingMemoryEstimate = matRad_estimateSamplingMemory(samplingContext, numScenarios, StorageInfo.bytes);
+samplingResourceConfig = matRad_samplingResourceConfig(parser.Results);
 
 %% perform sampling
-[mSampDose, caSampRes] = matRad_executeSamplingScenarios(samplingContext, scenarioIds, mSampDose, ...
-                                                         nomScenTime, matRad_cfg);
+samplingOutput = matRad_runSampling(samplingContext, scenarioIds, mSampDose, ...
+                                    nomScenTime, samplingMemoryEstimate, ...
+                                    samplingResourceConfig, matRad_cfg);
+mSampDose = samplingOutput.mSampDose;
+caSampRes = samplingOutput.caSampRes;
+samplingMemoryEstimate = samplingOutput.samplingMemoryEstimate;
 
 %% add subindices
 pln.subIx        = subIx;
 pln.samplingReferenceCtScen = refScen;
 pln.samplingDoseMapping = doseMapping;
+pln.samplingMemoryEstimate = samplingMemoryEstimate;
 
 end
 
-function [mSampDose, caSampRes] = matRad_executeSamplingScenarios(samplingContext, scenarioIds, mSampDose, ...
-                                                                  nomScenTime, matRadCfg)
+function samplingOutput = matRad_runSampling(samplingContext, scenarioIds, mSampDose, ...
+                                             nomScenTime, samplingMemoryEstimate, ...
+                                             samplingResourceConfig, matRadCfg)
 
-[parallelToolboxLicensed, pool] = matRad_prepareSamplingPool(matRadCfg);
+poolContext = matRad_prepareSamplingPool(matRadCfg, numel(scenarioIds), ...
+                                         samplingMemoryEstimate, samplingResourceConfig);
+samplingMemoryEstimate = poolContext.samplingMemoryEstimate;
 numScenarios = numel(scenarioIds);
 
-if parallelToolboxLicensed
+if poolContext.parallelToolboxLicensed
     [mSampDose, caSampRes] = matRad_executeParallelSamplingScenarios(samplingContext, scenarioIds, ...
-                                                                     mSampDose, nomScenTime, pool, matRadCfg);
+                                                                     mSampDose, nomScenTime, poolContext.pool, matRadCfg);
 else
     [mSampDose, caSampRes] = matRad_executeSerialSamplingScenarios(samplingContext, scenarioIds, ...
                                                                    mSampDose, nomScenTime, matRadCfg);
@@ -181,24 +203,59 @@ if numel(caSampRes) ~= numScenarios
     matRadCfg.dispError('Sampling did not produce the expected number of scenario results.');
 end
 
+samplingOutput = struct('mSampDose', mSampDose, ...
+                        'caSampRes', caSampRes, ...
+                        'samplingMemoryEstimate', samplingMemoryEstimate);
+
 end
 
-function [parallelToolboxLicensed, pool] = matRad_prepareSamplingPool(matRadCfg)
-pool = [];
+function poolContext = matRad_prepareSamplingPool(matRadCfg, numScenarios, samplingMemoryEstimate, samplingResourceConfig)
+poolContext = struct('parallelToolboxLicensed', false, ...
+                     'pool', [], ...
+                     'samplingMemoryEstimate', samplingMemoryEstimate);
+
 try
-    [parallelToolboxLicensed, ~] = license('checkout', 'Distrib_Computing_Toolbox');
-    if ~parallelToolboxLicensed
+    [poolContext.parallelToolboxLicensed, ~] = license('checkout', 'Distrib_Computing_Toolbox');
+    if ~poolContext.parallelToolboxLicensed
         matRadCfg.dispWarning('Could not check out parallel computing toolbox. \n');
         return
     end
 
-    pool = gcp(); % If no pool exists, create one.
-    if isempty(pool)
+    if samplingResourceConfig.autoLimitWorkers
+        workerBytes = samplingMemoryEstimate.rawWorkerBytes;
+        safetyFactor = samplingResourceConfig.workerMemorySafetyFactor;
+        reserveFraction = samplingResourceConfig.memoryReserveFraction;
+        minWorkerMemoryBytes = samplingResourceConfig.minWorkerMemoryBytes;
+        workerUpperBound = samplingResourceConfig.workerUpperBound;
+        [targetWorkers, memoryEstimate] = matRad_estimateMemoryLimitedWorkerCount( ...
+                                                                                  workerBytes, ...
+                                                                                  'numTasks', numScenarios, ...
+                                                                                  'safetyFactor', safetyFactor, ...
+                                                                                  'reserveFraction', reserveFraction, ...
+                                                                                  'minWorkerMemoryBytes', minWorkerMemoryBytes, ...
+                                                                                  'workerUpperBound', workerUpperBound);
+        samplingMemoryEstimate.workerLimit = memoryEstimate;
+        matRad_logSamplingMemoryEstimate(samplingMemoryEstimate, memoryEstimate, matRadCfg);
+        if isempty(targetWorkers)
+            poolContext.pool = gcp(); % If no pool exists, create one.
+        else
+            poolContext.pool = matRad_configureParallelPoolSize(targetWorkers, 'sampling', matRadCfg);
+        end
+    else
+        matRad_logSamplingMemoryEstimate(samplingMemoryEstimate, [], matRadCfg);
+        poolContext.pool = gcp(); % If no pool exists, create one.
+    end
+
+    poolContext.samplingMemoryEstimate = samplingMemoryEstimate;
+
+    if isempty(poolContext.pool)
         matRadCfg.dispError('matRad: Could not start valid parallel pool. Please check your parallel computing toolbox installation. \n');
     end
 catch
-    parallelToolboxLicensed = false;
-    pool = [];
+    matRad_logSamplingMemoryEstimate(samplingMemoryEstimate, [], matRadCfg);
+    poolContext.parallelToolboxLicensed = false;
+    poolContext.pool = [];
+    poolContext.samplingMemoryEstimate = samplingMemoryEstimate;
 end
 end
 
@@ -295,6 +352,76 @@ samplingContext.refVol = refVol;
 samplingContext.doseMapping = doseMapping;
 samplingContext.quantity = quantity;
 
+end
+
+function samplingResourceConfig = matRad_samplingResourceConfig(parserResults)
+samplingResourceConfig = struct();
+samplingResourceConfig.autoLimitWorkers = logical(parserResults.autoLimitWorkers);
+samplingResourceConfig.workerMemorySafetyFactor = parserResults.workerMemorySafetyFactor;
+samplingResourceConfig.memoryReserveFraction = parserResults.memoryReserveFraction;
+samplingResourceConfig.minWorkerMemoryBytes = parserResults.minWorkerMemoryBytes;
+samplingResourceConfig.workerUpperBound = parserResults.workerUpperBound;
+end
+
+function samplingMemoryEstimate = matRad_estimateSamplingMemory(samplingContext, numScenarios, sampleDoseStorageBytes)
+inputBytes = matRad_variableBytes(samplingContext.ct) + ...
+             matRad_variableBytes(samplingContext.stf) + ...
+             matRad_variableBytes(samplingContext.cst) + ...
+             matRad_variableBytes(samplingContext.pln) + ...
+             matRad_variableBytes(samplingContext.w) + ...
+             matRad_variableBytes(samplingContext.cstEval) + ...
+             matRad_variableBytes(samplingContext.subIx) + ...
+             matRad_variableBytes(samplingContext.dvhPoints) + ...
+             matRad_variableBytes(samplingContext.refGy) + ...
+             matRad_variableBytes(samplingContext.refVol) + ...
+             matRad_variableBytes(samplingContext.doseMapping);
+sampleDoseBytes = numel(samplingContext.subIx) * 4;
+sampleResultBytes = 64 * 1024;
+doseCubeBytes = prod(double(samplingContext.ct.cubeDim)) * 8;
+
+samplingMemoryEstimate = struct();
+samplingMemoryEstimate.estimateBasis = 'samplingContextProxy';
+samplingMemoryEstimate.numSamples = numScenarios;
+samplingMemoryEstimate.numVoxels = numel(samplingContext.subIx);
+samplingMemoryEstimate.inputBytes = inputBytes;
+samplingMemoryEstimate.doseResultProxyBytes = doseCubeBytes;
+samplingMemoryEstimate.sampleDoseBytes = sampleDoseBytes;
+samplingMemoryEstimate.sampleResultBytes = sampleResultBytes;
+samplingMemoryEstimate.doseMappingWorkspaceBytes = doseCubeBytes * double(samplingContext.doseMapping.enabled);
+samplingMemoryEstimate.rawWorkerBytes = inputBytes + doseCubeBytes + sampleDoseBytes + ...
+    sampleResultBytes + samplingMemoryEstimate.doseMappingWorkspaceBytes;
+samplingMemoryEstimate.sampleDoseStorageBytes = sampleDoseStorageBytes;
+samplingMemoryEstimate.sampleResultStorageBytes = sampleResultBytes * numScenarios;
+samplingMemoryEstimate.mainProcessOutputBytes = sampleDoseStorageBytes + ...
+    samplingMemoryEstimate.sampleResultStorageBytes;
+samplingMemoryEstimate.workerLimit = [];
+end
+
+function bytes = matRad_variableBytes(value)
+info = whos('value');
+bytes = info.bytes;
+end
+
+function matRad_logSamplingMemoryEstimate(samplingMemoryEstimate, workerLimit, matRadCfg)
+msg = ['matRad: Estimated sampling memory: output ', ...
+       matRad_formatSamplingBytes(samplingMemoryEstimate.mainProcessOutputBytes), ...
+       ', raw worker ', matRad_formatSamplingBytes(samplingMemoryEstimate.rawWorkerBytes)];
+if ~isempty(workerLimit)
+    msg = [msg, ', memory-limited workers ', num2str(workerLimit.maxWorkers), ...
+           ' (usable ', matRad_formatSamplingBytes(workerLimit.usableBytes), ')'];
+end
+matRadCfg.dispInfo([msg, '.\n']);
+end
+
+function text = matRad_formatSamplingBytes(bytes)
+units = {'B', 'KiB', 'MiB', 'GiB', 'TiB'};
+value = double(bytes);
+unitIx = 1;
+while value >= 1024 && unitIx < numel(units)
+    value = value / 1024;
+    unitIx = unitIx + 1;
+end
+text = sprintf('%.2f %s', value, units{unitIx});
 end
 
 function refScen = matRad_resolveSamplingReferenceScenario(ct)
