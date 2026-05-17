@@ -85,6 +85,11 @@ classdef MatRad_Config < handle
                 addpath(genpath(obj.matRadSrcRoot));
                 addpath(obj.exampleFolder);
                 addpath(genpath(obj.thirdPartyFolder));
+                planWorkflowPath = fullfile(obj.matRadRoot, ...
+                    'submodules', 'planWorkflow');
+                if exist(planWorkflowPath,'dir')
+                    addpath(genpath(planWorkflowPath));
+                end
             end
 
             obj.updateUserfolders();
