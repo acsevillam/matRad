@@ -122,6 +122,8 @@ expectedDoseDifferenceAnalysis.overReferenceExpectedDoseDifferenceCube = ...
 expectedDoseDifferenceAnalysis.underReferenceExpectedDoseDifferenceCube = ...
     underReferenceExpectedDoseDifferenceCube;
 expectedDoseDifferenceAnalysis.signedExpectedDoseDifferenceCube = signedExpectedDoseDifferenceCube;
+expectedDoseDifferenceAnalysis.doseWindow = ...
+    matRad_getExpectedDoseDifferenceDoseWindow(signedExpectedDoseDifferenceCube);
 expectedDoseDifferenceAnalysis.summary = ...
     matRad_summarizeExpectedDoseDifference(overReferenceProbabilityCube, ...
                                            underReferenceProbabilityCube, ...
@@ -154,6 +156,7 @@ expectedDoseDifferenceAnalysis.signedReferenceProbabilityCube = NaN(size(referen
 expectedDoseDifferenceAnalysis.overReferenceExpectedDoseDifferenceCube = NaN(size(referenceCube));
 expectedDoseDifferenceAnalysis.underReferenceExpectedDoseDifferenceCube = NaN(size(referenceCube));
 expectedDoseDifferenceAnalysis.signedExpectedDoseDifferenceCube = NaN(size(referenceCube));
+expectedDoseDifferenceAnalysis.doseWindow = [-1 1];
 expectedDoseDifferenceAnalysis.summary = matRad_emptyExpectedDoseDifferenceSummary();
 end
 
@@ -239,6 +242,20 @@ if nnz(sampleMask) == numel(sampleMask)
 else
     status = 'computedPartialMask';
 end
+end
+
+function doseWindow = matRad_getExpectedDoseDifferenceDoseWindow(signedDoseCube)
+finiteValues = signedDoseCube(isfinite(signedDoseCube));
+if isempty(finiteValues)
+    doseWindow = [-1 1];
+    return
+end
+
+windowAbs = max(abs(finiteValues(:)));
+if windowAbs == 0
+    windowAbs = 1;
+end
+doseWindow = [-windowAbs windowAbs];
 end
 
 function summary = matRad_summarizeExpectedDoseDifference(overCube, underCube, nearCube, ...

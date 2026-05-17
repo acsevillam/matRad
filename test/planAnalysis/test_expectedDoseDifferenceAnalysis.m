@@ -41,6 +41,7 @@ assertElementsAlmostEqual(analysis.summary.maxOverReferenceExpectedDoseDifferenc
                           'absolute', 1e-12);
 assertElementsAlmostEqual(analysis.summary.maxAbsSignedExpectedDoseDifference, 0.4, ...
                           'absolute', 1e-12);
+assertElementsAlmostEqual(analysis.doseWindow, [-0.4 0.4], 'absolute', 1e-12);
 
 function test_partialMaskLeavesUnsampledVoxelsAsNaN
 referenceCube = reshape([1; 1; 2; 4], [2 2]);
@@ -83,6 +84,7 @@ colorBarHandle = findobj(fig, 'Type', 'ColorBar');
 assertEqual(numel(imageHandle), 1);
 assertElementsAlmostEqual(get(imageHandle, 'CData'), analysis.signedExpectedDoseDifferenceCube, ...
                           'absolute', 1e-12);
+assertElementsAlmostEqual(caxis(axesHandle), analysis.doseWindow, 'absolute', 1e-12);
 assertEqual(get(get(colorBarHandle, 'YLabel'), 'String'), 'E[D - ref] [Gy]');
 
 function test_plotUsesRbeDoseUnitLabel
