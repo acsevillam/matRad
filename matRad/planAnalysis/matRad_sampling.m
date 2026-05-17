@@ -274,6 +274,8 @@ totCompTime = ceil(numScenarios / poolSize) * nomScenTime * 1.35;
 matRad_logSamplingTimeEstimate(totCompTime, matRadCfg);
 
 progressEnabled = matRad_startSamplingProgress(numScenarios, logLevel, matRadCfg);
+[progressQueue, progressListener] = ...
+    matRad_createSamplingProgressQueue(numScenarios, logLevel, matRadCfg); %#ok<ASGLU>
 sampleResults = cell(1, numScenarios);
 
 parfor i = 1:numScenarios
@@ -284,6 +286,9 @@ parfor i = 1:numScenarios
 
     if progressEnabled && logLevel > 2
         parfor_progress;
+    end
+    if ~isempty(progressQueue)
+        send(progressQueue, 1);
     end
 end
 
@@ -306,6 +311,7 @@ for i = 1:numScenarios
     [mSampDose(:, i), sampleResults{i}] = matRad_calculateSamplingScenario(samplingContext, scenarioIds(i));
 
     if matRadCfg.logLevel > 2
+        matRad_logSamplingProgress(i, numScenarios, matRadCfg);
         matRad_progress(i, numScenarios);
     end
 end
@@ -333,6 +339,30 @@ else
     matRadCfg.dispInfo(msg);
     progressEnabled = false;
 end
+end
+
+function [progressQueue, progressListener] = matRad_createSamplingProgressQueue(numScenarios, logLevel, matRadCfg)
+progressQueue = [];
+progressListener = [];
+if logLevel <= 2 || exist('parallel.pool.DataQueue', 'class') ~= 8
+    return
+end
+
+progressState = containers.Map({'finishedScenarios'}, {0});
+progressQueue = parallel.pool.DataQueue;
+progressListener = afterEach(progressQueue, ...
+                             @(~) matRad_updateSamplingProgress(progressState, numScenarios, matRadCfg));
+end
+
+function matRad_updateSamplingProgress(progressState, numScenarios, matRadCfg)
+finishedScenarios = progressState('finishedScenarios') + 1;
+progressState('finishedScenarios') = finishedScenarios;
+matRad_logSamplingProgress(finishedScenarios, numScenarios, matRadCfg);
+end
+
+function matRad_logSamplingProgress(finishedScenarios, totalScenarios, matRadCfg)
+matRadCfg.dispInfo('matRad: Sampling progress: %d/%d scenarios.\n', ...
+                   finishedScenarios, totalScenarios);
 end
 
 function samplingContext = matRad_buildSamplingContext(ct, stf, cst, pln, w, cstEval, subIx, ...
