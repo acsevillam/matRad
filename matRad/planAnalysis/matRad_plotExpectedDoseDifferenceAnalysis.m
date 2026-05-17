@@ -95,7 +95,9 @@ else
     colorBarLabel = 'P(D > ref) - P(D < ref)';
 end
 
-if isempty(doseWindow)
+if isempty(doseWindow) && isfield(expectedDoseDifferenceAnalysis, 'doseWindow')
+    plotWindow = expectedDoseDifferenceAnalysis.doseWindow;
+elseif isempty(doseWindow)
     plotWindow = matRad_getSymmetricFiniteWindow(plotCube);
 else
     plotWindow = doseWindow;
