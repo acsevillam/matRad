@@ -130,9 +130,9 @@ dicomImporter.importFiles.ct = files.ct;
 dicomImporter.importFiles.rtss = files.rtss;
 dicomImporter.importFiles.rtplan = {};
 dicomImporter.importFiles.rtdose = files.rtdose;
-dicomImporter.importFiles.resx = files.resx;
-dicomImporter.importFiles.resy = files.resy;
-dicomImporter.importFiles.resz = files.resz;
+dicomImporter.importFiles.resx = num2str(files.resx, 10);
+dicomImporter.importFiles.resy = num2str(files.resy, 10);
+dicomImporter.importFiles.resz = num2str(files.resz, 10);
 dicomImporter.importFiles.useImportGrid = files.useDoseGrid;
 
 dicomImporter.ct = [];
