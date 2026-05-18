@@ -164,7 +164,7 @@ analysisText = evalc('matRad_samplingAnalysis(ct, cst, pln, caSampRes, mSampDose
 assertTrue(isempty(strfind(analysisText, 'Property quantityOpt is deprecated from bioModel')));
 assertTrue(isempty(strfind(analysisText, 'Property quantityVis is deprecated from bioModel')));
 
-function test_samplingAnalysisSkipsGammaForPartialSampling
+function test_samplingAnalysisUsesSampledVoxelGammaScopeForPartialSampling
 ct = helper_createAnalysisCt();
 cst = helper_createCst();
 pln = helper_createAnalysisPlan(ct);
@@ -176,11 +176,16 @@ resultGUInomScen = helper_createNominalResult(ct, cst);
 [~, doseStat] = matRad_samplingAnalysis(ct, cst, pln, caSampRes, ...
                                         mSampDose, resultGUInomScen);
 
-assertEqual(doseStat.gammaAnalysis.status, 'skippedPartialSampling');
+assertEqual(doseStat.gammaAnalysis.scope, 'sampledVoxels');
+assertEqual(doseStat.gammaAnalysis.status, 'computedSampledVoxels');
 assertEqual(doseStat.gammaAnalysis.reason, ...
-            'Gamma whole-CT analysis requires sampled statistics for every CT voxel.');
-assertTrue(all(isnan(doseStat.gammaAnalysis.gammaCube(:))));
-assertTrue(isempty(doseStat.gammaAnalysis.gammaPassRate));
+            'Gamma evaluated on sampled voxels because sampling does not cover whole CT.');
+assertEqual(doseStat.gammaAnalysis.gammaPassRateCell{1, 1}, 'Sampled voxels');
+assertTrue(isfinite(doseStat.gammaAnalysis.gammaPassRate));
+assertTrue(doseStat.gammaAnalysis.gammaPassRate >= 0);
+assertTrue(doseStat.gammaAnalysis.gammaPassRate <= 100);
+assertTrue(all(isnan(doseStat.gammaAnalysis.gammaCube(~doseStat.sampleMask))));
+assertFalse(any(isnan(doseStat.gammaAnalysis.gammaCube(doseStat.sampleMask))));
 assertEqual(doseStat.expectedDoseDifferenceAnalysis.status, 'computedPartialMask');
 assertElementsAlmostEqual(doseStat.expectedDoseDifferenceAnalysis.overReferenceProbabilityCube(1), ...
                           0.8, 'absolute', 1e-12);
@@ -191,33 +196,91 @@ assertTrue(isnan(doseStat.expectedDoseDifferenceAnalysis.overReferenceProbabilit
 function test_samplingAnalysisComputesGammaForFullSampling
 figureCleaner = onCleanup(@() close('all'));
 ct = helper_createFullCoverageCt();
-cst = helper_createCst();
+cst = helper_createTargetCst();
 pln = helper_createFullCoveragePlan(ct);
+pln.numOfFractions = 2;
 caSampRes = helper_createSamplingResults();
 mSampDose = ones(prod(ct.cubeDim), numel(caSampRes));
 resultGUInomScen = helper_createFullCoverageNominalResult(ct, cst);
 existingFig = figure('Visible', 'off');
 axes('Parent', existingFig);
 
-[~, doseStat, ~, gammaFig, ~, ~, expectedDoseDifferenceFig] = ...
+[~, doseStat, ~, figures] = ...
     matRad_samplingAnalysis(ct, cst, pln, caSampRes, mSampDose, ...
                             resultGUInomScen, 'slice', 1, 'plane', 3, ...
-                            'expectedDoseDifferenceDoseWindow', [-2 2]);
+                            'evaluationMode', 'total', ...
+                            'meanDoseWindow', [0 4], ...
+                            'stdDoseWindow', [0 2], ...
+                            'doseDifferenceWindow', [-2 2]);
 
 assertEqual(doseStat.gammaAnalysis.status, 'computedFullCube');
 assertElementsAlmostEqual(doseStat.gammaAnalysis.gammaPassRate, 100, 'absolute', 1e-12);
 assertFalse(any(isnan(doseStat.gammaAnalysis.gammaCube(:))));
+assertFalse(isfield(figures, 'gamma'));
+assertFalse(isempty(figures.mean));
+assertFalse(isempty(figures.std));
+assertFalse(isempty(figures.robustness.index1));
+assertFalse(isempty(figures.robustness.index2));
+assertFalse(isempty(figures.nominal));
+assertFalse(isempty(figures.doseDifference));
+assertFalse(isequal(figures.mean, existingFig));
+assertEqual(get(figures.mean, 'Name'), 'Sampled expected dose');
+assertEqual(get(figures.std, 'Name'), 'Sampled dose standard deviation');
+assertEqual(helper_getAxesTitle(figures.robustness.index1), 'Sampled robustness index 1');
+assertEqual(helper_getAxesTitle(figures.robustness.index2), 'Sampled robustness index 2');
+assertEqual(get(figures.nominal, 'Name'), 'Nominal dose');
+assertEqual(helper_getAxesTitle(figures.doseDifference), 'Sampled expected dose difference');
+assertEqual(doseStat.nominalAnalysis.cubeName, 'resultGUInomScen.physicalDose');
+assertEqual(doseStat.nominalAnalysis.status, 'computedFullCube');
+assertEqual(doseStat.nominalAnalysis.colorBarLabel, 'Nominal dose [Gy]');
+assertElementsAlmostEqual(doseStat.nominalAnalysis.displayDoseWindow, [0 4], ...
+                          'absolute', 1e-12);
+assertEqual(doseStat.meanAnalysis.displayEvaluationMode, 'total');
+assertElementsAlmostEqual(doseStat.meanAnalysis.displayScale, 2, 'absolute', 1e-12);
+assertElementsAlmostEqual(doseStat.meanAnalysis.displayDoseWindow, [0 4], ...
+                          'absolute', 1e-12);
+assertElementsAlmostEqual(doseStat.meanAnalysis.doseWindow, [0 2], ...
+                          'absolute', 1e-12);
+assertElementsAlmostEqual(doseStat.stdAnalysis.displayDoseWindow, [0 2], ...
+                          'absolute', 1e-12);
+assertEqual(doseStat.stdAnalysis.colorBarLabel, 'Dose standard deviation [Gy]');
 assertEqual(doseStat.expectedDoseDifferenceAnalysis.status, 'computedFullCube');
-assertElementsAlmostEqual(doseStat.expectedDoseDifferenceAnalysis.doseWindow, [-2 2], ...
+assertElementsAlmostEqual(doseStat.expectedDoseDifferenceAnalysis.doseWindow, [-1 1], ...
                           'absolute', 1e-12);
 assertElementsAlmostEqual(doseStat.expectedDoseDifferenceAnalysis.nearReferenceProbabilityCube(1), ...
                           1, 'absolute', 1e-12);
-assertFalse(isempty(gammaFig));
-assertFalse(isequal(gammaFig, existingFig));
-assertEqual(get(gammaFig, 'Name'), 'Gamma index analysis');
-assertFalse(isempty(expectedDoseDifferenceFig));
-helper_closeFigure(gammaFig);
-helper_closeFigure(expectedDoseDifferenceFig);
+helper_closeFigure(figures.mean);
+helper_closeFigure(figures.std);
+helper_closeFigure(figures.robustness.index1);
+helper_closeFigure(figures.robustness.index2);
+helper_closeFigure(figures.nominal);
+helper_closeFigure(figures.doseDifference);
+
+function test_samplingAnalysisAutoScalesExpectedDoseDifferenceWindow
+figureCleaner = onCleanup(@() close('all'));
+ct = helper_createFullCoverageCt();
+cst = helper_createTargetCst();
+pln = helper_createFullCoveragePlan(ct);
+pln.numOfFractions = 2;
+caSampRes = helper_createSamplingResults();
+mSampDose = repmat([4 0 1], prod(ct.cubeDim), 1);
+resultGUInomScen = helper_createFullCoverageNominalResult(ct, cst);
+
+[~, doseStat, ~, figures] = ...
+    matRad_samplingAnalysis(ct, cst, pln, caSampRes, mSampDose, ...
+                            resultGUInomScen, 'slice', 1, 'plane', 3, ...
+                            'evaluationMode', 'total');
+
+assertElementsAlmostEqual(doseStat.expectedDoseDifferenceAnalysis.doseWindow, ...
+                          [-0.3 0.3], 'absolute', 1e-12);
+axesHandle = helper_getDoseImageAxes(figures.doseDifference);
+assertElementsAlmostEqual(caxis(axesHandle), [-0.6 0.6], 'absolute', 1e-12);
+helper_closeFigure(figures.mean);
+helper_closeFigure(figures.std);
+helper_closeFigure(figures.robustness.index1);
+helper_closeFigure(figures.robustness.index2);
+helper_closeFigure(figures.nominal);
+helper_closeFigure(figures.doseDifference);
 
 function test_samplingAnalysisStoresRobustnessAnalysisForTargets
 ct = helper_createFullCoverageCt();
@@ -297,6 +360,7 @@ ct.refScen = 1;
 ct.resolution.x = 1;
 ct.resolution.y = 1;
 ct.resolution.z = 1;
+ct.cubeHU = {zeros(ct.cubeDim)};
 ct.dvfMetadata.dvfType = 'pull';
 ct.dvfMetadata.dvfUnits = 'voxel';
 ct.dvfMetadata.refScen = 1;
@@ -318,12 +382,13 @@ ct = helper_createAnalysisCt();
 ct.numOfCtScen = 2;
 
 function ct = helper_createFullCoverageCt()
-ct.cubeDim = [2 2 1];
+ct.cubeDim = [2 2 2];
 ct.numOfCtScen = 1;
 ct.refScen = 1;
 ct.resolution.x = 1;
 ct.resolution.y = 1;
 ct.resolution.z = 1;
+ct.cubeHU = {zeros(ct.cubeDim)};
 
 function pln = helper_createAnalysisPlan(ct, ctScenIds)
 if nargin < 2
@@ -393,3 +458,14 @@ function helper_closeFigure(figHandle)
 if ~isempty(figHandle) && ishandle(figHandle)
     close(figHandle);
 end
+
+function axesHandle = helper_getDoseImageAxes(figHandle)
+imageHandle = findobj(figHandle, 'Type', 'Image');
+assertFalse(isempty(imageHandle));
+axesHandle = ancestor(imageHandle(1), 'axes');
+
+function titleText = helper_getAxesTitle(figHandle)
+axesHandles = findobj(figHandle, 'Type', 'Axes');
+axesHandles = axesHandles(~strcmp(get(axesHandles, 'Tag'), 'Colorbar'));
+assertFalse(isempty(axesHandles));
+titleText = get(get(axesHandles(1), 'Title'), 'String');

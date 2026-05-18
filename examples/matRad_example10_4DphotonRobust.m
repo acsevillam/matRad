@@ -286,10 +286,10 @@ resultGUI = matRad_planAnalysis(resultGUI,ct,cst,stf,pln);
 % sampling does not know on which scenario sampling should be performed
 structSel = {}; % structSel = {'PTV','OAR1'};
 [caSamp, mSampDose, plnSamp, resultGUInomScen]          = matRad_sampling(ct,stf,cst,pln,resultGUI.w,structSel);
-[cstStat, resultGUISamp, meta]                         = matRad_samplingAnalysis(ct,cst,plnSamp,caSamp, mSampDose, resultGUInomScen);
+[cstStat, resultGUISamp, meta, figuresSamp]            = matRad_samplingAnalysis(ct,cst,plnSamp,caSamp, mSampDose, resultGUInomScen);
 
 [caSampRob, mSampDoseRob, plnSampRob, resultGUInomScen] = matRad_sampling(ct,stf,cst,pln,resultGUIrobust.w,structSel);
-[cstStatRob, resultGUISampRob, metaRob]                = matRad_samplingAnalysis(ct,cst,plnSampRob,caSampRob, mSampDoseRob, resultGUInomScen);
+[cstStatRob, resultGUISampRob, metaRob, figuresSampRob] = matRad_samplingAnalysis(ct,cst,plnSampRob,caSampRob, mSampDoseRob, resultGUInomScen);
 
 figure,title('std dose cube based on sampling - conventional')
 matRad_plotSlice(ct, 'axesHandle', gca, 'cst', cst, 'cubeIdx', 1, 'dose', resultGUISamp.stdCube     ,'plane', plane, 'slice', slice, 'contourColorMap', colorcube, 'doseWindow', [0 max(resultGUISamp.stdCube(:))]);
