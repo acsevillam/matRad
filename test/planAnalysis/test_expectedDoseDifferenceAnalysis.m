@@ -99,6 +99,47 @@ assertElementsAlmostEqual(get(imageHandle, 'CData'), analysis.signedExpectedDose
 assertElementsAlmostEqual(caxis(axesHandle), analysis.doseWindow, 'absolute', 1e-12);
 assertEqual(get(get(colorBarHandle, 'YLabel'), 'String'), 'E[D - ref] [Gy]');
 
+function test_plotColorMapKeepsWhiteAtZeroForAsymmetricWindow
+figureCleaner = onCleanup(@() close('all'));
+referenceCube = ones(2, 2);
+sampleDoseMatrix = [0 1; ...
+                    2 4; ...
+                    1 1; ...
+                    3 3];
+analysis = matRad_expectedDoseDifferenceAnalysis(sampleDoseMatrix, referenceCube, ...
+                                                 'doseWindow', [-1 3]);
+fig = figure('Visible', 'off');
+axesHandle = axes(fig);
+
+matRad_plotExpectedDoseDifferenceAnalysis(analysis, struct(), {}, 1, ...
+                                          'axesHandle', axesHandle);
+
+assertElementsAlmostEqual(caxis(axesHandle), [-1 3], 'absolute', 1e-12);
+assertElementsAlmostEqual(helper_colormapColorForValue(axesHandle, 0), [1 1 1], ...
+                          'absolute', 1e-12);
+assertElementsAlmostEqual(helper_colormapColorForValue(axesHandle, -1), [0 0 1], ...
+                          'absolute', 1e-12);
+assertElementsAlmostEqual(helper_colormapColorForValue(axesHandle, 3), [1 0 0], ...
+                          'absolute', 1e-12);
+
+function test_plotColorWindowIncludesZeroForOneSidedLimits
+figureCleaner = onCleanup(@() close('all'));
+referenceCube = ones(2, 2);
+sampleDoseMatrix = 2 * ones(4, 2);
+analysis = matRad_expectedDoseDifferenceAnalysis(sampleDoseMatrix, referenceCube, ...
+                                                 'doseWindow', [1 3]);
+fig = figure('Visible', 'off');
+axesHandle = axes(fig);
+
+matRad_plotExpectedDoseDifferenceAnalysis(analysis, struct(), {}, 1, ...
+                                          'axesHandle', axesHandle);
+
+assertElementsAlmostEqual(caxis(axesHandle), [0 3], 'absolute', 1e-12);
+assertElementsAlmostEqual(helper_colormapColorForValue(axesHandle, 0), [1 1 1], ...
+                          'absolute', 1e-12);
+assertElementsAlmostEqual(helper_colormapColorForValue(axesHandle, 3), [1 0 0], ...
+                          'absolute', 1e-12);
+
 function test_plotWithoutAxesHandleCreatesIndependentFigure
 figureCleaner = onCleanup(@() close('all'));
 ct = helper_createPlotCt();
@@ -130,6 +171,34 @@ matRad_plotExpectedDoseDifferenceAnalysis(analysis, struct(), {}, 1, ...
 colorBarHandle = findobj(fig, 'Type', 'ColorBar');
 assertEqual(get(get(colorBarHandle, 'YLabel'), 'String'), 'E[D - ref] [Gy(RBE)]');
 
+function test_plotUsesAnatomyContoursOnly
+figureCleaner = onCleanup(@() close('all'));
+ct = helper_createPlotCt();
+cst = helper_createPlotCstWithTargetAndOar();
+referenceCube = ones(ct.cubeDim);
+sampleDoseMatrix = ones(numel(referenceCube), 2);
+sampleDoseMatrix(1, :) = 0.8;
+sampleDoseMatrix(4, :) = 1.3;
+analysis = matRad_expectedDoseDifferenceAnalysis(sampleDoseMatrix, referenceCube, ...
+                                                 'tolerance', 0.1);
+
+fig = matRad_plotExpectedDoseDifferenceAnalysis(analysis, ct, cst, 1);
+
+highDoseContours = findobj(fig, 'Tag', 'matRadHighDoseNonTargetContour');
+lowDoseContours = findobj(fig, 'Tag', 'matRadLowDoseTargetContour');
+anatomyContours = findobj(fig, 'Type', 'Line', 'Tag', '');
+assertTrue(isempty(highDoseContours));
+assertTrue(isempty(lowDoseContours));
+assertFalse(isempty(anatomyContours));
+axesHandle = ancestor(anatomyContours(1), 'axes');
+titleText = get(get(axesHandle, 'Title'), 'String');
+assertEqual(get(fig, 'Name'), 'Sampled expected dose difference');
+assertEqual(titleText, 'Sampled expected dose difference');
+assertElementsAlmostEqual(get(anatomyContours(1), 'LineWidth'), 1.2, ...
+                          'absolute', 1e-12);
+assertTrue(helper_hasLineWithColor(anatomyContours, [0.1 0.7 0.2]));
+assertTrue(helper_hasLineWithColor(anatomyContours, [0.8 0.5 0.1]));
+
 function test_invalidWeightsReturnSkippedAnalysis
 referenceCube = ones(2, 2);
 sampleDoseMatrix = ones(4, 3);
@@ -142,8 +211,41 @@ assertFalse(isempty(strfind(analysis.reason, 'scenario weights')));
 assertTrue(all(isnan(analysis.overReferenceProbabilityCube(:))));
 
 function ct = helper_createPlotCt
-ct.cubeDim = [2 2 1];
+ct.cubeDim = [2 2 2];
 ct.resolution.x = 1;
 ct.resolution.y = 1;
 ct.resolution.z = 1;
 ct.cubeHU = {zeros(ct.cubeDim)};
+
+function cst = helper_createPlotCstWithTargetAndOar()
+cst = cell(2, 6);
+cst{1, 1} = 1;
+cst{1, 2} = 'target';
+cst{1, 3} = 'TARGET';
+cst{1, 4} = {1};
+cst{1, 5} = struct('Visible', true, 'visibleColor', [0.1 0.7 0.2]);
+cst{1, 6} = {};
+cst{2, 1} = 2;
+cst{2, 2} = 'oar';
+cst{2, 3} = 'OAR';
+cst{2, 4} = {4};
+cst{2, 5} = struct('Visible', true, 'visibleColor', [0.8 0.5 0.1]);
+cst{2, 6} = {};
+
+function hasColor = helper_hasLineWithColor(lineHandles, expectedColor)
+hasColor = false;
+for lineIx = 1:numel(lineHandles)
+    if max(abs(get(lineHandles(lineIx), 'Color') - expectedColor)) < 1e-12
+        hasColor = true;
+        return
+    end
+end
+
+function color = helper_colormapColorForValue(axesHandle, value)
+colorLimits = caxis(axesHandle);
+colorMap = colormap(axesHandle);
+numColors = size(colorMap, 1);
+colorIndex = round(1 + (value - colorLimits(1)) / ...
+                   (colorLimits(2) - colorLimits(1)) * (numColors - 1));
+colorIndex = min(max(colorIndex, 1), numColors);
+color = colorMap(colorIndex, :);

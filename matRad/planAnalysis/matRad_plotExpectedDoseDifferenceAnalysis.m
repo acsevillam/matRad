@@ -14,6 +14,8 @@ function expectedDoseDifferenceFig = matRad_plotExpectedDoseDifferenceAnalysis(e
 %                        - 'plane': matRad plane index
 %                        - 'doseWindow': signed dose-difference color window
 %                        - 'contourColorMap': VOI contour colors
+%                        - 'displayScale': scalar display scale applied to
+%                          the plotted dose difference
 %
 % output
 %   expectedDoseDifferenceFig:      figure handle when a new figure is created
@@ -39,6 +41,7 @@ if nargin < 4 || isempty(slice)
     return
 end
 
+titleText = matRad_getExpectedDoseDifferencePlotTitle();
 p = inputParser;
 p.CaseSensitive = false;
 p.addParameter('axesHandle', [], @(axesHandle) isempty(axesHandle) || ...
@@ -48,28 +51,37 @@ p.addParameter('doseWindow', [], @(window) isempty(window) || ...
                (isnumeric(window) && numel(window) == 2 && window(1) < window(2)));
 p.addParameter('contourColorMap', [], @(colorMap) isempty(colorMap) || ...
                (isnumeric(colorMap) && size(colorMap, 2) == 3));
+p.addParameter('displayScale', 1, @(value) isnumeric(value) && isscalar(value) && ...
+               isfinite(value) && value > 0);
 parse(p, varargin{:});
 
 axesHandle = p.Results.axesHandle;
 if isempty(axesHandle)
-    expectedDoseDifferenceFig = figure('Name', 'Expected dose difference analysis');
+    expectedDoseDifferenceFig = figure('Name', titleText);
     set(expectedDoseDifferenceFig, 'Color', [1 1 1]);
     axesHandle = axes('Parent', expectedDoseDifferenceFig);
 else
     expectedDoseDifferenceFig = ancestor(axesHandle, 'figure');
 end
 
-[plotCube, plotWindow, colorBarLabel] = ...
+[basePlotCube, plotWindow, colorBarLabel] = ...
     matRad_getExpectedDoseDifferencePlotData(expectedDoseDifferenceAnalysis, p.Results.doseWindow);
-plotCube = matRad_reshapeExpectedDoseDifferenceCubeForPlot(plotCube, ct);
-expectedDoseDifferenceColorMap = matRad_getExpectedDoseDifferenceColorMap(128);
+basePlotCube = matRad_reshapeExpectedDoseDifferenceCubeForPlot(basePlotCube, ct);
+plotCube = basePlotCube .* p.Results.displayScale;
+if isempty(p.Results.doseWindow)
+    plotWindow = plotWindow .* p.Results.displayScale;
+end
+plotWindow = matRad_includeZeroInExpectedDoseDifferenceWindow(plotWindow);
+expectedDoseDifferenceColorMap = matRad_getExpectedDoseDifferenceColorMap(128, plotWindow);
 if matRad_canUsePlotSliceForExpectedDoseDifference(ct, plotCube)
-    matRad_plotSlice(ct, 'axesHandle', axesHandle, 'cst', cst, 'cubeIdx', 1, ...
+    matRad_plotSlice(ct, 'axesHandle', axesHandle, 'cst', cst, ...
+                     'cubeIdx', matRad_getExpectedDoseDifferenceReferenceScenario(ct), ...
                      'dose', plotCube, 'plane', p.Results.plane, 'slice', slice, ...
                      'contourColorMap', p.Results.contourColorMap, ...
                      'doseColorMap', expectedDoseDifferenceColorMap, ...
                      'doseWindow', plotWindow, ...
-                     'colorBarLabel', colorBarLabel);
+                     'colorBarLabel', colorBarLabel, ...
+                     'LineWidth', 1.2);
 else
     imagesc(axesHandle, matRad_getExpectedDoseDifferenceSlice(plotCube, p.Results.plane, slice), ...
             plotWindow);
@@ -79,9 +91,12 @@ else
     set(get(hColorBar, 'YLabel'), 'String', colorBarLabel);
 end
 
-title(axesHandle, sprintf('%s: %s', expectedDoseDifferenceAnalysis.referenceName, ...
-                          expectedDoseDifferenceAnalysis.status));
+title(axesHandle, titleText);
 
+end
+
+function titleText = matRad_getExpectedDoseDifferencePlotTitle()
+titleText = 'Sampled expected dose difference';
 end
 
 function [plotCube, plotWindow, colorBarLabel] = ...
@@ -118,26 +133,60 @@ end
 plotWindow = [-windowAbs windowAbs];
 end
 
-function colorMap = matRad_getExpectedDoseDifferenceColorMap(numColors)
+function colorMap = matRad_getExpectedDoseDifferenceColorMap(numColors, doseWindow)
 if nargin < 1 || isempty(numColors)
     numColors = 128;
 end
+if nargin < 2 || isempty(doseWindow)
+    doseWindow = [-1 1];
+end
 
-numLower = floor(numColors / 2);
-numUpper = numColors - numLower;
+doseWindow = matRad_includeZeroInExpectedDoseDifferenceWindow(doseWindow);
+zeroFraction = -doseWindow(1) / (doseWindow(2) - doseWindow(1));
+whiteIndex = round(1 + zeroFraction * (numColors - 1));
+whiteIndex = min(max(whiteIndex, 1), numColors);
 
-blueToWhite = [linspace(0, 1, numLower)' ...
-               linspace(0, 1, numLower)' ...
-               ones(numLower, 1)];
-whiteToRed = [ones(numUpper, 1) ...
-              linspace(1, 0, numUpper)' ...
-              linspace(1, 0, numUpper)'];
-colorMap = [blueToWhite; whiteToRed];
+blueToWhite = matRad_interpolateExpectedDoseDifferenceColor([0 0 1], [1 1 1], whiteIndex);
+whiteToRed = matRad_interpolateExpectedDoseDifferenceColor([1 1 1], [1 0 0], ...
+                                                           numColors - whiteIndex + 1);
+colorMap = [blueToWhite; whiteToRed(2:end, :)];
+end
+
+function doseWindow = matRad_includeZeroInExpectedDoseDifferenceWindow(doseWindow)
+doseWindow = doseWindow(:)';
+if numel(doseWindow) < 2 || ~all(isfinite(doseWindow(1:2))) || doseWindow(2) <= doseWindow(1)
+    doseWindow = [-1 1];
+    return
+end
+
+doseWindow = [min(doseWindow(1), 0), max(doseWindow(2), 0)];
+if doseWindow(1) == doseWindow(2)
+    doseWindow = [-1 1];
+end
+end
+
+function colorMap = matRad_interpolateExpectedDoseDifferenceColor(startColor, endColor, numColors)
+if numColors <= 0
+    colorMap = zeros(0, 3);
+elseif numColors == 1
+    colorMap = endColor;
+else
+    t = linspace(0, 1, numColors)';
+    colorMap = (1 - t) .* startColor + t .* endColor;
+end
 end
 
 function tf = matRad_canUsePlotSliceForExpectedDoseDifference(ct, plotCube)
 tf = isfield(ct, 'cubeDim') && numel(size(plotCube)) == numel(ct.cubeDim) && ...
     all(size(plotCube) == ct.cubeDim);
+end
+
+function refScen = matRad_getExpectedDoseDifferenceReferenceScenario(ct)
+if isstruct(ct) && isfield(ct, 'refScen') && ~isempty(ct.refScen)
+    refScen = ct.refScen;
+else
+    refScen = 1;
+end
 end
 
 function sliceData = matRad_getExpectedDoseDifferenceSlice(plotCube, plane, slice)

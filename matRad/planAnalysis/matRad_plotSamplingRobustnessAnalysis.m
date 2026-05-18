@@ -53,7 +53,7 @@ parse(p, varargin{:});
 method = matRad_normalizeSamplingRobustnessMethod(p.Results.method);
 axesHandle = p.Results.axesHandle;
 if isempty(axesHandle)
-    robustnessFig = figure('Name', 'Sampling robustness analysis');
+    robustnessFig = figure('Name', 'Sampled robustness analysis');
     set(robustnessFig, 'Color', [1 1 1]);
     axesHandle = axes('Parent', robustnessFig);
 else
@@ -67,7 +67,8 @@ matRad_plotSlice(ct, 'axesHandle', axesHandle, 'cst', cst, 'cubeIdx', 1, ...
                  'dose', plotCube, 'plane', p.Results.plane, 'slice', slice, ...
                  'contourColorMap', p.Results.contourColorMap, ...
                  'doseColorMap', colorMap, 'doseWindow', plotWindow, ...
-                 'colorBarLabel', colorBarLabel);
+                 'colorBarLabel', colorBarLabel, ...
+                 'LineWidth', 1.2);
 
 title(axesHandle, matRad_getSamplingRobustnessPlotTitle(robustnessAnalysis, method));
 matRad_addSamplingRobustnessMetricTextbox(axesHandle, robustnessAnalysis, method);
@@ -104,12 +105,14 @@ if isfield(robustnessAnalysis, 'evaluableTargetMask') && ...
 end
 end
 
-function titleText = matRad_getSamplingRobustnessPlotTitle(robustnessAnalysis, method)
-robustnessIndex = robustnessAnalysis.(method).robustnessIndex;
-if isempty(robustnessIndex) || ~isfinite(robustnessIndex)
-    titleText = sprintf('%s unavailable', method);
-else
-    titleText = sprintf('%s RI %.3f', method, robustnessIndex);
+function titleText = matRad_getSamplingRobustnessPlotTitle(~, method)
+switch method
+    case 'index1'
+        titleText = 'Sampled robustness index 1';
+    case 'index2'
+        titleText = 'Sampled robustness index 2';
+    otherwise
+        titleText = 'Sampled robustness index';
 end
 end
 
