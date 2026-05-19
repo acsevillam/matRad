@@ -86,6 +86,7 @@ classdef matRad_NominalScenario < matRad_ScenarioModel
             
             %Get relative (normalized) weight of the scenario
             this.scenWeight = this.scenProb./sum(this.scenProb); 
+            this.updateScenarioMetadata();
             
             %Return variable
             scenarios = this.scenForProb;
@@ -100,4 +101,3 @@ classdef matRad_NominalScenario < matRad_ScenarioModel
         
     end
 end
-

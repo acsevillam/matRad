@@ -179,9 +179,9 @@ classdef matRad_RandomScenarios < matRad_ScenarioModel
                 matRad_cfg.dispWarning('Check Implementation of Total Scenario computation - given %d but found %d!',this.totNumScen,totNumScen);
                 this.totNumScen = totNumScen;
             end
+            this.updateScenarioMetadata();
         end
     end
 
 
 end
-

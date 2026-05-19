@@ -67,6 +67,13 @@ classdef (Abstract) matRad_ScenarioModel < handle
         scenWeight;             % weight of scenario relative to the underlying uncertainty model (depends on how scenarios are chosen / sampled)
         scenMask;
         linearMask;
+
+        scenarioComponents;      % scenario realization components
+        scenarioValueNames;      % ordered names for columns in scenarioValues
+        scenarioValues;          % scenario realizations, one row per scenario
+        scenarioIdList;          % stable public scenario ids
+        scenarioCtScenIds;       % ct scenario id for each realization row
+        scenarioStorageSubscripts; % storage subscripts, one row per realization
     end
     
     methods
@@ -158,43 +165,144 @@ classdef (Abstract) matRad_ScenarioModel < handle
 
         function newInstance = extractSingleScenario(this,scenNum)
             newInstance = matRad_NominalScenario();
-            
-            ctScenNum = this.linearMask(scenNum,1);
-            
+
+            scenarioRowIx = this.resolveScenarioRowIx(scenNum);
+            ctScenId = this.getCtScenario(scenNum);
+            ctScenProbIx = find(this.ctScenProb(:,1) == ctScenId,1,'first');
+            if isempty(ctScenProbIx)
+                matRad_cfg = MatRad_Config.instance();
+                matRad_cfg.dispError('Could not find CT scenario %d in ctScenProb.',ctScenId);
+            end
+
             %First set properties that force an update
-            newInstance.numOfCtScen         = 1;            
-            newInstance.ctScenProb          = this.ctScenProb(ctScenNum,:);
+            newInstance.numOfCtScen         = 1;
+            newInstance.numOfAvailableCtScen = this.numOfAvailableCtScen;
+            newInstance.ctScenProb          = this.ctScenProb(ctScenProbIx,:);
 
             %Now overwrite existing variables for correct probabilties and
             %error realizations
-            newInstance.scenForProb         = this.scenForProb(scenNum,:);
-            newInstance.relRangeShift       = this.scenForProb(scenNum,6);
-            newInstance.absRangeShift       = this.scenForProb(scenNum,5);
-            newInstance.isoShift            = this.scenForProb(scenNum,2:4);
-            newInstance.scenProb            = this.scenProb(scenNum);
-            newInstance.scenWeight          = this.scenWeight(scenNum);
-            newInstance.maxAbsRangeShift    = max(abs(this.absRangeShift(scenNum)));
-            newInstance.maxRelRangeShift    = max(abs(this.relRangeShift(scenNum)));
+            newInstance.scenForProb         = this.scenForProb(scenarioRowIx,:);
+            newInstance.relRangeShift       = this.scenForProb(scenarioRowIx,6);
+            newInstance.absRangeShift       = this.scenForProb(scenarioRowIx,5);
+            newInstance.isoShift            = this.scenForProb(scenarioRowIx,2:4);
+            newInstance.scenProb            = this.scenProb(scenarioRowIx);
+            newInstance.scenWeight          = this.scenWeight(scenarioRowIx);
+            newInstance.maxAbsRangeShift    = max(abs(this.absRangeShift(scenarioRowIx)));
+            newInstance.maxRelRangeShift    = max(abs(this.relRangeShift(scenarioRowIx)));
             newInstance.scenMask            = false(this.numOfAvailableCtScen,1,1);
-            newInstance.linearMask          = [newInstance.ctScenIx 1 1];
-            
+            newInstance.linearMask          = [ctScenId 1 1];
+
             newInstance.scenMask(newInstance.linearMask(:,1),newInstance.linearMask(:,2),newInstance.linearMask(:,3)) = true;
+            newInstance.updateScenarioMetadata();
             %newInstance.updateScenarios();
         end
         
         function scenIx = sub2scenIx(this,ctScen,shiftScen,rangeShiftScen)
             %Returns linear index in the scenario cell array from scenario
             %subscript indices
-            if ~isvector(this.scenMask)
-                scenIx = sub2ind(size(this.scenMask),ctScen,shiftScen,rangeShiftScen);
-            else
-                scenIx = this.ctScenIx(ctScen);
-            end
+            scenIx = this.getDijScenarioIndexBySubscripts(ctScen,shiftScen,rangeShiftScen);
         end
 
         function scenNum = scenNum(this,fullScenIx)
             %gets number of scneario from full scenario index in scenMask
-            scenNum = find(find(this.scenMask) == fullScenIx);
+            scenNum = this.getScenarioRowIndexFromDijIndex(fullScenIx);
+        end
+
+        function ids = scenarioIds(this)
+            ids = this.scenarioIdList(:);
+        end
+
+        function n = numScenarios(this)
+            n = numel(this.scenarioIdList);
+        end
+
+        function scenario = getScenario(this,scenarioId)
+            scenarioRowIx = this.resolveScenarioRowIx(scenarioId);
+            scenario = struct();
+            scenario.id = this.scenarioIdList(scenarioRowIx);
+            scenario.ctScenId = this.scenarioCtScenIds(scenarioRowIx);
+            scenario.values = this.rowToValueStruct(this.scenarioValues(scenarioRowIx,:));
+            scenario.probability = this.scenProb(scenarioRowIx);
+            scenario.weight = this.scenWeight(scenarioRowIx);
+        end
+
+        function ctScenId = getCtScenario(this,scenarioId)
+            scenarioRowIx = this.resolveScenarioRowIx(scenarioId);
+            ctScenId = this.scenarioCtScenIds(scenarioRowIx);
+        end
+
+        function value = getValue(this,scenarioId,componentName)
+            scenarioRowIx = this.resolveScenarioRowIx(scenarioId);
+            componentIx = this.findScenarioComponentIndex(componentName);
+            value = this.scenarioValues(scenarioRowIx,componentIx);
+        end
+
+        function values = getValues(this,scenarioId,componentNames)
+            if ischar(componentNames)
+                componentNames = {componentNames};
+            end
+
+            values = zeros(1,numel(componentNames));
+            for i = 1:numel(componentNames)
+                values(i) = this.getValue(scenarioId,componentNames{i});
+            end
+        end
+
+        function shift = getSetupShift(this,scenarioId)
+            shift = this.getValues(scenarioId,{'setup.x','setup.y','setup.z'});
+        end
+
+        function rangeShift = getRangeShift(this,scenarioId)
+            rangeShift = this.getValues(scenarioId,{'range.absolute','range.relative'});
+        end
+
+        function ids = getNominalScenarioIds(this)
+            ids = this.scenarioIdList(all(abs(this.scenarioValues) <= eps,2));
+        end
+
+        function fullScenIx = getDijScenarioIndex(this,scenarioId)
+            scenarioRowIx = this.resolveScenarioRowIx(scenarioId);
+            fullScenIxs = this.getDijScenarioIndices();
+            fullScenIx = fullScenIxs(scenarioRowIx);
+        end
+
+        function fullScenIx = getDijScenarioIndexBySubscripts(this,ctScenInput,shiftScenIx,rangeScenIx,ctScenReference)
+            if nargin < 5 || isempty(ctScenReference)
+                ctScenReference = 'position';
+            end
+
+            ctScenId = helper_resolveCtScenarioId(this,ctScenInput,ctScenReference);
+            helper_validatePositiveIntegerScalar(shiftScenIx,'shiftScenIx');
+            helper_validatePositiveIntegerScalar(rangeScenIx,'rangeScenIx');
+
+            scenMaskSize = size(this.scenMask);
+            scenMaskSize(end+1:3) = 1;
+            if ctScenId > scenMaskSize(1) || shiftScenIx > scenMaskSize(2) || rangeScenIx > scenMaskSize(3)
+                matRad_cfg = MatRad_Config.instance();
+                matRad_cfg.dispError('Scenario subscript exceeds the scenario mask dimensions.');
+            end
+            fullScenIx = sub2ind(scenMaskSize,ctScenId,shiftScenIx,rangeScenIx);
+        end
+
+        function tf = isScenarioActiveBySubscripts(this,ctScenInput,shiftScenIx,rangeScenIx,ctScenReference)
+            if nargin < 5
+                ctScenReference = 'position';
+            end
+            fullScenIx = this.getDijScenarioIndexBySubscripts(ctScenInput,shiftScenIx,rangeScenIx,ctScenReference);
+            tf = this.scenMask(fullScenIx);
+        end
+
+        function scenarioRowIx = getScenarioRowIndexFromDijIndex(this,fullScenIx)
+            fullScenIxs = this.getDijScenarioIndices();
+            scenarioRowIx = find(fullScenIxs == fullScenIx,1,'first');
+        end
+
+        function mask = getDijActiveMask(this)
+            mask = this.scenMask;
+        end
+
+        function sz = getDijContainerSize(this)
+            sz = size(this.scenMask);
         end
         
         %% Deprecated functions / properties
@@ -220,6 +328,67 @@ classdef (Abstract) matRad_ScenarioModel < handle
             matRad_cfg = MatRad_Config.instance();
             matRad_cfg.dispDeprecationWarning('The property wcFactor of the scenario class will soon be deprecated!');
             this.wcSigma = value;
+        end
+
+    end
+
+    methods (Access = protected)
+
+        function updateScenarioMetadata(this)
+            componentNames = {'setup.x','setup.y','setup.z','range.absolute','range.relative'};
+            components = repmat(struct('name',''),1,numel(componentNames));
+            for i = 1:numel(componentNames)
+                components(i).name = componentNames{i};
+            end
+
+            this.scenarioComponents = components;
+            this.scenarioValueNames = componentNames;
+            this.scenarioValues = this.scenForProb(:,2:end);
+            this.scenarioIdList = (1:size(this.scenForProb,1))';
+            this.scenarioCtScenIds = this.scenForProb(:,1);
+            this.scenarioStorageSubscripts = this.linearMask;
+        end
+
+        function scenarioRowIx = resolveScenarioRowIx(this,scenarioId)
+            scenarioRowIx = find(this.scenarioIdList == scenarioId,1,'first');
+            if isempty(scenarioRowIx)
+                matRad_cfg = MatRad_Config.instance();
+                matRad_cfg.dispError('Scenario id %d does not exist in this scenario model.',scenarioId);
+            end
+        end
+
+        function componentIx = findScenarioComponentIndex(this,componentName)
+            if isstring(componentName) && isscalar(componentName)
+                componentName = char(componentName);
+            end
+
+            componentIx = find(strcmp(this.scenarioValueNames,componentName),1,'first');
+            if isempty(componentIx)
+                matRad_cfg = MatRad_Config.instance();
+                matRad_cfg.dispError('Scenario component "%s" does not exist in this scenario model.',componentName);
+            end
+        end
+
+        function valueStruct = rowToValueStruct(this,valueRow)
+            valueStruct = struct();
+            for i = 1:numel(this.scenarioValueNames)
+                fieldName = matlab.lang.makeValidName(this.scenarioValueNames{i});
+                valueStruct.(fieldName) = valueRow(i);
+            end
+        end
+
+        function fullScenIxs = getDijScenarioIndices(this)
+            storageSubscripts = this.scenarioStorageSubscripts;
+            if isempty(storageSubscripts)
+                storageSubscripts = this.linearMask;
+            end
+
+            storageSize = size(this.scenMask);
+            storageSize(end+1:size(storageSubscripts,2)) = 1;
+            storageSubscriptCells = mat2cell(storageSubscripts, ...
+                                             size(storageSubscripts,1), ...
+                                             ones(1,size(storageSubscripts,2)));
+            fullScenIxs = sub2ind(storageSize,storageSubscriptCells{:});
         end
 
     end
@@ -300,6 +469,10 @@ classdef (Abstract) matRad_ScenarioModel < handle
             for i = 1:length(fields)
                 try
                     field = fields{i};
+                    if helper_isDerivedScenarioMetadataField(field)
+                        continue
+                    end
+
                     if matRad_ispropCompat(model,field)
                         model.(field) = matRad_recursiveFieldAssignment(model.(field),modelMetadata.(field),true);
                     else
@@ -328,3 +501,52 @@ classdef (Abstract) matRad_ScenarioModel < handle
     end
 end
 
+function tf = helper_isDerivedScenarioMetadataField(field)
+
+tf = any(strcmp(field,{'scenarioComponents','scenarioValueNames','scenarioValues', ...
+                       'scenarioIdList','scenarioCtScenIds','scenarioStorageSubscripts'}));
+
+end
+
+function ctScenId = helper_resolveCtScenarioId(scenarioModel,ctScenInput,ctScenReference)
+
+helper_validatePositiveIntegerScalar(ctScenInput,'ctScen');
+
+if isstring(ctScenReference) && isscalar(ctScenReference)
+    ctScenReference = char(ctScenReference);
+end
+
+if ~ischar(ctScenReference)
+    matRad_cfg = MatRad_Config.instance();
+    matRad_cfg.dispError('ctScenReference must be ''position'' or ''id''.');
+end
+
+switch lower(ctScenReference)
+    case {'position','ctscenposition'}
+        if ctScenInput > size(scenarioModel.ctScenProb,1)
+            matRad_cfg = MatRad_Config.instance();
+            matRad_cfg.dispError('CT scenario position %d exceeds the scenario model size.',ctScenInput);
+        end
+        ctScenId = scenarioModel.ctScenProb(ctScenInput,1);
+    case {'id','ctscenid'}
+        ctScenId = ctScenInput;
+        if ~any(scenarioModel.ctScenProb(:,1) == ctScenId)
+            matRad_cfg = MatRad_Config.instance();
+            matRad_cfg.dispError('Could not find CT scenario %d in the scenario model.',ctScenId);
+        end
+    otherwise
+        matRad_cfg = MatRad_Config.instance();
+        matRad_cfg.dispError('ctScenReference must be ''position'' or ''id''.');
+end
+
+end
+
+function helper_validatePositiveIntegerScalar(value,valueName)
+
+if ~(isnumeric(value) && isscalar(value) && isfinite(value) && ...
+     round(value) == value && value >= 1)
+    matRad_cfg = MatRad_Config.instance();
+    matRad_cfg.dispError('%s must be a positive integer scalar.',valueName);
+end
+
+end
