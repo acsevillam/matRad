@@ -234,7 +234,7 @@ function quantity = quantityForModality(modality)
 if strcmp(modality,'photons')
     quantity = 'physicalDose';
 else
-    quantity = 'RBExD';
+    quantity = 'RBExDose';
 end
 
 end
