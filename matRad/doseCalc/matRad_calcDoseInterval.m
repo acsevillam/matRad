@@ -19,10 +19,13 @@ function [plnInterval, dijIntervalContext] = matRad_calcDoseInterval(ct, cst, st
 %           UseParallel: use safe available scenario parallelism for
 %               scenario-reducible passes when the Parallel
 %               Computing Toolbox and enough workers/memory are available.
+%               If target extreme radius parallel aggregation exceeds
+%               MemoryLimitMB but serial target extreme radius fits, only
+%               that second pass falls back to serial execution.
 %               matRad may create, reduce, or increase the active parallel
 %               pool.
-%               INTERVAL3 OAR radius factors keep their batch/voxel
-%               parallel path. Precomputed dij inputs run serially.
+%               INTERVAL3 OAR radius factors keep their batch/voxel path.
+%               Precomputed dij inputs run serially.
 %           SecondPassStrategy: 'disk' (default) or 'recompute'
 %           CacheRoot: root folder for disk blocks. Defaults to a temporary
 %               folder outside the matRad checkout.
@@ -376,6 +379,8 @@ matRadCfg.dispInfo('matRad: Scenario-batch second pass for extreme target radius
 [useParallel, parallelProvider] = ScenarioBatch.Parallel.matRad_configureScenarioDoseParallel( ...
                                                                                               provider, ctx, cfg, matRadCfg, ...
                                                                                               'scenario-batch interval target extreme radius', []);
+useParallel = DoseInterval.matRad_guardDoseIntervalTargetExtremeMemory(ctx, targetBatches, cfg, ...
+                                                                       useParallel, matRadCfg);
 if useParallel
     logLevel = matRadCfg.logLevel;
     scenarioResults = cell(numScenarios, 1);
