@@ -50,7 +50,6 @@ p.parse(ct, cst, stf, pln, varargin{:});
 
 ct = p.Results.ct;
 cst = p.Results.cst;
-stf = p.Results.stf; %#ok<NASGU>
 pln = p.Results.pln;
 refGy = p.Results.refGy;
 refVol = p.Results.refVol;
