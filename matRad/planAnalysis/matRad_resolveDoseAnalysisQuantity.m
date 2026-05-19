@@ -55,8 +55,6 @@ if isfield(resultGUI, 'analysisQuantity') && ...
     quantity = matRad_charIfString(resultGUI.analysisQuantity);
 elseif isfield(resultGUI, 'RBExDose')
     quantity = 'RBExDose';
-elseif isfield(resultGUI, 'RBExD')
-    quantity = 'RBExD';
 else
     quantity = 'physicalDose';
 end
