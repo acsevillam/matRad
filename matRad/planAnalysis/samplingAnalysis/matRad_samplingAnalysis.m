@@ -272,7 +272,7 @@ end
 end
 
 function unitLabel = matRad_getSamplingDoseUnitLabel(quantity)
-if strncmp(char(quantity), 'RBExD', 5) || strncmp(char(quantity), 'RBExDose', 8)
+if strncmp(char(quantity), 'RBExDose', 8)
     unitLabel = '[Gy(RBE)]';
 else
     unitLabel = '[Gy]';

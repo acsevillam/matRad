@@ -22,9 +22,6 @@ if isfield(cfg, 'PrecomputedDij')
 end
 dijProbContext = ScenarioBatch.Dij.matRad_buildNominalDijContext( ...
                                                                  ct, cst, stf, pln, cfg, numBixels, robustDij);
-if strcmpi(quantity.name, 'RBExD') && isfield(dijProbContext, 'RBE')
-    dijProbContext.RBE = 1;
-end
 dijProbContext.probabilisticQuantity = quantity.name;
 dijProbContext.probabilisticQuantityField = quantity.field;
 end

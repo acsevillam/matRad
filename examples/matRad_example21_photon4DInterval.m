@@ -267,7 +267,7 @@ dvhSamplingDoseWindow = matRad_convertFromEvaluationMode(dvhDoseWindow, pln, eva
 dvhSamplingArgs = {'dvhDoseWindow', dvhSamplingDoseWindow};
 samplingMultScen = pln.multScen;
 doseUnitLabel = 'Gy';
-if strncmp(quantityOpt, 'RBExD', 5) || strncmp(quantityOpt, 'RBExDose', 8)
+if strncmp(quantityOpt, 'RBExDose', 8)
     doseUnitLabel = 'Gy(RBE)';
 end
 stdColorBarLabel = ['Standard deviation [' doseUnitLabel ']'];

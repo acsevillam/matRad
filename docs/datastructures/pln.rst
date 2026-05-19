@@ -79,7 +79,7 @@ pln.propOpt
 
 **pln.propOpt.bioOptimization**
 
-    Specifies the type of biological optimization. *none* corresponds to a conventional optimization based on the physical dose. *effect* corresponds to an effect based optimization according to `Wilkens & Oelfke <http://iopscience.iop.org/0031-9155/51/12/009>`_. *RBExD* corresponds to an optimization of the RBE weighted dose according to `Krämer & Scholz <http://iopscience.iop.org/0031-9155/51/8/001>`_.
+    Specifies the type of biological optimization. *none* corresponds to a conventional optimization based on the physical dose. *effect* corresponds to an effect based optimization according to `Wilkens & Oelfke <http://iopscience.iop.org/0031-9155/51/12/009>`_. *RBExDose* corresponds to an optimization of the RBE weighted dose according to `Krämer & Scholz <http://iopscience.iop.org/0031-9155/51/8/001>`_.
 
 **pln.propOpt.runDAO**
 

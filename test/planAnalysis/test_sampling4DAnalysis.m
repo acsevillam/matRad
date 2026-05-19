@@ -114,7 +114,7 @@ ct = helper_createAnalysisCt();
 cst = helper_createCst();
 pln = helper_createAnalysisPlan(ct);
 caSampRes = helper_createSamplingResults();
-caSampRes(1).analysisQuantity = 'RBExD';
+caSampRes(1).analysisQuantity = 'RBExDose';
 mSampDose = [1 2 4; ...
              2 3 5];
 resultGUInomScen = helper_createNominalResult(ct, cst);

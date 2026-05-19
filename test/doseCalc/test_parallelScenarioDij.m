@@ -526,7 +526,7 @@ cst = data.cst;
 pln = data.pln;
 stf = data.stf;
 pln.propDoseCalc.engine = 'HongPB';
-pln.bioParam = matRad_bioModel(pln.radiationMode, 'RBExD', 'MCN');
+pln.bioParam = matRad_bioModel(pln.radiationMode, 'MCN');
 
 function [ct, cst, pln, stf] = helper_particleLemTestDataFixture()
 testDataPath = fullfile(fileparts(mfilename('fullpath')), ...
@@ -537,7 +537,7 @@ cst = data.cst;
 pln = data.pln;
 stf = data.stf;
 pln.propDoseCalc.engine = 'HongPB';
-pln.bioParam = matRad_bioModel(pln.radiationMode, 'RBExD', 'LEM');
+pln.bioParam = matRad_bioModel(pln.radiationMode, 'LEM');
 
 function dij = helper_addBiologicalCtMetadata(dij, ax1, ax2, bx1, bx2, abx1, abx2, ...
                                               gamma1, gamma2, ixDose1, ixDose2, vTissueIndex1, vTissueIndex2)
