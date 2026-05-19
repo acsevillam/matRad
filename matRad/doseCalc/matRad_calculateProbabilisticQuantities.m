@@ -18,7 +18,9 @@ function [plnProb, dijProbContext] = matRad_calculateProbabilisticQuantities(ct,
 %   cfg:    optional configuration struct with fields:
 %           UseParallel: use safe available scenario parallelism for the
 %               first pass and omega pass when the Parallel Computing
-%               Toolbox and enough workers/memory are available.
+%               Toolbox and enough workers/memory are available. If omega
+%               parallel aggregation exceeds MemoryLimitMB but serial omega
+%               fits, only the omega pass falls back to serial execution.
 %               matRad may create, reduce, or increase the active parallel
 %               pool.
 %               Precomputed dij inputs run serially.
@@ -297,7 +299,7 @@ omegaParallel = false;
 stageName = 'scenario-batch probabilistic omega';
 [useParallel, parallelProvider] = ScenarioBatch.Parallel.matRad_configureScenarioDoseParallel( ...
                                                                                               provider, ctx, cfg, matRadCfg, stageName, []);
-DoseProb.matRad_guardDoseProbOmegaMemory(ctx, voiBatches, cfg, useParallel, matRadCfg);
+useParallel = DoseProb.matRad_guardDoseProbOmegaMemory(ctx, voiBatches, cfg, useParallel, matRadCfg);
 if useParallel
     logLevel = matRadCfg.logLevel;
     numOmegaBatches = sum(cellfun(@numel, voiBatches));

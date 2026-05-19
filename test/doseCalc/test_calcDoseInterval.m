@@ -206,6 +206,50 @@ assertElementsAlmostEqual(full(plnResult.propOpt.dij_interval.radius), ...
                           full(plnDisk.propOpt.dij_interval.radius), 'absolute', 1e-12);
 helper_assertScenarioBatchSizeRecompute(plnResult.propOpt.dij_interval);
 
+function test_intervalTargetExtremeParallelFallsBackToSerialWhenOnlyParallelEstimateExceedsLimit
+ctx.scenarioDijIx = (1:4)';
+ctx.targetRows = (1:1000)';
+ctx.numBixels = 1000;
+
+batch = struct();
+batch.rows = 1;
+targetBatches = {batch};
+
+cfg.MemoryLimitMB = 2;
+
+[logCleanup, startLogCount] = helper_captureMatRadLog();
+useParallel = DoseInterval.matRad_guardDoseIntervalTargetExtremeMemory(ctx, ...
+                                                                       targetBatches, cfg, true, ...
+                                                                       MatRad_Config.instance());
+
+messages = helper_matRadLogMessages(startLogCount);
+assertFalse(useParallel);
+assertTrue(helper_anyMessageContains(messages, ...
+                                     'Falling back to serial target extreme radius'));
+
+function test_intervalTargetExtremeRejectsWhenSerialEstimateExceedsLimit
+ctx.scenarioDijIx = (1:2)';
+ctx.targetRows = (1:1000)';
+ctx.numBixels = 1000;
+
+batch = struct();
+batch.rows = 1;
+targetBatches = {batch};
+
+cfg.MemoryLimitMB = 1e-6;
+
+try
+    DoseInterval.matRad_guardDoseIntervalTargetExtremeMemory(ctx, targetBatches, cfg, ...
+                                                            false, MatRad_Config.instance());
+catch ME
+    assertEqual(ME.identifier, 'matRad:Error');
+    assertTrue(~isempty(strfind(ME.message, ...
+                                'INTERVAL target extreme radius estimated memory')));
+    return
+end
+
+assertTrue(false);
+
 function test_interval3ScenarioBatchUseParallelPrecomputedMatchesSerial
 [ct, cst, pln, dij, cfg] = helper_singleCtFixture();
 cfg.IntervalMode = 'INTERVAL3';

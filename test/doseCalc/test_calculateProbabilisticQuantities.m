@@ -448,6 +448,26 @@ end
 
 assertTrue(false);
 
+function test_probOmegaParallelFallsBackToSerialWhenOnlyParallelEstimateExceedsLimit
+ctx.scenarioDijIx = (1:3)';
+ctx.numBixels = 1000;
+
+batch = struct();
+batch.rows = 1;
+voiBatches = {{batch}};
+
+cfg.MemoryLimitMB = 30;
+cfg.SecondPassStrategy = 'recompute';
+
+[logCleanup, startLogCount] = helper_captureMatRadLog();
+useParallel = DoseProb.matRad_guardDoseProbOmegaMemory(ctx, voiBatches, cfg, true, ...
+                                                       MatRad_Config.instance());
+
+messages = helper_matRadLogMessages(startLogCount);
+assertFalse(useParallel);
+assertTrue(helper_anyMessageContains(messages, ...
+                                     'Falling back to serial probabilistic omega'));
+
 function test_probRejectsUnresolvedQuantityWithoutLinearField
 [ct, cst, pln, dij, cfg] = helper_singleCtFixture();
 cfg.Quantity = 'effect';

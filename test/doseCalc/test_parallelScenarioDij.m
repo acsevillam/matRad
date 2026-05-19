@@ -4,6 +4,14 @@ test_functions = localfunctions();
 
 initTestSuite;
 
+function test_normalizeScenarioDoseInputConfigDefaultsMemoryLimitToFourGB
+ct = struct('refScen', 1);
+pln = struct('propOpt', struct());
+cfg = ScenarioBatch.Config.matRad_normalizeScenarioDoseInputConfig( ...
+    struct(), ct, pln, 'test', MatRad_Config.instance());
+
+assertEqual(cfg.MemoryLimitMB, 4096);
+
 function test_assemblerInsertsMatricesAtOriginalDijIndices
 scenarioModel = helper_fixtureScenarioModel();
 dij1 = helper_scenarioDij([1 0; 0 1]);

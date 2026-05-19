@@ -31,7 +31,7 @@ cfg = matRad_setDefault(cfg, 'OARStructSel', []);
 cfg = matRad_setDefault(cfg, 'UseParallel', false);
 cfg = matRad_setDefault(cfg, 'parallelOptions', []);
 cfg = matRad_setDefault(cfg, 'CollectTiming', false);
-cfg = matRad_setDefault(cfg, 'MemoryLimitMB', 256);
+cfg = matRad_setDefault(cfg, 'MemoryLimitMB', 4096);
 cfg = matRad_setDefault(cfg, 'BatchSize', []);
 cfg = matRad_setDefault(cfg, 'ProgressLevel', 'summary');
 
