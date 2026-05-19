@@ -77,7 +77,8 @@ assertEqual(dijProb.voiSubIx{2}, [3; 4]);
 function test_probConstRbeScalesExpectedAndOmega
 [ct, cst, pln, dij, cfg] = helper_singleCtFixture();
 dij.RBE = 1.1;
-cfg.Quantity = 'RBExD';
+pln.propOpt.quantityOpt = 'RBExDose';
+cfg.Quantity = 'RBExDose';
 
 [plnOut, dijProbContext] = matRad_calculateProbabilisticQuantities(ct, cst, [], pln, dij, cfg);
 dijProb = plnOut.propOpt.dij_prob;
@@ -86,8 +87,13 @@ assertElementsAlmostEqual(full(dijProb.expected(1:2, :)), ...
                           1.1 * [2.5 0; 0 3.5], 'absolute', 1e-12);
 assertElementsAlmostEqual(full(dijProb.Omega{1}), ...
                           1.21 * diag([0.75 0.75]), 'absolute', 1e-12);
-assertEqual(dijProb.quantity, 'RBExD');
-assertEqual(dijProbContext.RBE, 1);
+assertEqual(dijProb.quantity, 'RBExDose');
+assertEqual(dijProb.quantityField, 'physicalDose');
+assertElementsAlmostEqual(dijProb.quantityScale, 1.1, 'absolute', 1e-12);
+assertEqual(dijProb.optimizationQuantity, 'RBExDose');
+assertEqual(dijProbContext.probabilisticQuantity, 'RBExDose');
+assertEqual(dijProbContext.probabilisticQuantityField, 'physicalDose');
+assertEqual(dijProbContext.RBE, 1.1);
 
 function test_probAcceptsExplicitLinearQuantityField
 [ct, cst, pln, dij, cfg] = helper_singleCtFixture();

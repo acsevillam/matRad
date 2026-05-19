@@ -410,16 +410,16 @@ classdef matRad_TopasMCEngine < DoseEngines.matRad_MonteCarloEngineAbstract
                     if isfield(tmpResultGUI, 'alphaDoseCube') && isfield(tmpResultGUI, 'SqrtBetaDoseCube')
                         resultGUI.phaseAlphaDose{ctScen}    = tmpResultGUI.alpha .* tmpResultGUI.physicalDose;
                         resultGUI.phaseSqrtBetaDose{ctScen} = sqrt(tmpResultGUI.beta) .* tmpResultGUI.physicalDose;
-                        resultGUI.phaseRBExD{ctScen} = tmpResultGUI.RBExD;
+                        resultGUI.phaseRBExDose{ctScen} = tmpResultGUI.RBExDose;
                         for beamIx = 1:dij.numOfBeams
                             resultGUI.(['phaseAlphaDose_beam', num2str(beamIx)]){ctScen} = tmpResultGUI.(['alpha_beam', num2str(beamIx)]).*tmpResultGUI.(['physicalDose_beam', num2str(beamIx)]);
                             resultGUI.(['phaseSqrtBetaDose_beam', num2str(beamIx)]){ctScen} = sqrt(tmpResultGUI.(['beta_beam', num2str(beamIx)])).*tmpResultGUI.(['physicalDose_beam', num2str(beamIx)]);
-                            resultGUI.(['phaseRBExD_beam', num2str(beamIx)]){ctScen} = tmpResultGUI.(['RBExD_beam', num2str(beamIx)]);
+                            resultGUI.(['phaseRBExDose_beam', num2str(beamIx)]){ctScen} = tmpResultGUI.(['RBExDose_beam', num2str(beamIx)]);
                         end
-                    elseif isfield(tmpResultGUI,'RBExD')
-                        resultGUI.phaseRBExD{ctScen} = tmpResultGUI.RBExD;
+                    elseif isfield(tmpResultGUI,'RBExDose')
+                        resultGUI.phaseRBExDose{ctScen} = tmpResultGUI.RBExDose;
                          for beamIx = 1:dij.numOfBeams
-                              resultGUI.(['phaseRBExD_beam', num2str(beamIx)]){ctScen} = tmpResultGUI.(['RBExD_beam', num2str(beamIx)]);
+                              resultGUI.(['phaseRBExDose_beam', num2str(beamIx)]){ctScen} = tmpResultGUI.(['RBExDose_beam', num2str(beamIx)]);
                          end
                     end
                 end
@@ -2853,4 +2853,3 @@ classdef matRad_TopasMCEngine < DoseEngines.matRad_MonteCarloEngineAbstract
         end
     end
 end
-

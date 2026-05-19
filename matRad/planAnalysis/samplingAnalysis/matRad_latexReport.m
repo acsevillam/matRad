@@ -296,7 +296,7 @@ for i = 1:size(cst,1)
         x = nominalScenario.dvh(i).doseGrid(1:argmin);        
         h(1) = plot(x,y,'LineWidth',2, 'Color', colors(i,:), 'DisplayName', cst{i,2});      
         ylim([0 100]);
-        if strncmp(quantityVis, 'RBExDose', 5) || strncmp(quantityVis, 'RBExD', 5)
+        if strncmp(quantityVis, 'RBExDose', 8)
             xlabel('Dose RBE x [Gy]');
         else
             xlabel('Dose [Gy]');
@@ -364,7 +364,7 @@ clear filename
 % relative file path (relative to main.tex)
 relativePath = fullfile('data','structures');
 
-if strcmp(quantityVis, 'RBExDose') || strcmp(quantityVis, 'RBExD')
+if strcmp(quantityVis, 'RBExDose')
     labelDoseDVH = 'Dose RBE x [Gy]';
 else
    labelDoseDVH = 'Dose [Gy]';

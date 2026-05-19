@@ -60,7 +60,7 @@ Lines 35-36 in the :ref:`the parameters screenshot <parametersScreenshot>` are u
 
 The radiation mode can be set in line 28 in the :ref:`the parameters screenshot <parametersScreenshot>`. You can choose between photons, protons and carbon.
 
-If you decide to use protons or carbon, it is possible to set the lateral spot spacing (line 34). When using carbon, you can also choose between a physical optimization (``'none'``), an optimization of the biological effect (``'effect'``) or an optimization of the RBE-weighted dose (``'RBExD'``) by adjusting the parameter ``pln.propOpt.bioOptimization`` in line 47.
+If you decide to use protons or carbon, it is possible to set the lateral spot spacing (line 34). When using carbon, you can also choose between a physical optimization (``'none'``), an optimization of the biological effect (``'effect'``) or an optimization of the RBE-weighted dose (``'RBExDose'``) by adjusting the parameter ``pln.propOpt.bioOptimization`` in line 47.
 
 In case you choose photons, it is possible to run an additional MLC sequencing by setting ``pln.propOpt.runSequencing`` (line 50) and direct aperture optimization is accessible through ``pln.propOpt.runDAO`` (line 49).
 

@@ -750,10 +750,6 @@ classdef matRad_OptimizationProblem < handle
             if isstring(quantity) && isscalar(quantity)
                 quantity = char(quantity);
             end
-
-            if strcmpi(quantity,'RBExD')
-                quantity = 'RBExDose';
-            end
         end
     end
 end

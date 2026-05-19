@@ -70,7 +70,7 @@ Now you can start to adjust the plan parameters:
 +-----------------------------------------------------------------------------------------------+
 | If you set carbon as radiation mode, you can activate the biological optimization. You can    |
 | choose between an effect based optimization (*effect*) or the optimization of the RBE-weighted|
-| dose (*RBExD*).                                                                               |
+| dose (*RBExDose*).                                                                            |
 +-----------------------------------------------------------------------------------------------+
 | For the radiation mode "photons", you have the option to run a MLC sequencing, where you can  |
 | set the number of stratification levels and additionally you can run a direct aperture        |

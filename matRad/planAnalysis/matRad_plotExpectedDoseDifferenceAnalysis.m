@@ -211,7 +211,7 @@ if isfield(expectedDoseDifferenceAnalysis, 'quantity')
     quantity = char(expectedDoseDifferenceAnalysis.quantity);
 end
 
-if strncmp(quantity, 'RBExD', 5) || strncmp(quantity, 'RBExDose', 8)
+if strncmp(quantity, 'RBExDose', 8)
     unitLabel = '[Gy(RBE)]';
 else
     unitLabel = '[Gy]';

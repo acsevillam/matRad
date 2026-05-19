@@ -161,7 +161,7 @@ figureCleaner = onCleanup(@() close('all'));
 referenceCube = ones(2, 2);
 sampleDoseMatrix = ones(4, 2);
 analysis = matRad_expectedDoseDifferenceAnalysis(sampleDoseMatrix, referenceCube, ...
-                                                 'quantity', 'RBExD');
+                                                 'quantity', 'RBExDose');
 fig = figure('Visible', 'off');
 axesHandle = axes(fig);
 

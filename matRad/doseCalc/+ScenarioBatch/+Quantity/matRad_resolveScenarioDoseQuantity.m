@@ -24,12 +24,12 @@ elseif matRad_hasLinearDijField(dij, quantityName)
     field = quantityName;
 elseif strcmpi(quantityName, 'physicalDose')
     field = 'physicalDose';
-elseif strcmpi(quantityName, 'RBExD')
+elseif strcmpi(quantityName, 'RBExDose')
     if isfield(dij, 'RBE') && isnumeric(dij.RBE) && isscalar(dij.RBE) && isfinite(dij.RBE)
         field = 'physicalDose';
         scale = dij.RBE;
     else
-        matRadCfg.dispError(['RBExD scenario dose calculation requires a scalar dij.RBE ' ...
+        matRadCfg.dispError(['RBExDose scenario dose calculation requires a scalar dij.RBE ' ...
                              'or an explicit linear QuantityField.']);
     end
 elseif any(strcmpi(quantityName, {'effect', 'BED'}))

@@ -94,7 +94,7 @@ for i = 1:ct.numOfCtScen
      for beamIx = 1:dij.numOfBeams
         resultGUI.(['phaseDose_beam', num2str(beamIx)]){i} = tmpResultGUI.(['physicalDose_beam', num2str(beamIx)]);
         if ~isa(pln.bioModel,'matRad_EmptyBiologicalModel')
-            % compute RBExD 
+            % compute RBExDose
             if isa(pln.bioModel,'matRad_ConstantRBE')
                 resultGUI.(['phaseRBExDose_beam', num2str(beamIx)]){i} = tmpResultGUI.(['RBExDose_beam', num2str(beamIx)]);
             elseif isa(pln.bioModel,'matRad_LQBasedModel')
@@ -155,4 +155,3 @@ end
 
 
 end
-

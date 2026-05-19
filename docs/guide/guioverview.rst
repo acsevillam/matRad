@@ -68,7 +68,7 @@ In this section, the plan parameters are adjusted before calculating the dose-in
     * - # Fractions
       - Here the desired number of fractions can be specified.
     * - Biological optimization
-      - For carbon ions, you can apply a biological optimization. You can choose between an optimization of the biological effect (``effect``) or the RBE-weighted dose (``RBExD``).
+      - For carbon ions, you can apply a biological optimization. You can choose between an optimization of the biological effect (``effect``) or the RBE-weighted dose (``RBExDose``).
     * - Run Sequencing
       - Check this if you want to run a MLC sequencing. The number of stratification levels can be adjusted.
     * - Run Direct Aperture Optimization
