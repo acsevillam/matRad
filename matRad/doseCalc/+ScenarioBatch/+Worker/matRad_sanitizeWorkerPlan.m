@@ -11,13 +11,13 @@ function pln = matRad_sanitizeWorkerPlan(pln, engine)
 %               should be serialized into pln.propDoseCalc
 %
 % output
-%   pln:        copy of the plan with nested dose parallelism disabled and
-%               propDoseCalc converted from engine handle state to a struct
+%   pln:        copy of the plan with nested dose parallelism disabled,
+%               propDoseCalc converted from engine handle state to a struct,
+%               and biological model handles converted to serializable structs
 %
 % note
-%   This helper currently sanitizes propDoseCalc only. It is intentionally
-%   conservative and does not claim to remove all possible runtime state
-%   from arbitrary plan fields.
+%   This helper is intentionally conservative and only sanitizes worker
+%   boundary state that is known to be unsafe or unnecessary to serialize.
 %
 % %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
@@ -37,6 +37,7 @@ if nargin < 2
 end
 
 pln.propDoseCalc = matRad_buildSerialPropDoseCalc(pln, engine);
+pln = matRad_sanitizeBiologicalModelFields(pln);
 end
 
 function propDoseCalc = matRad_buildSerialPropDoseCalc(pln, engine)
@@ -72,6 +73,112 @@ for i = 1:numel(propNames)
         % Keep the worker plan conservative if a custom property cannot be
         % read outside the engine class.
     end
+end
+end
+
+function pln = matRad_sanitizeBiologicalModelFields(pln)
+[pln, ~] = matRad_sanitizeBioModelField(pln, 'bioModel');
+[pln, bioParamMetadata] = matRad_sanitizeBioModelField(pln, 'bioParam');
+
+if ~isfield(pln, 'bioModel') && ~isempty(bioParamMetadata)
+    pln.bioModel = bioParamMetadata;
+end
+
+if isfield(pln, 'propDoseCalc') && isstruct(pln.propDoseCalc)
+    pln.propDoseCalc = ...
+        matRad_sanitizePropDoseCalcBiologicalModelFields(pln.propDoseCalc);
+end
+end
+
+function [valueStruct, metadata] = matRad_sanitizeBioModelField(valueStruct, fieldName)
+metadata = [];
+if ~isfield(valueStruct, fieldName)
+    return
+end
+
+[valueStruct.(fieldName), metadata] = ...
+    matRad_sanitizeBioModelValue(valueStruct.(fieldName));
+end
+
+function propDoseCalc = matRad_sanitizePropDoseCalcBiologicalModelFields(propDoseCalc)
+for elementIx = 1:numel(propDoseCalc)
+    [propDoseCalc(elementIx), ~] = ...
+        matRad_sanitizeBioModelField(propDoseCalc(elementIx), 'bioModel');
+    [propDoseCalc(elementIx), bioParamMetadata] = ...
+        matRad_sanitizeBioModelField(propDoseCalc(elementIx), 'bioParam');
+    if ~isfield(propDoseCalc(elementIx), 'bioModel') && ...
+            ~isempty(bioParamMetadata)
+        propDoseCalc(elementIx).bioModel = bioParamMetadata;
+    end
+end
+end
+
+function [value, metadata] = matRad_sanitizeBioModelValue(value)
+metadata = [];
+if isa(value, 'matRad_BiologicalModel')
+    metadata = matRad_bioModelToSerializableStruct(value);
+    value = metadata;
+end
+end
+
+function metadata = matRad_bioModelToSerializableStruct(bioModel)
+metadata = struct();
+metadata.model = matRad_scalarText(bioModel.model);
+
+propNames = matRad_publicSerializableBioModelProperties(bioModel);
+excludedProps = {'model', 'quantityOpt', 'quantityVis'};
+for i = 1:numel(propNames)
+    propName = propNames{i};
+    if any(strcmp(propName, excludedProps))
+        continue
+    end
+    try
+        propValue = bioModel.(propName);
+    catch
+        continue
+    end
+    if matRad_isSerializableBioModelValue(propValue)
+        metadata.(propName) = propValue;
+    end
+end
+end
+
+function propNames = matRad_publicSerializableBioModelProperties(bioModel)
+propNames = {};
+try
+    metaClass = metaclass(bioModel);
+    propertyList = metaClass.PropertyList;
+catch
+    return
+end
+
+for i = 1:numel(propertyList)
+    metaProp = propertyList(i);
+    if iscell(propertyList)
+        metaProp = propertyList{i};
+    end
+    if ~matRad_isPublicAccess(metaProp.GetAccess) || ...
+            ~matRad_isPublicAccess(metaProp.SetAccess) || ...
+            matRad_metaFlag(metaProp, 'Constant') || ...
+            matRad_metaFlag(metaProp, 'Dependent') || ...
+            matRad_metaFlag(metaProp, 'Hidden')
+        continue
+    end
+    propNames{end + 1} = metaProp.Name; %#ok<AGROW>
+end
+
+propNames = unique(propNames, 'stable');
+end
+
+function tf = matRad_isSerializableBioModelValue(value)
+tf = ~isa(value, 'handle') && ~isa(value, 'function_handle');
+end
+
+function value = matRad_scalarText(value)
+if isstring(value) && isscalar(value)
+    value = char(value);
+elseif ~ischar(value)
+    value = '';
 end
 end
 

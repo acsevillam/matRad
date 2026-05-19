@@ -165,6 +165,47 @@ dij1 = helper_scenarioDij([1 0; 0 1]);
 assertExceptionThrown(@() ScenarioBatch.Dij.matRad_assembleParallelScenarioDij( ...
                                                                                {dij1}, 1, scenarioModel), 'matRad:Error');
 
+function test_sanitizeWorkerPlanSerializesBioModelWithoutDeprecatedQuantities
+pln.radiationMode = 'photons';
+pln.machine = 'Generic';
+pln.propOpt.quantityOpt = 'physicalDose';
+pln.propOpt.quantityVis = 'physicalDose';
+pln.propDoseCalc = struct('engine', 'SVDPB', 'UseParallel', true);
+pln.bioModel = matRad_bioModel('photons', 'none');
+
+plnWorker = ScenarioBatch.Worker.matRad_sanitizeWorkerPlan(pln);
+
+assertTrue(isa(pln.bioModel, 'matRad_BiologicalModel'));
+assertTrue(isstruct(plnWorker.bioModel));
+assertEqual(plnWorker.bioModel.model, 'none');
+assertFalse(isfield(plnWorker.bioModel, 'quantityOpt'));
+assertFalse(isfield(plnWorker.bioModel, 'quantityVis'));
+assertEqual(plnWorker.propOpt.quantityOpt, 'physicalDose');
+assertEqual(plnWorker.propOpt.quantityVis, 'physicalDose');
+assertFalse(plnWorker.propDoseCalc.UseParallel);
+
+function test_sanitizeWorkerPlanConvertsLegacyBioParamToBioModel
+pln.radiationMode = 'photons';
+pln.machine = 'Generic';
+pln.propOpt.quantityOpt = 'physicalDose';
+pln.propOpt.quantityVis = 'physicalDose';
+pln.propDoseCalc = struct('engine', 'SVDPB', 'UseParallel', true);
+pln.bioParam = matRad_bioModel('photons', 'none');
+
+plnWorker = ScenarioBatch.Worker.matRad_sanitizeWorkerPlan(pln);
+
+assertFalse(isfield(pln, 'bioModel'));
+assertTrue(isa(pln.bioParam, 'matRad_BiologicalModel'));
+assertTrue(isfield(plnWorker, 'bioModel'));
+assertTrue(isstruct(plnWorker.bioModel));
+assertTrue(isstruct(plnWorker.bioParam));
+assertEqual(plnWorker.bioModel.model, 'none');
+assertEqual(plnWorker.bioParam.model, 'none');
+assertFalse(isa(plnWorker.bioModel, 'matRad_BiologicalModel'));
+assertFalse(isa(plnWorker.bioParam, 'matRad_BiologicalModel'));
+assertFalse(isfield(plnWorker.bioModel, 'quantityOpt'));
+assertFalse(isfield(plnWorker.bioParam, 'quantityVis'));
+
 function test_parallelPencilBeamMultiscenMatchesSerialOrFallback
 [ct, cst, pln, stf] = helper_photonTestDataFixture();
 pln.multScen = helper_rangeRandomScenario(ct);

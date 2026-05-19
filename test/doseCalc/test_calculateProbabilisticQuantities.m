@@ -312,6 +312,41 @@ messages = helper_matRadLogMessages(startLogCount);
 assertTrue(helper_anyMessageContains(messages, 'Expected influence progress'));
 assertTrue(helper_anyMessageContains(messages, 'omega progress'));
 
+function test_probScenarioBatchParallelDoesNotSerializeDeprecatedBioModelQuantities
+if ~helper_parallelComputingAvailable()
+    moxunit_throw_test_skipped_exception('Parallel Computing Toolbox is unavailable.');
+end
+
+[ct, cst, pln, stf] = helper_photonTestDataFixture();
+pln.multScen = helper_rangeRandomScenario(ct);
+pln.bioModel = matRad_bioModel('photons', 'none');
+pln.propOpt.quantityOpt = 'physicalDose';
+pln.propOpt.quantityVis = 'physicalDose';
+pln.propDoseCalc.enableDijSampling = false;
+pln.propDoseCalc.randomSeed = 29;
+
+cfg.SecondPassStrategy = 'recompute';
+cfg.KeepCache = false;
+cfg.BatchSize = 10000;
+cfg.targetStructSel = 1;
+cfg.parallelOptions = struct('workerUpperBound', 2);
+cfg.CollectTiming = true;
+
+cfg.UseParallel = false;
+[plnSerial, ~] = matRad_calculateProbabilisticQuantities(ct, cst, stf, pln, cfg);
+
+cfg.UseParallel = true;
+parallelText = evalc('[plnParallel, ~] = matRad_calculateProbabilisticQuantities(ct, cst, stf, pln, cfg);');
+timing = plnParallel.propOpt.dij_prob.timing;
+if ~timing.parallelScenario.firstPass && ~timing.parallelScenario.omega
+    moxunit_throw_test_skipped_exception(['Parallel probabilistic scenario-batch ', ...
+                                          'could not be activated in this environment.']);
+end
+
+helper_assertProbAlmostEqual(plnSerial.propOpt.dij_prob, ...
+                             plnParallel.propOpt.dij_prob);
+helper_assertNoDeprecatedBioModelQuantityWarning(parallelText);
+
 function test_probScenarioBatchSmallBatchesDiskMatchRecompute
 [ct, cst, pln, dij, cfg] = helper_singleCtFixture();
 cfg.BatchSize = 1;
@@ -709,3 +744,9 @@ for i = 1:numel(messages)
         return
     end
 end
+
+function helper_assertNoDeprecatedBioModelQuantityWarning(text)
+assertTrue(isempty(strfind(text, ...
+                          'Property quantityOpt is deprecated from bioModel')));
+assertTrue(isempty(strfind(text, ...
+                          'Property quantityVis is deprecated from bioModel')));
