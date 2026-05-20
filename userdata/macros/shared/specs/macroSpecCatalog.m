@@ -114,7 +114,7 @@ spec.nominalScenario = nominalScenario();
 spec.robustScenario = robustScenario(site,planAlias);
 spec.precompute = precomputeDefaults();
 spec.reference = referenceDefaults();
-spec.pullDose = pullDoseDefaults();
+spec.pullDose = pullDoseDefaults(site);
 spec.optimize = struct('optimizer','IPOPT');
 spec.sampling = samplingDefaults(site,planAlias);
 spec.analysis = analysisDefaults();
@@ -352,16 +352,29 @@ reference.scenario = nominalScenario();
 
 end
 
-function pullDose = pullDoseDefaults()
+function pullDose = pullDoseDefaults(site)
 
 pullDose = struct();
 pullDose.step1Enabled = true;
 pullDose.step1Target = {'CTV'};
 pullDose.step1Criteria = {'COV1'};
-pullDose.step1Limit = 0.9;
+pullDose.step1Limit = dosePullingStep1Limit(site);
 pullDose.step1Start = 10;
 pullDose.step2Enabled = false;
 pullDose.maxIterations = 100;
+
+end
+
+function limit = dosePullingStep1Limit(site)
+
+switch site
+    case 'breast'
+        limit = 0.95;
+    case 'prostate'
+        limit = 0.98;
+    otherwise
+        limit = 0.90;
+end
 
 end
 
