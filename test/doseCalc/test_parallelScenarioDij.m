@@ -4,13 +4,84 @@ test_functions = localfunctions();
 
 initTestSuite;
 
-function test_normalizeScenarioDoseInputConfigDefaultsMemoryLimitToFourGB
+function test_normalizeScenarioDoseInputConfigDefaultsAdaptiveMemoryLimit
 ct = struct('refScen', 1);
 pln = struct('propOpt', struct());
 cfg = ScenarioBatch.Config.matRad_normalizeScenarioDoseInputConfig( ...
     struct(), ct, pln, 'test', MatRad_Config.instance());
 
-assertEqual(cfg.MemoryLimitMB, 4096);
+assertTrue(isnumeric(cfg.MemoryLimitMB));
+assertTrue(cfg.MemoryLimitMB > 0);
+assertEqual(cfg.MemoryLimitFraction, 0.50);
+assertEqual(cfg.MemoryLimitFallbackMB, 4096);
+
+function test_resolveScenarioDoseMemoryLimitKeepsExplicitNumericLimit
+cfg.MemoryLimitMB = 32768;
+cfg.MemoryLimitFraction = 0.50;
+cfg.MemoryLimitFallbackMB = 4096;
+
+memoryLimitMB = ScenarioBatch.Config.matRad_resolveScenarioDoseMemoryLimitMB( ...
+    cfg, MatRad_Config.instance(), struct());
+
+assertEqual(memoryLimitMB, 32768);
+
+function test_resolveScenarioDoseMemoryLimitUsesDetectedMemory
+cfg.MemoryLimitMB = 'auto';
+cfg.MemoryLimitFraction = 0.50;
+cfg.MemoryLimitFallbackMB = 4096;
+memoryInfo = struct('availableBytes', 200e9, 'totalBytes', 200e9, ...
+                    'reserveBytes', 0, 'usableBytes', 200e9, ...
+                    'source', 'slurm:SLURM_MEM_PER_NODE');
+
+memoryLimitMB = ScenarioBatch.Config.matRad_resolveScenarioDoseMemoryLimitMB( ...
+    cfg, MatRad_Config.instance(), memoryInfo);
+
+assertElementsAlmostEqual(memoryLimitMB, 100000, 'absolute', 1e-10);
+
+function test_resolveScenarioDoseMemoryLimitFallsBackWithoutReliableMemory
+cfg.MemoryLimitMB = 'auto';
+cfg.MemoryLimitFraction = 0.50;
+cfg.MemoryLimitFallbackMB = 4096;
+memoryInfo = struct('availableBytes', [], 'totalBytes', [], ...
+                    'reserveBytes', [], 'usableBytes', [], 'source', 'slurm');
+
+memoryLimitMB = ScenarioBatch.Config.matRad_resolveScenarioDoseMemoryLimitMB( ...
+    cfg, MatRad_Config.instance(), memoryInfo);
+
+assertEqual(memoryLimitMB, 4096);
+
+function test_systemMemoryInfoUsesSlurmMemoryPerNode
+environment = struct('SLURM_JOB_ID', '123', 'SLURM_MEM_PER_NODE', '204800');
+
+memoryInfo = matRad_getSystemMemoryInfo('environment', environment, ...
+                                        'cgroupRoot', '');
+
+assertEqual(memoryInfo.availableBytes, 204800 * 1024^2);
+assertEqual(memoryInfo.totalBytes, 204800 * 1024^2);
+assertEqual(memoryInfo.source, 'slurm:SLURM_MEM_PER_NODE');
+
+function test_systemMemoryInfoInsideSlurmWithoutMemoryDoesNotUseSystemMemory
+environment = struct('SLURM_JOB_ID', '123');
+
+memoryInfo = matRad_getSystemMemoryInfo('environment', environment, ...
+                                        'cgroupRoot', '');
+
+assertTrue(isempty(memoryInfo.availableBytes));
+assertEqual(memoryInfo.source, 'slurm');
+
+function test_memoryLimitedWorkerCountCapsSlurmCpuAllocation
+cleanup = helper_preserveEnvironment( ...
+    {'SLURM_JOB_ID', 'SLURM_MEM_PER_NODE', 'SLURM_CPUS_PER_TASK'});
+setenv('SLURM_JOB_ID', '123');
+setenv('SLURM_MEM_PER_NODE', '204800');
+setenv('SLURM_CPUS_PER_TASK', '4');
+
+[maxWorkers, memoryEstimate] = matRad_estimateMemoryLimitedWorkerCount( ...
+    1, 'numTasks', 16, 'limitToDefaultPool', false);
+
+assertEqual(maxWorkers, 4);
+assertEqual(memoryEstimate.allocatedCpuCount, 4);
+assertEqual(memoryEstimate.allocatedCpuSource, 'SLURM_CPUS_PER_TASK');
 
 function test_assemblerInsertsMatricesAtOriginalDijIndices
 scenarioModel = helper_fixtureScenarioModel();
@@ -651,4 +722,16 @@ if ~isempty(originalNumWorkers)
         parpool(originalNumWorkers);
     catch
     end
+end
+
+function cleanup = helper_preserveEnvironment(names)
+values = cell(size(names));
+for i = 1:numel(names)
+    values{i} = getenv(names{i});
+end
+cleanup = onCleanup(@() helper_restoreEnvironment(names, values));
+
+function helper_restoreEnvironment(names, values)
+for i = 1:numel(names)
+    setenv(names{i}, values{i});
 end

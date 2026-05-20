@@ -10,6 +10,7 @@ function memoryInfo = matRad_getSystemMemoryInfo(varargin)
 %   varargin:        optional Name-Value pairs
 %   reserveFraction:  fraction of total system memory kept in reserve
 %   minReserveBytes: lower bound for the reserved memory budget
+%   includeJobLimits: respect scheduler/cgroup memory limits (default true)
 %
 % output
 %   memoryInfo:       struct with available, total, reserved, and usable
@@ -35,12 +36,33 @@ function memoryInfo = matRad_getSystemMemoryInfo(varargin)
 p = inputParser;
 p.addParameter('reserveFraction', 0, @(x) isnumeric(x) && isscalar(x) && isfinite(x) && x >= 0 && x < 1);
 p.addParameter('minReserveBytes', 0, @(x) isnumeric(x) && isscalar(x) && isfinite(x) && x >= 0);
+p.addParameter('includeJobLimits', true, @(x) (islogical(x) || isnumeric(x)) && isscalar(x));
+p.addParameter('environment', [], @(x) isempty(x) || isstruct(x));
+p.addParameter('cgroupRoot', '/sys/fs/cgroup', @(x) ischar(x) || (isstring(x) && isscalar(x)));
 p.parse(varargin{:});
 
 memoryInfo = struct('availableBytes', [], 'totalBytes', [], ...
                     'reserveBytes', [], 'usableBytes', [], 'source', '');
 
-[availableBytes, totalBytes, source] = matRad_getAvailableSystemMemoryBytes();
+environment = p.Results.environment;
+cgroupRoot = char(p.Results.cgroupRoot);
+inSlurm = false;
+source = '';
+availableBytes = [];
+totalBytes = [];
+
+if logical(p.Results.includeJobLimits)
+    [availableBytes, totalBytes, source, inSlurm] = ...
+        matRad_getJobLimitedMemoryBytes(environment, cgroupRoot);
+end
+
+if isempty(availableBytes)
+    if inSlurm
+        memoryInfo.source = source;
+        return
+    end
+    [availableBytes, totalBytes, source] = matRad_getAvailableSystemMemoryBytes();
+end
 
 memoryInfo.availableBytes = availableBytes;
 memoryInfo.totalBytes = totalBytes;
@@ -59,6 +81,231 @@ end
 memoryInfo.reserveBytes = max(reserveBaseBytes * p.Results.reserveFraction, ...
                               p.Results.minReserveBytes);
 memoryInfo.usableBytes = max(0, availableBytes - memoryInfo.reserveBytes);
+end
+
+function [availableBytes, totalBytes, source, inSlurm] = matRad_getJobLimitedMemoryBytes(environment, cgroupRoot)
+availableBytes = [];
+totalBytes = [];
+source = '';
+inSlurm = matRad_isSlurmJob(environment);
+
+[availableBytes, totalBytes, source] = matRad_getCgroupMemoryBytes(cgroupRoot);
+if ~isempty(availableBytes)
+    return
+end
+
+if inSlurm
+    [availableBytes, totalBytes, source] = matRad_getSlurmMemoryBytes(environment);
+    if isempty(source)
+        source = 'slurm';
+    end
+end
+end
+
+function tf = matRad_isSlurmJob(environment)
+tf = false;
+slurmFields = {'SLURM_JOB_ID', 'SLURM_JOBID', 'SLURM_STEP_ID', 'SLURM_PROCID'};
+for i = 1:numel(slurmFields)
+    if ~isempty(matRad_getEnvironmentValue(environment, slurmFields{i}))
+        tf = true;
+        return
+    end
+end
+end
+
+function [availableBytes, totalBytes, source] = matRad_getSlurmMemoryBytes(environment)
+availableBytes = [];
+totalBytes = [];
+source = '';
+
+memPerNodeBytes = matRad_parseSlurmMemoryBytes( ...
+    matRad_getEnvironmentValue(environment, 'SLURM_MEM_PER_NODE'));
+if ~isempty(memPerNodeBytes)
+    availableBytes = memPerNodeBytes;
+    totalBytes = memPerNodeBytes;
+    source = 'slurm:SLURM_MEM_PER_NODE';
+    return
+end
+
+memPerCpuBytes = matRad_parseSlurmMemoryBytes( ...
+    matRad_getEnvironmentValue(environment, 'SLURM_MEM_PER_CPU'));
+[cpuCount, cpuSource] = matRad_getAllocatedCpuCount('environment', environment);
+if ~isempty(memPerCpuBytes) && ~isempty(cpuCount)
+    totalBytes = memPerCpuBytes * cpuCount;
+    availableBytes = totalBytes;
+    source = ['slurm:SLURM_MEM_PER_CPU*' cpuSource];
+end
+end
+
+function memoryBytes = matRad_parseSlurmMemoryBytes(value)
+memoryBytes = [];
+if isempty(value)
+    return
+end
+
+value = strtrim(char(string(value)));
+match = regexp(value, '^([0-9]+(?:\.[0-9]+)?)([KkMmGgTt]?)$', 'tokens', 'once');
+if isempty(match)
+    return
+end
+
+number = str2double(match{1});
+if ~isfinite(number) || number <= 0
+    return
+end
+
+switch upper(match{2})
+    case 'K'
+        memoryBytes = number * 1024;
+    case {'', 'M'}
+        memoryBytes = number * 1024^2;
+    case 'G'
+        memoryBytes = number * 1024^3;
+    case 'T'
+        memoryBytes = number * 1024^4;
+end
+end
+
+function [availableBytes, totalBytes, source] = matRad_getCgroupMemoryBytes(cgroupRoot)
+availableBytes = [];
+totalBytes = [];
+source = '';
+
+if isempty(cgroupRoot) || exist(cgroupRoot, 'dir') ~= 7
+    return
+end
+
+candidates = matRad_getCgroupMemoryCandidates(cgroupRoot);
+bestTotalBytes = [];
+bestAvailableBytes = [];
+for i = 1:numel(candidates)
+    candidate = candidates{i};
+    [limitBytes, currentBytes] = matRad_readCgroupMemoryCandidate(candidate);
+    if isempty(limitBytes)
+        continue
+    end
+    if isempty(currentBytes)
+        currentBytes = 0;
+    end
+    candidateAvailableBytes = max(0, limitBytes - currentBytes);
+    if isempty(bestTotalBytes) || limitBytes < bestTotalBytes
+        bestTotalBytes = limitBytes;
+        bestAvailableBytes = candidateAvailableBytes;
+    end
+end
+
+if ~isempty(bestTotalBytes)
+    totalBytes = bestTotalBytes;
+    availableBytes = bestAvailableBytes;
+    source = 'cgroup';
+end
+end
+
+function candidates = matRad_getCgroupMemoryCandidates(cgroupRoot)
+candidates = {};
+candidates{end + 1} = cgroupRoot;
+candidates{end + 1} = fullfile(cgroupRoot, 'memory');
+
+try
+    cgroupText = fileread('/proc/self/cgroup');
+catch
+    return
+end
+
+lines = regexp(cgroupText, '\r?\n', 'split');
+for i = 1:numel(lines)
+    line = strtrim(lines{i});
+    if isempty(line)
+        continue
+    end
+    fields = regexp(line, ':', 'split');
+    if numel(fields) ~= 3
+        continue
+    end
+
+    cgroupPath = matRad_normalizeCgroupPath(fields{3});
+    if strcmp(fields{1}, '0')
+        candidates{end + 1} = fullfile(cgroupRoot, cgroupPath); %#ok<AGROW>
+    elseif ~isempty(strfind(fields{2}, 'memory'))
+        candidates{end + 1} = fullfile(cgroupRoot, 'memory', cgroupPath); %#ok<AGROW>
+    end
+end
+end
+
+function pathValue = matRad_normalizeCgroupPath(pathValue)
+pathValue = char(string(pathValue));
+while ~isempty(pathValue) && pathValue(1) == '/'
+    pathValue = pathValue(2:end);
+end
+end
+
+function [limitBytes, currentBytes] = matRad_readCgroupMemoryCandidate(candidate)
+limitBytes = [];
+currentBytes = [];
+
+limitBytes = matRad_readCgroupLimitFile(fullfile(candidate, 'memory.max'));
+if isempty(limitBytes)
+    limitBytes = matRad_readCgroupLimitFile(fullfile(candidate, 'memory.limit_in_bytes'));
+end
+if isempty(limitBytes)
+    return
+end
+
+currentBytes = matRad_readCgroupUsageFile(fullfile(candidate, 'memory.current'));
+if isempty(currentBytes)
+    currentBytes = matRad_readCgroupUsageFile(fullfile(candidate, 'memory.usage_in_bytes'));
+end
+end
+
+function valueBytes = matRad_readCgroupLimitFile(filePath)
+valueBytes = matRad_readCgroupNumericFile(filePath);
+if isempty(valueBytes) || valueBytes <= 0 || valueBytes >= 2^60
+    valueBytes = [];
+end
+end
+
+function valueBytes = matRad_readCgroupUsageFile(filePath)
+valueBytes = matRad_readCgroupNumericFile(filePath);
+if isempty(valueBytes) || valueBytes < 0
+    valueBytes = [];
+end
+end
+
+function valueBytes = matRad_readCgroupNumericFile(filePath)
+valueBytes = [];
+try
+    valueText = strtrim(fileread(filePath));
+catch
+    return
+end
+
+if strcmp(valueText, 'max')
+    return
+end
+valueBytes = str2double(valueText);
+if ~isfinite(valueBytes)
+    valueBytes = [];
+end
+end
+
+function value = matRad_getEnvironmentValue(environment, name)
+if ~isempty(environment)
+    if isfield(environment, name)
+        value = environment.(name);
+    else
+        value = '';
+    end
+else
+    value = getenv(name);
+end
+
+if isstring(value) && isscalar(value)
+    value = char(value);
+elseif isnumeric(value) && isscalar(value)
+    value = num2str(value);
+elseif ~ischar(value)
+    value = '';
+end
 end
 
 function [availableBytes, totalBytes, source] = matRad_getAvailableSystemMemoryBytes()

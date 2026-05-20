@@ -31,7 +31,9 @@ cfg = matRad_setDefault(cfg, 'OARStructSel', []);
 cfg = matRad_setDefault(cfg, 'UseParallel', false);
 cfg = matRad_setDefault(cfg, 'parallelOptions', []);
 cfg = matRad_setDefault(cfg, 'CollectTiming', false);
-cfg = matRad_setDefault(cfg, 'MemoryLimitMB', 32768);
+cfg = matRad_setDefault(cfg, 'MemoryLimitMB', 'auto');
+cfg = matRad_setDefault(cfg, 'MemoryLimitFraction', 0.50);
+cfg = matRad_setDefault(cfg, 'MemoryLimitFallbackMB', 4096);
 cfg = matRad_setDefault(cfg, 'BatchSize', []);
 cfg = matRad_setDefault(cfg, 'ProgressLevel', 'summary');
 
@@ -50,10 +52,12 @@ cfg.UseParallel = matRad_logicalScalar(cfg.UseParallel, 'UseParallel', matRadCfg
 cfg.CollectTiming = matRad_logicalScalar(cfg.CollectTiming, 'CollectTiming', matRadCfg);
 ScenarioBatch.Pool.matRad_doseParallelPoolOptions(cfg, matRadCfg, 'parallelOptions');
 
-if ~isnumeric(cfg.MemoryLimitMB) || ~isscalar(cfg.MemoryLimitMB) || ...
-        ~isfinite(cfg.MemoryLimitMB) || cfg.MemoryLimitMB <= 0
-    matRadCfg.dispError('MemoryLimitMB must be a positive finite scalar.');
-end
+cfg.MemoryLimitFraction = matRad_validateFraction(cfg.MemoryLimitFraction, ...
+                                                  'MemoryLimitFraction', matRadCfg);
+cfg.MemoryLimitFallbackMB = matRad_validatePositiveScalar(cfg.MemoryLimitFallbackMB, ...
+                                                          'MemoryLimitFallbackMB', matRadCfg);
+cfg.MemoryLimitMB = ScenarioBatch.Config.matRad_resolveScenarioDoseMemoryLimitMB( ...
+                                                                                 cfg, matRadCfg);
 
 if ~isempty(cfg.BatchSize)
     cfg.BatchSize = matRad_validatePositiveInteger(cfg.BatchSize, 'BatchSize', matRadCfg);
@@ -93,6 +97,21 @@ function value = matRad_validatePositiveInteger(value, name, matRadCfg)
 if ~isnumeric(value) || ~isscalar(value) || ~isfinite(value) || ...
         value < 1 || fix(value) ~= value
     matRadCfg.dispError('%s must be a positive integer scalar.', name);
+end
+value = double(value);
+end
+
+function value = matRad_validatePositiveScalar(value, name, matRadCfg)
+if ~isnumeric(value) || ~isscalar(value) || ~isfinite(value) || value <= 0
+    matRadCfg.dispError('%s must be a positive finite scalar.', name);
+end
+value = double(value);
+end
+
+function value = matRad_validateFraction(value, name, matRadCfg)
+if ~isnumeric(value) || ~isscalar(value) || ~isfinite(value) || ...
+        value <= 0 || value > 1
+    matRadCfg.dispError('%s must be a finite scalar in (0,1].', name);
 end
 value = double(value);
 end
