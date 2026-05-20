@@ -30,6 +30,10 @@ function [plnInterval, dijIntervalContext] = matRad_calcDoseInterval(ct, cst, st
 %           CacheRoot: root folder for disk blocks. Defaults to a temporary
 %               folder outside the matRad checkout.
 %           KeepCache: keep the hash cache folder after the run (default false)
+%           MemoryLimitMB: positive scalar MB or 'auto' (default). Auto uses
+%               scheduler/cgroup memory first and falls back conservatively.
+%           MemoryLimitFraction: fraction of detected memory used by 'auto'
+%           MemoryLimitFallbackMB: fallback MB when 'auto' cannot detect memory
 %
 % output
 %   plnInterval:        plan struct containing propOpt.dij_interval. The

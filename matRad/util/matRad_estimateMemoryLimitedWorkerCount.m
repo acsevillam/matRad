@@ -63,10 +63,15 @@ memoryEstimate.safetyFactor = p.Results.safetyFactor;
 memoryEstimate.reserveFraction = p.Results.reserveFraction;
 memoryEstimate.minWorkerMemoryBytes = p.Results.minWorkerMemoryBytes;
 memoryEstimate.limitToDefaultPool = logical(p.Results.limitToDefaultPool);
+memoryEstimate.allocatedCpuCount = [];
+memoryEstimate.allocatedCpuSource = '';
 memoryEstimate.maxWorkers = [];
 
 memoryEstimate.workerBytes = max(workerMemoryBytes, p.Results.minWorkerMemoryBytes) * p.Results.safetyFactor;
 memoryEstimate.defaultPoolSize = matRad_getDefaultParallelPoolSize();
+[allocatedCpuCount, allocatedCpuSource] = matRad_getAllocatedCpuCount();
+memoryEstimate.allocatedCpuCount = allocatedCpuCount;
+memoryEstimate.allocatedCpuSource = allocatedCpuSource;
 
 if isempty(memoryEstimate.usableBytes) || isempty(memoryEstimate.workerBytes) || memoryEstimate.workerBytes <= 0
     return
@@ -80,6 +85,10 @@ if ~isempty(workerUpperBound)
     maxWorkers = min(maxWorkers, workerUpperBound);
 elseif p.Results.limitToDefaultPool && ~isempty(memoryEstimate.defaultPoolSize)
     maxWorkers = min(maxWorkers, memoryEstimate.defaultPoolSize);
+end
+
+if ~isempty(allocatedCpuCount)
+    maxWorkers = min(maxWorkers, allocatedCpuCount);
 end
 
 if ~isempty(p.Results.numTasks) && isfinite(p.Results.numTasks)
