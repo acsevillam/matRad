@@ -188,6 +188,18 @@ function test_importanceScenarioShiftCombinations
     assertEqual(model.totNumRangeScen,nRangePoints^2);
     assertEqual(model.totNumScen,model.totNumRangeScen + model.totNumShiftScen - 1);
 
+function test_importanceScenarioInactiveRangeUsesNominalOnly
+
+    model = matRad_ImportanceScenarios();
+    model.scenarioDimensionActive = {'ct','setup'};
+    model.numOfSetupGridPoints = 5;
+
+    assertEqual(model.totNumShiftScen,13);
+    assertEqual(model.totNumRangeScen,1);
+    assertEqual(model.numScenarios(),13);
+    assertTrue(all(abs(model.absRangeShift(:)) <= eps));
+    assertTrue(all(abs(model.relRangeShift(:)) <= eps));
+
 function test_importanceScenariosPropertySetters
     model = matRad_ImportanceScenarios();
 
@@ -196,5 +208,3 @@ function test_importanceScenariosPropertySetters
 
     model.numOfRangeGridPoints = 5;
     assertEqual(model.numOfRangeGridPoints,5);
-
-      

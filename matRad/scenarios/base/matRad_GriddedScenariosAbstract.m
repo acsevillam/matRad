@@ -63,50 +63,58 @@ classdef (Abstract) matRad_GriddedScenariosAbstract < matRad_ScenarioModel
 
             %
             this.numOfCtScen = size(this.ctScenProb, 1);
+            activeDimensions = matRad_normalizeScenarioDimensionActive( ...
+                                                                        this.scenarioDimensionActive);
+            setupActive = any(strcmp(activeDimensions, 'setup'));
+            rangeActive = any(strcmp(activeDimensions, 'range'));
 
             % Get the maximum, i.e., worst case shifts
             wcSetupShifts = this.wcSigma * this.shiftSD;
 
             %% Create gridded setup shifts
-            % Create grid vectors for setup shifts
-            setupShiftGrid = zeros(this.numOfSetupGridPoints, numel(wcSetupShifts));
-            %{
-            if mod(this.numOfSetupGridPoints,2) == 0 && this.includeNominalScenario
-                matRad_cfg.dispWarning(['Obtaining Setup Shifts: Including the nominal scenario ' ...
-                                        'with even number of grid points creates asymmetrical shifts!']);
-            end
-            %}
-
-            for i = 1:numel(wcSetupShifts)
-                setupShiftGrid(:, i) = linspace(-wcSetupShifts(i), wcSetupShifts(i), this.numOfSetupGridPoints);
+            if setupActive
+                % Create grid vectors for setup shifts
+                setupShiftGrid = zeros(this.numOfSetupGridPoints, numel(wcSetupShifts));
                 %{
-                if this.includeNominalScenario
-
-                    [~,ix] = min(abs(setupShiftGrid(:,i)));
-                    setupShiftGrid(ix,i) = 0;
+                if mod(this.numOfSetupGridPoints,2) == 0 && this.includeNominalScenario
+                    matRad_cfg.dispWarning(['Obtaining Setup Shifts: Including the nominal scenario ' ...
+                                            'with even number of grid points creates asymmetrical shifts!']);
                 end
                 %}
-            end
 
-            % Now create vector of all shifts for different combinatorial
-            % settings
-            switch this.combinations
-                case 'none'
-                    % Create independent shifts
-                    griddedSetupShifts = [];
-                    for i = 1:size(setupShiftGrid, 2)
-                        tmpGrid = zeros(size(setupShiftGrid, 1), 3);
-                        tmpGrid(:, i) = setupShiftGrid(:, i);
-                        griddedSetupShifts = [griddedSetupShifts; tmpGrid];
+                for i = 1:numel(wcSetupShifts)
+                    setupShiftGrid(:, i) = linspace(-wcSetupShifts(i), wcSetupShifts(i), this.numOfSetupGridPoints);
+                    %{
+                    if this.includeNominalScenario
+
+                        [~,ix] = min(abs(setupShiftGrid(:,i)));
+                        setupShiftGrid(ix,i) = 0;
                     end
-                case {'shift', 'all'}
-                    [X, Y, Z] = meshgrid(setupShiftGrid(:, 1), setupShiftGrid(:, 2), setupShiftGrid(:, 3));
-                    griddedSetupShifts = [X(:), Y(:), Z(:)];
-                otherwise
-                    matRad_cfg.dispError('Invalid value for combinations! This sanity check should never be reached!');
-            end
+                    %}
+                end
 
-            griddedSetupShifts = matRad_ImportanceScenarios.uniqueStableRowsCompat(griddedSetupShifts);
+                % Now create vector of all shifts for different combinatorial
+                % settings
+                switch this.combinations
+                    case 'none'
+                        % Create independent shifts
+                        griddedSetupShifts = [];
+                        for i = 1:size(setupShiftGrid, 2)
+                            tmpGrid = zeros(size(setupShiftGrid, 1), 3);
+                            tmpGrid(:, i) = setupShiftGrid(:, i);
+                            griddedSetupShifts = [griddedSetupShifts; tmpGrid];
+                        end
+                    case {'shift', 'all'}
+                        [X, Y, Z] = meshgrid(setupShiftGrid(:, 1), setupShiftGrid(:, 2), setupShiftGrid(:, 3));
+                        griddedSetupShifts = [X(:), Y(:), Z(:)];
+                    otherwise
+                        matRad_cfg.dispError('Invalid value for combinations! This sanity check should never be reached!');
+                end
+
+                griddedSetupShifts = matRad_ImportanceScenarios.uniqueStableRowsCompat(griddedSetupShifts);
+            else
+                griddedSetupShifts = zeros(1, 3);
+            end
             shiftNomScenIx = find(all(griddedSetupShifts == zeros(1, 3), 2));
 
             if ~isempty(shiftNomScenIx) %|| this.includeNominalScenario
@@ -122,34 +130,38 @@ classdef (Abstract) matRad_GriddedScenariosAbstract < matRad_ScenarioModel
             % Obtain worst case range shifts
             wcRangeShifts = this.wcSigma * [this.rangeAbsSD this.rangeRelSD ./ 100];
 
-            rangeShiftGrid = zeros(this.numOfRangeGridPoints, numel(wcRangeShifts));
-            %{
-            if mod(this.numOfRangeGridPoints,2) == 0 && this.includeNominalScenario
-                matRad_cfg.dispWarning(['Obtaining Range Shifts: Including the nominal scenario ' ...
-                                        'with even number of grid points creates asymmetrical shifts!']);
-            end
-            %}
-
-            for i = 1:numel(wcRangeShifts)
-                rangeShiftGrid(:, i) = linspace(-wcRangeShifts(i), wcRangeShifts(i), this.numOfRangeGridPoints);
-
+            if rangeActive
+                rangeShiftGrid = zeros(this.numOfRangeGridPoints, numel(wcRangeShifts));
                 %{
-                if this.includeNominalScenario
-                    [~,ix] = min(abs(rangeShiftGrid(:,i)));
-                    rangeShiftGrid(ix,i) = 0;
+                if mod(this.numOfRangeGridPoints,2) == 0 && this.includeNominalScenario
+                    matRad_cfg.dispWarning(['Obtaining Range Shifts: Including the nominal scenario ' ...
+                                            'with even number of grid points creates asymmetrical shifts!']);
                 end
                 %}
-            end
 
-            if this.combineRange
-                griddedRangeShifts = rangeShiftGrid;
+                for i = 1:numel(wcRangeShifts)
+                    rangeShiftGrid(:, i) = linspace(-wcRangeShifts(i), wcRangeShifts(i), this.numOfRangeGridPoints);
+
+                    %{
+                    if this.includeNominalScenario
+                        [~,ix] = min(abs(rangeShiftGrid(:,i)));
+                        rangeShiftGrid(ix,i) = 0;
+                    end
+                    %}
+                end
+
+                if this.combineRange
+                    griddedRangeShifts = rangeShiftGrid;
+                else
+                    [rngAbs, rngRel] = meshgrid(rangeShiftGrid(:, 1), rangeShiftGrid(:, 2));
+                    griddedRangeShifts = [rngAbs(:), rngRel(:)];
+                end
+
+                % Remove duplicate scenarios and update number of shifts
+                griddedRangeShifts = this.uniqueStableRowsCompat(griddedRangeShifts);
             else
-                [rngAbs, rngRel] = meshgrid(rangeShiftGrid(:, 1), rangeShiftGrid(:, 2));
-                griddedRangeShifts = [rngAbs(:), rngRel(:)];
+                griddedRangeShifts = zeros(1, 2);
             end
-
-            % Remove duplicate scenarios and update number of shifts
-            griddedRangeShifts = this.uniqueStableRowsCompat(griddedRangeShifts);
 
             rangeNomScenIx = find(all(griddedRangeShifts == zeros(1, 2), 2));
 

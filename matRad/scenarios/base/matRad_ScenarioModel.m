@@ -450,6 +450,7 @@ classdef (Abstract) matRad_ScenarioModel < handle
             if isnumeric(storageSize)
                 storageSize = storageSize(:)';
             end
+            storageSize(end + 1:size(storageSubscripts, 2)) = 1;
 
             this.validateScenarioRealizationInputs(components, scenarioValues, ctScenIds, ...
                                                    scenProb, scenWeight, scenForProb, storageSubscripts, storageSize);
