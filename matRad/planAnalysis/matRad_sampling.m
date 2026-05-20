@@ -59,7 +59,7 @@ parser.addParameter('dvhDoseGrid', [], @(x) isempty(x) || (isnumeric(x) && isvec
 parser.addParameter('autoLimitWorkers', true, @(x) (islogical(x) || isnumeric(x)) && isscalar(x));
 parser.addParameter('workerMemorySafetyFactor', 1.2, @(x) isnumeric(x) && isscalar(x) && isfinite(x) && x >= 1);
 parser.addParameter('memoryReserveFraction', 0.10, @(x) isnumeric(x) && isscalar(x) && isfinite(x) && x >= 0 && x < 1);
-parser.addParameter('minWorkerMemoryBytes', 1024^3, @(x) isnumeric(x) && isscalar(x) && isfinite(x) && x >= 0);
+parser.addParameter('minWorkerMemoryBytes', 4 * 1024^3, @(x) isnumeric(x) && isscalar(x) && isfinite(x) && x >= 0);
 parser.addParameter('workerUpperBound', [], @(x) isempty(x) || ...
                     (isnumeric(x) && isscalar(x) && isfinite(x) && round(x) == x && x >= 1));
 parser.parse(varargin{:});
@@ -438,7 +438,15 @@ msg = ['matRad: Estimated sampling memory: output ', ...
        ', raw worker ', matRad_formatSamplingBytes(samplingMemoryEstimate.rawWorkerBytes)];
 if ~isempty(workerLimit)
     msg = [msg, ', memory-limited workers ', num2str(workerLimit.maxWorkers), ...
-           ' (usable ', matRad_formatSamplingBytes(workerLimit.usableBytes), ')'];
+           ' (usable ', matRad_formatSamplingBytes(workerLimit.usableBytes), ...
+           ', effective worker ', matRad_formatSamplingBytes(workerLimit.workerBytes)];
+    if isfield(workerLimit, 'source') && ~isempty(workerLimit.source)
+        msg = [msg, ', source ', workerLimit.source];
+    end
+    if isfield(workerLimit, 'allocatedCpuCount') && ~isempty(workerLimit.allocatedCpuCount)
+        msg = [msg, ', allocated CPUs ', num2str(workerLimit.allocatedCpuCount)];
+    end
+    msg = [msg, ')'];
 end
 matRadCfg.dispInfo([msg, '.\n']);
 end

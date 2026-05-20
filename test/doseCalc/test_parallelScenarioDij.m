@@ -83,6 +83,27 @@ assertEqual(maxWorkers, 4);
 assertEqual(memoryEstimate.allocatedCpuCount, 4);
 assertEqual(memoryEstimate.allocatedCpuSource, 'SLURM_CPUS_PER_TASK');
 
+function test_memoryLimitedWorkerCountAppliesConservativeWorkerMemoryFloor
+cleanup = helper_preserveEnvironment( ...
+    {'SLURM_JOB_ID', 'SLURM_MEM_PER_NODE', 'SLURM_CPUS_PER_TASK'});
+setenv('SLURM_JOB_ID', '123');
+setenv('SLURM_MEM_PER_NODE', '60000');
+setenv('SLURM_CPUS_PER_TASK', '32');
+
+[maxWorkers, memoryEstimate] = matRad_estimateMemoryLimitedWorkerCount( ...
+    100 * 1024^2, ...
+    'numTasks', 21, ...
+    'safetyFactor', 1.2, ...
+    'reserveFraction', 0.10, ...
+    'minWorkerMemoryBytes', 4 * 1024^3, ...
+    'limitToDefaultPool', false);
+
+assertEqual(maxWorkers, 10);
+assertEqual(memoryEstimate.memoryLimitedWorkers, 10);
+assertEqual(memoryEstimate.allocatedCpuCount, 32);
+assertElementsAlmostEqual(memoryEstimate.workerBytes, ...
+                          4 * 1024^3 * 1.2, 'absolute', 1);
+
 function test_assemblerInsertsMatricesAtOriginalDijIndices
 scenarioModel = helper_fixtureScenarioModel();
 dij1 = helper_scenarioDij([1 0; 0 1]);
