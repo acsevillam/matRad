@@ -104,6 +104,84 @@ assertEqual(memoryEstimate.allocatedCpuCount, 32);
 assertElementsAlmostEqual(memoryEstimate.workerBytes, ...
                           4 * 1024^3 * 1.2, 'absolute', 1);
 
+function test_parallelStagePlannerReducesChunkSizeByMemory
+cleanup = helper_preserveEnvironment( ...
+    {'SLURM_JOB_ID', 'SLURM_JOBID', 'SLURM_STEP_ID', 'SLURM_PROCID', ...
+     'SLURM_CPUS_PER_TASK', 'SLURM_CPUS_ON_NODE', 'SLURM_NCPUS', ...
+     'SLURM_JOB_CPUS_PER_NODE'});
+helper_clearEnvironment({ ...
+                         'SLURM_JOB_ID', 'SLURM_JOBID', 'SLURM_STEP_ID', 'SLURM_PROCID', ...
+                         'SLURM_CPUS_PER_TASK', 'SLURM_CPUS_ON_NODE', 'SLURM_NCPUS', ...
+                         'SLURM_JOB_CPUS_PER_NODE'});
+
+cfg.MemoryLimitMB = 2000;
+cfg.parallelOptions = [];
+
+parallelPlan = ScenarioBatch.Parallel.matRad_planScenarioDoseParallelStage( ...
+                                                                           cfg, 10, 'test planner', 10e6, 20e6, 0, ...
+                                                                           MatRad_Config.instance());
+
+assertTrue(parallelPlan.useParallel);
+assertEqual(parallelPlan.maxConcurrentByMemory, 3);
+assertEqual(parallelPlan.chunkSize, 3);
+assertEqual(parallelPlan.workerUpperBound, 3);
+
+function test_parallelStagePlannerRespectsSlurmCpuAllocation
+cleanup = helper_preserveEnvironment( ...
+    {'SLURM_JOB_ID', 'SLURM_CPUS_PER_TASK'});
+setenv('SLURM_JOB_ID', '123');
+setenv('SLURM_CPUS_PER_TASK', '2');
+
+cfg.MemoryLimitMB = 100000;
+cfg.parallelOptions = [];
+
+parallelPlan = ScenarioBatch.Parallel.matRad_planScenarioDoseParallelStage( ...
+                                                                           cfg, 10, 'test planner', 10e6, 1e6, 0, ...
+                                                                           MatRad_Config.instance());
+
+assertTrue(parallelPlan.useParallel);
+assertEqual(parallelPlan.workerUpperBound, 2);
+assertEqual(parallelPlan.chunkSize, 2);
+assertEqual(parallelPlan.allocatedCpuCount, 2);
+assertEqual(parallelPlan.allocatedCpuSource, 'SLURM_CPUS_PER_TASK');
+
+function test_parallelStagePlannerFallsBackWhenTwoScenariosDoNotFit
+cleanup = helper_preserveEnvironment( ...
+    {'SLURM_JOB_ID', 'SLURM_JOBID', 'SLURM_STEP_ID', 'SLURM_PROCID', ...
+     'SLURM_CPUS_PER_TASK', 'SLURM_CPUS_ON_NODE', 'SLURM_NCPUS', ...
+     'SLURM_JOB_CPUS_PER_NODE'});
+helper_clearEnvironment({ ...
+                         'SLURM_JOB_ID', 'SLURM_JOBID', 'SLURM_STEP_ID', 'SLURM_PROCID', ...
+                         'SLURM_CPUS_PER_TASK', 'SLURM_CPUS_ON_NODE', 'SLURM_NCPUS', ...
+                         'SLURM_JOB_CPUS_PER_NODE'});
+
+cfg.MemoryLimitMB = 50;
+cfg.parallelOptions = [];
+
+parallelPlan = ScenarioBatch.Parallel.matRad_planScenarioDoseParallelStage( ...
+                                                                           cfg, 5, 'test planner', 50e6, 1e6, 0, ...
+                                                                           MatRad_Config.instance());
+
+assertFalse(parallelPlan.useParallel);
+assertEqual(parallelPlan.chunkSize, 1);
+assertEqual(parallelPlan.fallbackReason, 'memoryBudget');
+
+function test_scenarioDoseWorkerEstimateUsesGeometryFloor
+parallelProvider = struct('type', 'scenarioBatch');
+originalProvider = struct();
+originalProvider.preloadedDij.physicalDose = {sparse(1, 1)};
+ctx.numVoxels = 2e6;
+ctx.numBixels = 1200;
+ctx.targetRows = [];
+ctx.oarRows = [];
+
+workerBytes = ScenarioBatch.Parallel.matRad_estimateScenarioDoseWorkerMemoryBytes( ...
+                                                                                  parallelProvider, originalProvider, ctx);
+
+assertTrue(workerBytes > 4 * 1024^3);
+assertTrue(workerBytes > ScenarioBatch.Resources.matRad_estimateVariableBytes( ...
+                                                                              originalProvider.preloadedDij));
+
 function test_assemblerInsertsMatricesAtOriginalDijIndices
 scenarioModel = helper_fixtureScenarioModel();
 dij1 = helper_scenarioDij([1 0; 0 1]);
@@ -751,6 +829,11 @@ for i = 1:numel(names)
     values{i} = getenv(names{i});
 end
 cleanup = onCleanup(@() helper_restoreEnvironment(names, values));
+
+function helper_clearEnvironment(names)
+for i = 1:numel(names)
+    setenv(names{i}, '');
+end
 
 function helper_restoreEnvironment(names, values)
 for i = 1:numel(names)

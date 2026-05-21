@@ -1,4 +1,4 @@
-function useParallel = matRad_guardDoseProbOmegaMemory(ctx, voiBatches, cfg, useParallel, matRadCfg)
+function useParallel = matRad_guardDoseProbOmegaMemory(ctx, voiBatches, cfg, useParallel, matRadCfg, parallelPlan)
 % matRad_guardDoseProbOmegaMemory checks probabilistic omega memory
 %
 % %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -14,9 +14,13 @@ function useParallel = matRad_guardDoseProbOmegaMemory(ctx, voiBatches, cfg, use
 %
 % %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+if nargin < 6
+    parallelPlan = [];
+end
+
 memoryLimitMB = cfg.MemoryLimitMB;
 estimatedMB = matRad_estimateDoseProbOmegaMemoryMB(ctx, voiBatches, cfg, ...
-                                                   useParallel);
+                                                   useParallel, parallelPlan);
 
 matRadCfg.dispInfo(['matRad: Estimated probabilistic omega memory is %.2f MB ', ...
                     '(limit %.2f MB).\n'], estimatedMB, memoryLimitMB);
@@ -26,7 +30,8 @@ if estimatedMB <= memoryLimitMB
 end
 
 if useParallel
-    serialEstimatedMB = matRad_estimateDoseProbOmegaMemoryMB(ctx, voiBatches, cfg, false);
+    serialEstimatedMB = matRad_estimateDoseProbOmegaMemoryMB(ctx, voiBatches, cfg, ...
+                                                             false, parallelPlan);
     matRadCfg.dispInfo(['matRad: Estimated serial probabilistic omega memory is ', ...
                         '%.2f MB (limit %.2f MB).\n'], ...
                        serialEstimatedMB, memoryLimitMB);
@@ -54,7 +59,7 @@ matRadCfg.dispError(['Probabilistic omega estimated memory is %.2f MB, which ', 
 end
 
 function estimatedMB = matRad_estimateDoseProbOmegaMemoryMB(ctx, voiBatches, ...
-                                                            cfg, useParallel)
+                                                            cfg, useParallel, parallelPlan)
 bytesPerDouble = 8;
 numScenarios = numel(ctx.scenarioDijIx);
 numBixels = ctx.numBixels;
@@ -77,7 +82,12 @@ end
 
 parallelResultBytes = 0;
 if useParallel
-    parallelResultBytes = numScenarios * numActiveVois * omegaMatrixBytes;
+    retainedScenarioCount = numScenarios;
+    if isstruct(parallelPlan) && isfield(parallelPlan, 'chunkSize') && ...
+            ~isempty(parallelPlan.chunkSize)
+        retainedScenarioCount = min(numScenarios, double(parallelPlan.chunkSize));
+    end
+    parallelResultBytes = retainedScenarioCount * numActiveVois * omegaMatrixBytes;
 end
 
 estimatedMB = (omegaOutputBytes + omegaWorkBytes + centeredRowsBytes + ...
