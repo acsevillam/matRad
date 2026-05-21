@@ -22,6 +22,8 @@ function [useParallel, pPool, memoryEstimate] = matRad_configureSafeDoseParallel
 %   reserveFraction:      fraction of system memory kept in reserve
 %   minWorkerMemoryBytes: lower bound applied before safetyFactor
 %   workerUpperBound:     explicit upper bound for the worker count
+%   memoryBudgetBytes:    optional stage memory budget used for a final
+%                         worker cap and diagnostics
 %
 % output
 %   useParallel:       true if a pool with at least two workers is ready
@@ -74,6 +76,18 @@ end
                                                                           'reserveFraction', options.reserveFraction, ...
                                                                           'minWorkerMemoryBytes', options.minWorkerMemoryBytes, ...
                                                                           'workerUpperBound', options.workerUpperBound);
+if ~isempty(options.memoryBudgetBytes) && ...
+        isfield(memoryEstimate, 'workerBytes') && ~isempty(memoryEstimate.workerBytes)
+    budgetLimitedWorkers = max(1, floor(options.memoryBudgetBytes / ...
+                                        memoryEstimate.workerBytes));
+    if isempty(poolSizeLimit)
+        poolSizeLimit = budgetLimitedWorkers;
+    else
+        poolSizeLimit = min(poolSizeLimit, budgetLimitedWorkers);
+    end
+    memoryEstimate.memoryBudgetBytes = options.memoryBudgetBytes;
+    memoryEstimate.budgetLimitedWorkers = budgetLimitedWorkers;
+end
 
 if isfield(memoryEstimate, 'workerBytes') && ...
         ~isempty(memoryEstimate.workerBytes)
@@ -87,6 +101,12 @@ if isfield(memoryEstimate, 'allocatedCpuCount') && ...
                         '%d by %s.\n'], calculationName, ...
                        memoryEstimate.allocatedCpuCount, ...
                        memoryEstimate.allocatedCpuSource);
+end
+if isfield(memoryEstimate, 'memoryBudgetBytes') && ...
+        ~isempty(memoryEstimate.memoryBudgetBytes)
+    matRadCfg.dispInfo(['matRad: %s parallel pool memory budget is ', ...
+                        '%.2f MB.\n'], calculationName, ...
+                       memoryEstimate.memoryBudgetBytes / 1e6);
 end
 
 if isempty(poolSizeLimit) || poolSizeLimit < 2
@@ -125,6 +145,7 @@ options.safetyFactor = 1.2;
 options.reserveFraction = 0.10;
 options.minWorkerMemoryBytes = 512 * 1024^2;
 options.workerUpperBound = [];
+options.memoryBudgetBytes = [];
 
 if mod(numel(varargin), 2) ~= 0
     matRadCfg = MatRad_Config.instance();
@@ -148,7 +169,14 @@ for i = 1:2:numel(varargin)
             options.minWorkerMemoryBytes = value;
         case 'workerupperbound'
             matRad_validateOptionalPositiveInteger(value, 'workerUpperBound');
-            options.workerUpperBound = value;
+            if isempty(options.workerUpperBound)
+                options.workerUpperBound = value;
+            elseif ~isempty(value)
+                options.workerUpperBound = min(options.workerUpperBound, value);
+            end
+        case 'memorybudgetbytes'
+            matRad_validateOptionalPositiveScalar(value, 'memoryBudgetBytes');
+            options.memoryBudgetBytes = value;
         otherwise
             matRadCfg = MatRad_Config.instance();
             matRadCfg.dispError('Unknown parallel pool option "%s".', name);
@@ -165,6 +193,18 @@ if ~(isnumeric(value) && isscalar(value) && isfinite(value) && ...
      round(value) == value && value >= 1)
     matRadCfg = MatRad_Config.instance();
     matRadCfg.dispError('%s must be a positive integer scalar or empty.', ...
+                        valueName);
+end
+end
+
+function matRad_validateOptionalPositiveScalar(value, valueName)
+if isempty(value)
+    return
+end
+
+if ~(isnumeric(value) && isscalar(value) && isfinite(value) && value > 0)
+    matRadCfg = MatRad_Config.instance();
+    matRadCfg.dispError('%s must be a positive finite scalar or empty.', ...
                         valueName);
 end
 end

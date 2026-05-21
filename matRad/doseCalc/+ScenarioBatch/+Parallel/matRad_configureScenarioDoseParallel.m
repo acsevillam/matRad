@@ -1,4 +1,7 @@
-function [useParallel, parallelProvider] = matRad_configureScenarioDoseParallel(provider, ctx, cfg, matRadCfg, stageName, workerMemoryBytes)
+function [useParallel, parallelProvider, parallelPlan] = matRad_configureScenarioDoseParallel( ...
+                                                                                              provider, ctx, cfg, matRadCfg, stageName, ...
+                                                                                              workerMemoryBytes, resultBytesPerScenario, ...
+                                                                                              accumulatorBytes)
 % matRad_configureScenarioDoseParallel configures scenario-parallel precomputation
 %
 % %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -20,9 +23,17 @@ end
 if nargin < 6
     workerMemoryBytes = [];
 end
+if nargin < 7 || isempty(resultBytesPerScenario)
+    resultBytesPerScenario = 0;
+end
+if nargin < 8 || isempty(accumulatorBytes)
+    accumulatorBytes = 0;
+end
 
 useParallel = false;
 parallelProvider = provider;
+parallelPlan = struct('useParallel', false, 'chunkSize', 1, ...
+                      'workerUpperBound', 1, 'fallbackReason', '');
 
 if ~isfield(cfg, 'UseParallel') || ~cfg.UseParallel
     return
@@ -48,8 +59,18 @@ if isfield(parallelProvider, 'pln')
     parallelProvider.pln = ScenarioBatch.Worker.matRad_sanitizeWorkerPlan(parallelProvider.pln);
 end
 if isempty(workerMemoryBytes)
-    workerMemoryBytes = matRad_estimateScenarioDoseWorkerMemoryBytes( ...
-                                                                     parallelProvider, provider, ctx);
+    workerMemoryBytes = ScenarioBatch.Parallel.matRad_estimateScenarioDoseWorkerMemoryBytes( ...
+                                                                                            parallelProvider, provider, ctx);
+end
+parallelPlan = ScenarioBatch.Parallel.matRad_planScenarioDoseParallelStage( ...
+                                                                           cfg, numScenarios, stageName, workerMemoryBytes, ...
+                                                                           resultBytesPerScenario, accumulatorBytes, matRadCfg);
+if ~parallelPlan.useParallel
+    matRadCfg.dispWarning(['UseParallel was requested for %s, but the ', ...
+                           'scenario-stage memory plan only allows one concurrent ', ...
+                           'scenario (%s). Falling back to serial scenario-batch.\n'], ...
+                          stageName, parallelPlan.fallbackReason);
+    return
 end
 
 parallelOptions = ScenarioBatch.Pool.matRad_doseParallelPoolOptions( ...
@@ -57,7 +78,10 @@ parallelOptions = ScenarioBatch.Pool.matRad_doseParallelPoolOptions( ...
 [useParallel, ~, ~] = ScenarioBatch.Pool.matRad_configureSafeDoseParallelPool( ...
                                                                               workerMemoryBytes, numScenarios, matRadCfg, stageName, ...
                                                                               'fallbackDescription', 'serial scenario-batch', ...
+                                                                              'memoryBudgetBytes', parallelPlan.memoryBudgetBytes, ...
+                                                                              'workerUpperBound', parallelPlan.workerUpperBound, ...
                                                                               parallelOptions{:});
+parallelPlan.useParallel = useParallel;
 end
 
 function provider = matRad_stripPreloadedScenarioDij(provider)
@@ -67,23 +91,4 @@ for i = 1:numel(fieldsToRemove)
         provider = rmfield(provider, fieldsToRemove{i});
     end
 end
-end
-
-function workerMemoryBytes = matRad_estimateScenarioDoseWorkerMemoryBytes( ...
-                                                                          parallelProvider, originalProvider, ctx)
-providerBytes = ScenarioBatch.Resources.matRad_estimateVariableBytes(parallelProvider);
-scenarioDijBytes = 0;
-if isfield(originalProvider, 'preloadedDij') && ~isempty(originalProvider.preloadedDij)
-    scenarioDijBytes = ScenarioBatch.Resources.matRad_estimateVariableBytes(originalProvider.preloadedDij);
-end
-
-numRows = max([1; numel(ctx.targetRows); numel(ctx.oarRows)]);
-% Scenario row workspaces keep sparse dose influence rows, matching the
-% heuristic used for multi-scenario dij calculation.
-sparseWorkspaceFillFactor = 0.05;
-rowMatrixBytes = double(numRows) * double(max(1, ctx.numBixels)) * 8;
-rowWorkspaceBytes = sparseWorkspaceFillFactor * rowMatrixBytes;
-temporaryWorkspaceBytes = max(128 * 1024^2, double(numRows) * 8 * 10);
-workerMemoryBytes = providerBytes + scenarioDijBytes + rowWorkspaceBytes + ...
-    temporaryWorkspaceBytes;
 end

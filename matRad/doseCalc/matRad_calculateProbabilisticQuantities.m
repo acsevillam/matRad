@@ -170,8 +170,13 @@ matRadCfg.dispInfo(['matRad: Scenario-batch probabilistic first pass over %d ', 
                    numScenarios, numExpectedRows);
 
 stageName = 'scenario-batch probabilistic first pass';
-[useParallel, parallelProvider] = ScenarioBatch.Parallel.matRad_configureScenarioDoseParallel( ...
-                                                                                              provider, ctx, cfg, matRadCfg, stageName, []);
+resultBytesPerScenario = matRad_estimateProbFirstPassResultBytes(numExpectedRows, ctx);
+accumulatorBytes = resultBytesPerScenario;
+[useParallel, parallelProvider, parallelPlan] = ScenarioBatch.Parallel.matRad_configureScenarioDoseParallel( ...
+                                                                                                           provider, ctx, cfg, matRadCfg, ...
+                                                                                                           stageName, [], ...
+                                                                                                           resultBytesPerScenario, ...
+                                                                                                           accumulatorBytes);
 if useParallel
     expectedRows = sparse(numExpectedRows, ctx.numBixels);
     logLevel = matRadCfg.logLevel;
@@ -181,21 +186,28 @@ if useParallel
                                                                                          progressWorkItems, true);
     progressCleanup = onCleanup(progressReporter.cleanup);
     progressQueue = progressReporter.queue;
-    scenarioResults = cell(numScenarios, 1);
-    parfor s = 1:numScenarios
-        workerCfg = MatRad_Config.instance();
-        workerCfg.logLevel = logLevel;
-        scenarioResults{s} = matRad_computeProbScenarioBatchFirstPassScenario( ...
-                                                                              parallelProvider, ctx, quantity, cfg, expectedBatches, voiBatches, ...
-                                                                              cacheVoiRows, s, numExpectedRows, workerCfg, progressQueue, ...
-                                                                              numScenarios);
-    end
+    scenarioChunks = ScenarioBatch.Parallel.matRad_buildScenarioChunks( ...
+                                                                       numScenarios, parallelPlan.chunkSize);
+    for chunkIx = 1:numel(scenarioChunks)
+        chunkScenarios = scenarioChunks{chunkIx};
+        chunkResults = cell(numel(chunkScenarios), 1);
+        parfor chunkLocalIx = 1:numel(chunkScenarios)
+            scenarioIx = chunkScenarios(chunkLocalIx);
+            workerCfg = MatRad_Config.instance();
+            workerCfg.logLevel = logLevel;
+            chunkResults{chunkLocalIx} = matRad_computeProbScenarioBatchFirstPassScenario( ...
+                                                                                          parallelProvider, ctx, quantity, cfg, expectedBatches, voiBatches, ...
+                                                                                          cacheVoiRows, scenarioIx, numExpectedRows, workerCfg, progressQueue, ...
+                                                                                          numScenarios);
+        end
 
-    for s = 1:numScenarios
-        result = scenarioResults{s};
-        expectedRows = expectedRows + result.expectedRows;
+        for chunkLocalIx = 1:numel(chunkResults)
+            result = chunkResults{chunkLocalIx};
+            expectedRows = expectedRows + result.expectedRows;
+        end
+        provider = ScenarioBatch.Resources.matRad_mergeScenarioDoseResourceUsage(provider, chunkResults);
+        chunkResults = [];
     end
-    provider = ScenarioBatch.Resources.matRad_mergeScenarioDoseResourceUsage(provider, scenarioResults);
     if cfg.CollectTiming
         dijProb.timing.parallelScenario.firstPass = true;
     end
@@ -301,9 +313,15 @@ numBixels = ctx.numBixels;
 omegaParallel = false;
 
 stageName = 'scenario-batch probabilistic omega';
-[useParallel, parallelProvider] = ScenarioBatch.Parallel.matRad_configureScenarioDoseParallel( ...
-                                                                                              provider, ctx, cfg, matRadCfg, stageName, []);
-useParallel = DoseProb.matRad_guardDoseProbOmegaMemory(ctx, voiBatches, cfg, useParallel, matRadCfg);
+resultBytesPerScenario = matRad_estimateProbOmegaResultBytes(ctx, voiBatches);
+accumulatorBytes = matRad_estimateProbOmegaAccumulatorBytes(ctx, voiBatches);
+[useParallel, parallelProvider, parallelPlan] = ScenarioBatch.Parallel.matRad_configureScenarioDoseParallel( ...
+                                                                                                           provider, ctx, cfg, matRadCfg, ...
+                                                                                                           stageName, [], ...
+                                                                                                           resultBytesPerScenario, ...
+                                                                                                           accumulatorBytes);
+useParallel = DoseProb.matRad_guardDoseProbOmegaMemory(ctx, voiBatches, cfg, ...
+                                                       useParallel, matRadCfg, parallelPlan);
 if useParallel
     logLevel = matRadCfg.logLevel;
     numOmegaBatches = sum(cellfun(@numel, voiBatches));
@@ -311,15 +329,6 @@ if useParallel
                                                                                          cfg, 'omega', numScenarios * numOmegaBatches, true);
     progressCleanup = onCleanup(progressReporter.cleanup);
     progressQueue = progressReporter.queue;
-    scenarioResults = cell(numScenarios, 1);
-    parfor s = 1:numScenarios
-        workerCfg = MatRad_Config.instance();
-        workerCfg.logLevel = logLevel;
-        scenarioResults{s} = matRad_computeProbScenarioBatchOmegaScenario( ...
-                                                                          parallelProvider, dijProb, ctx, quantity, cfg, voiBatches, s, ...
-                                                                          workerCfg, progressQueue, numScenarios);
-    end
-
     for voiIx = 1:numel(voiRows)
         if isempty(voiRows{voiIx})
             omegaCells{voiIx} = [];
@@ -327,15 +336,31 @@ if useParallel
             omegaCells{voiIx} = sparse(numBixels, numBixels);
         end
     end
-    for s = 1:numScenarios
-        result = scenarioResults{s};
-        for voiIx = 1:numel(voiRows)
-            if ~isempty(result.omegaCells{voiIx})
-                omegaCells{voiIx} = omegaCells{voiIx} + result.omegaCells{voiIx};
+    scenarioChunks = ScenarioBatch.Parallel.matRad_buildScenarioChunks( ...
+                                                                       numScenarios, parallelPlan.chunkSize);
+    for chunkIx = 1:numel(scenarioChunks)
+        chunkScenarios = scenarioChunks{chunkIx};
+        chunkResults = cell(numel(chunkScenarios), 1);
+        parfor chunkLocalIx = 1:numel(chunkScenarios)
+            scenarioIx = chunkScenarios(chunkLocalIx);
+            workerCfg = MatRad_Config.instance();
+            workerCfg.logLevel = logLevel;
+            chunkResults{chunkLocalIx} = matRad_computeProbScenarioBatchOmegaScenario( ...
+                                                                                      parallelProvider, dijProb, ctx, quantity, cfg, voiBatches, scenarioIx, ...
+                                                                                      workerCfg, progressQueue, numScenarios);
+        end
+
+        for chunkLocalIx = 1:numel(chunkResults)
+            result = chunkResults{chunkLocalIx};
+            for voiIx = 1:numel(voiRows)
+                if ~isempty(result.omegaCells{voiIx})
+                    omegaCells{voiIx} = omegaCells{voiIx} + result.omegaCells{voiIx};
+                end
             end
         end
+        provider = ScenarioBatch.Resources.matRad_mergeScenarioDoseResourceUsage(provider, chunkResults);
+        chunkResults = [];
     end
-    provider = ScenarioBatch.Resources.matRad_mergeScenarioDoseResourceUsage(provider, scenarioResults);
     for voiIx = 1:numel(omegaCells)
         if ~isempty(omegaCells{voiIx})
             omegaCells{voiIx} = sparse(0.5 .* (omegaCells{voiIx} + omegaCells{voiIx}'));
@@ -459,4 +484,33 @@ end
 result = struct();
 result.omegaCells = omegaCells;
 result.resourceUsage = localProvider.resourceUsage;
+end
+
+function bytes = matRad_estimateProbFirstPassResultBytes(numExpectedRows, ctx)
+sparseFillFactor = 0.05;
+bytes = ScenarioBatch.Resources.matRad_estimateSparseMatrixBytes( ...
+                                                                 numExpectedRows, ctx.numBixels, sparseFillFactor);
+end
+
+function bytes = matRad_estimateProbOmegaResultBytes(ctx, voiBatches)
+bytesPerDouble = 8;
+numActiveVois = matRad_countNonemptyBatchCells(voiBatches);
+bytes = double(numActiveVois) * double(ctx.numBixels)^2 * bytesPerDouble;
+end
+
+function bytes = matRad_estimateProbOmegaAccumulatorBytes(ctx, voiBatches)
+bytesPerDouble = 8;
+numActiveVois = matRad_countNonemptyBatchCells(voiBatches);
+omegaOutputBytes = double(numActiveVois) * double(ctx.numBixels)^2 * bytesPerDouble;
+omegaWorkBytes = 2 * double(ctx.numBixels)^2 * bytesPerDouble;
+bytes = omegaOutputBytes + omegaWorkBytes;
+end
+
+function count = matRad_countNonemptyBatchCells(batchCells)
+count = 0;
+for i = 1:numel(batchCells)
+    if ~isempty(batchCells{i})
+        count = count + 1;
+    end
+end
 end

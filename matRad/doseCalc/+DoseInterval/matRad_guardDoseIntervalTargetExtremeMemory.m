@@ -1,4 +1,4 @@
-function useParallel = matRad_guardDoseIntervalTargetExtremeMemory(ctx, targetBatches, cfg, useParallel, matRadCfg)
+function useParallel = matRad_guardDoseIntervalTargetExtremeMemory(ctx, targetBatches, cfg, useParallel, matRadCfg, parallelPlan)
 % matRad_guardDoseIntervalTargetExtremeMemory checks target extreme memory
 %
 % %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -14,9 +14,13 @@ function useParallel = matRad_guardDoseIntervalTargetExtremeMemory(ctx, targetBa
 %
 % %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+if nargin < 6
+    parallelPlan = [];
+end
+
 memoryLimitMB = cfg.MemoryLimitMB;
 estimatedMB = matRad_estimateIntervalTargetExtremeMemoryMB(ctx, targetBatches, ...
-                                                           useParallel);
+                                                           useParallel, parallelPlan);
 
 matRadCfg.dispInfo(['matRad: Estimated INTERVAL target extreme radius memory ', ...
                     'is %.2f MB (limit %.2f MB).\n'], ...
@@ -28,7 +32,7 @@ end
 
 if useParallel
     serialEstimatedMB = matRad_estimateIntervalTargetExtremeMemoryMB(ctx, ...
-                                                                     targetBatches, false);
+                                                                     targetBatches, false, parallelPlan);
     matRadCfg.dispInfo(['matRad: Estimated serial INTERVAL target extreme ', ...
                         'radius memory is %.2f MB (limit %.2f MB).\n'], ...
                        serialEstimatedMB, memoryLimitMB);
@@ -56,7 +60,7 @@ matRadCfg.dispError(['INTERVAL target extreme radius estimated memory is %.2f MB
                     estimatedMB, memoryLimitMB);
 end
 
-function estimatedMB = matRad_estimateIntervalTargetExtremeMemoryMB(ctx, targetBatches, useParallel)
+function estimatedMB = matRad_estimateIntervalTargetExtremeMemoryMB(ctx, targetBatches, useParallel, parallelPlan)
 bytesPerDouble = 8;
 numScenarios = numel(ctx.scenarioDijIx);
 numTargetRows = numel(ctx.targetRows);
@@ -78,8 +82,13 @@ batchWorkBytes = 2 * maxBatchRows * numBixels * bytesPerDouble * ...
 
 parallelBytes = 0;
 if useParallel
+    retainedScenarioCount = numScenarios;
+    if isstruct(parallelPlan) && isfield(parallelPlan, 'chunkSize') && ...
+            ~isempty(parallelPlan.chunkSize)
+        retainedScenarioCount = min(numScenarios, double(parallelPlan.chunkSize));
+    end
     centerRowsBytes = targetDeltaBytes;
-    parallelResultBytes = numScenarios * targetDeltaBytes;
+    parallelResultBytes = retainedScenarioCount * targetDeltaBytes;
     parallelBytes = centerRowsBytes + parallelResultBytes;
 end
 

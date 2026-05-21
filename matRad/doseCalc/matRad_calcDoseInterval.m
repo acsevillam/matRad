@@ -190,8 +190,13 @@ matRadCfg.dispInfo(['matRad: Scenario-batch first pass over %d scenario(s), ', .
                    numel(ctx.targetRows), numel(ctx.oarRows));
 
 stageName = 'scenario-batch interval first pass';
-[useParallel, parallelProvider] = ScenarioBatch.Parallel.matRad_configureScenarioDoseParallel( ...
-                                                                                              provider, ctx, cfg, matRadCfg, stageName, []);
+resultBytesPerScenario = matRad_estimateIntervalFirstPassResultBytes(ctx, cfg);
+accumulatorBytes = resultBytesPerScenario;
+[useParallel, parallelProvider, parallelPlan] = ScenarioBatch.Parallel.matRad_configureScenarioDoseParallel( ...
+                                                                                                           provider, ctx, cfg, matRadCfg, ...
+                                                                                                           stageName, [], ...
+                                                                                                           resultBytesPerScenario, ...
+                                                                                                           accumulatorBytes);
 if useParallel
     logLevel = matRadCfg.logLevel;
     targetProgressWorkItems = numScenarios * numel(targetBatches);
@@ -206,24 +211,31 @@ if useParallel
                                                                                             oarProgressWorkItems, true);
     oarProgressCleanup = onCleanup(oarProgressReporter.cleanup);
     oarProgressQueue = oarProgressReporter.queue;
-    scenarioResults = cell(numScenarios, 1);
-    parfor s = 1:numScenarios
-        workerCfg = MatRad_Config.instance();
-        workerCfg.logLevel = logLevel;
-        scenarioResults{s} = matRad_computeIntervalScenarioBatchFirstPassScenario( ...
-                                                                                  parallelProvider, ctx, quantity, cfg, targetBatches, ...
-                                                                                  oarBatches, cacheTargetRows, cacheOARRows, s, ...
-                                                                                  workerCfg, targetProgressQueue, oarProgressQueue, ...
-                                                                                  numScenarios);
-    end
+    scenarioChunks = ScenarioBatch.Parallel.matRad_buildScenarioChunks( ...
+                                                                       numScenarios, parallelPlan.chunkSize);
+    for chunkIx = 1:numel(scenarioChunks)
+        chunkScenarios = scenarioChunks{chunkIx};
+        chunkResults = cell(numel(chunkScenarios), 1);
+        parfor chunkLocalIx = 1:numel(chunkScenarios)
+            scenarioIx = chunkScenarios(chunkLocalIx);
+            workerCfg = MatRad_Config.instance();
+            workerCfg.logLevel = logLevel;
+            chunkResults{chunkLocalIx} = matRad_computeIntervalScenarioBatchFirstPassScenario( ...
+                                                                                              parallelProvider, ctx, quantity, cfg, targetBatches, ...
+                                                                                              oarBatches, cacheTargetRows, cacheOARRows, scenarioIx, ...
+                                                                                              workerCfg, targetProgressQueue, oarProgressQueue, ...
+                                                                                              numScenarios);
+        end
 
-    for s = 1:numScenarios
-        result = scenarioResults{s};
-        targetCenter = targetCenter + result.targetCenter;
-        oarCenter = oarCenter + result.oarCenter;
-        targetSecondMoment = targetSecondMoment + result.targetSecondMoment;
+        for chunkLocalIx = 1:numel(chunkResults)
+            result = chunkResults{chunkLocalIx};
+            targetCenter = targetCenter + result.targetCenter;
+            oarCenter = oarCenter + result.oarCenter;
+            targetSecondMoment = targetSecondMoment + result.targetSecondMoment;
+        end
+        provider = ScenarioBatch.Resources.matRad_mergeScenarioDoseResourceUsage(provider, chunkResults);
+        chunkResults = [];
     end
-    provider = ScenarioBatch.Resources.matRad_mergeScenarioDoseResourceUsage(provider, scenarioResults);
     if cfg.CollectTiming
         dijInterval.timing.parallelScenario.firstPass = true;
     end
@@ -380,14 +392,18 @@ targetDeltaRows = sparse(numel(ctx.targetRows), ctx.numBixels);
 numScenarios = numel(ctx.scenarioDijIx);
 
 matRadCfg.dispInfo('matRad: Scenario-batch second pass for extreme target radius.\n');
-[useParallel, parallelProvider] = ScenarioBatch.Parallel.matRad_configureScenarioDoseParallel( ...
-                                                                                              provider, ctx, cfg, matRadCfg, ...
-                                                                                              'scenario-batch interval target extreme radius', []);
+stageName = 'scenario-batch interval target extreme radius';
+resultBytesPerScenario = matRad_estimateIntervalTargetDeltaRowsBytes(ctx);
+accumulatorBytes = 2 * resultBytesPerScenario;
+[useParallel, parallelProvider, parallelPlan] = ScenarioBatch.Parallel.matRad_configureScenarioDoseParallel( ...
+                                                                                                           provider, ctx, cfg, matRadCfg, ...
+                                                                                                           stageName, [], ...
+                                                                                                           resultBytesPerScenario, ...
+                                                                                                           accumulatorBytes);
 useParallel = DoseInterval.matRad_guardDoseIntervalTargetExtremeMemory(ctx, targetBatches, cfg, ...
-                                                                       useParallel, matRadCfg);
+                                                                       useParallel, matRadCfg, parallelPlan);
 if useParallel
     logLevel = matRadCfg.logLevel;
-    scenarioResults = cell(numScenarios, 1);
     centerRowsAll = dijInterval.center(ctx.targetRows, :);
     progressWorkItems = numScenarios * numel(targetBatches);
     progressReporter = ScenarioBatch.Telemetry.matRad_createScenarioDoseProgressReporter( ...
@@ -395,20 +411,28 @@ if useParallel
                                                                                          progressWorkItems, true);
     progressCleanup = onCleanup(progressReporter.cleanup);
     progressQueue = progressReporter.queue;
-    parfor s = 1:numScenarios
-        workerCfg = MatRad_Config.instance();
-        workerCfg.logLevel = logLevel;
-        scenarioResults{s} = matRad_computeIntervalScenarioBatchTargetExtremeScenario( ...
-                                                                                      parallelProvider, ctx, quantity, cfg, targetBatches, ...
-                                                                                      centerRowsAll, ...
-                                                                                      s, workerCfg, progressQueue, numScenarios);
-    end
+    scenarioChunks = ScenarioBatch.Parallel.matRad_buildScenarioChunks( ...
+                                                                       numScenarios, parallelPlan.chunkSize);
+    for chunkIx = 1:numel(scenarioChunks)
+        chunkScenarios = scenarioChunks{chunkIx};
+        chunkResults = cell(numel(chunkScenarios), 1);
+        parfor chunkLocalIx = 1:numel(chunkScenarios)
+            scenarioIx = chunkScenarios(chunkLocalIx);
+            workerCfg = MatRad_Config.instance();
+            workerCfg.logLevel = logLevel;
+            chunkResults{chunkLocalIx} = matRad_computeIntervalScenarioBatchTargetExtremeScenario( ...
+                                                                                                  parallelProvider, ctx, quantity, cfg, targetBatches, ...
+                                                                                                  centerRowsAll, ...
+                                                                                                  scenarioIx, workerCfg, progressQueue, numScenarios);
+        end
 
-    for s = 1:numScenarios
-        result = scenarioResults{s};
-        targetDeltaRows = max(targetDeltaRows, result.targetDeltaRows);
+        for chunkLocalIx = 1:numel(chunkResults)
+            result = chunkResults{chunkLocalIx};
+            targetDeltaRows = max(targetDeltaRows, result.targetDeltaRows);
+        end
+        provider = ScenarioBatch.Resources.matRad_mergeScenarioDoseResourceUsage(provider, chunkResults);
+        chunkResults = [];
     end
-    provider = ScenarioBatch.Resources.matRad_mergeScenarioDoseResourceUsage(provider, scenarioResults);
     if cfg.CollectTiming
         dijInterval.timing.parallelScenario.targetExtreme = true;
     end
@@ -560,4 +584,23 @@ for b = 1:numel(oarBatches)
 
     oarRadiusOffset = oarRadiusOffset + numel(batch.rows);
 end
+end
+
+function bytes = matRad_estimateIntervalFirstPassResultBytes(ctx, cfg)
+sparseFillFactor = 0.05;
+targetCenterBytes = ScenarioBatch.Resources.matRad_estimateSparseMatrixBytes( ...
+                                                                             numel(ctx.targetRows), ctx.numBixels, sparseFillFactor);
+oarCenterBytes = ScenarioBatch.Resources.matRad_estimateSparseMatrixBytes( ...
+                                                                          numel(ctx.oarRows), ctx.numBixels, sparseFillFactor);
+targetSecondMomentBytes = 0;
+if strcmp(cfg.RadiusMode, 'std')
+    targetSecondMomentBytes = double(ctx.numBixels)^2 * 8;
+end
+bytes = targetCenterBytes + oarCenterBytes + targetSecondMomentBytes;
+end
+
+function bytes = matRad_estimateIntervalTargetDeltaRowsBytes(ctx)
+sparseFillFactor = 0.05;
+bytes = ScenarioBatch.Resources.matRad_estimateSparseMatrixBytes( ...
+                                                                 numel(ctx.targetRows), ctx.numBixels, sparseFillFactor);
 end
