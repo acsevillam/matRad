@@ -23,8 +23,12 @@ function [caSampRes, mSampDose, pln, resultGUInomScen] = matRad_sampling(ct, stf
 %   minWorkerMemoryBytes: (optional) lower bound for per-worker memory
 %   workerUpperBound: (optional) explicit upper bound for workers
 %   calibrateWorkerMemory: (optional) calculate the first sampled scenario
-%               serially to raise the worker memory estimate when observed
-%               process memory grows beyond the static estimate
+%               serially to calibrate the worker memory estimate when
+%               observed process memory is available
+%   allowCalibrationToReduceWorkerMemory: (optional) allow a reliable
+%               calibration to lower the static worker estimate
+%   calibratedMinForwardDoseWorkerMemoryBytes: (optional) lower bound for a
+%               calibrated transient forward dose worker memory estimate
 %   minForwardDoseWorkerMemoryBytes: (optional) lower bound for transient
 %               forward dose worker memory during sampling
 %
@@ -68,6 +72,10 @@ parser.addParameter('minWorkerMemoryBytes', 4 * 1024^3, @(x) isnumeric(x) && iss
 parser.addParameter('workerUpperBound', [], @(x) isempty(x) || ...
                     (isnumeric(x) && isscalar(x) && isfinite(x) && round(x) == x && x >= 1));
 parser.addParameter('calibrateWorkerMemory', true, @(x) (islogical(x) || isnumeric(x)) && isscalar(x));
+parser.addParameter('allowCalibrationToReduceWorkerMemory', true, ...
+                    @(x) (islogical(x) || isnumeric(x)) && isscalar(x));
+parser.addParameter('calibratedMinForwardDoseWorkerMemoryBytes', 4 * 1024^3, ...
+                    @(x) isnumeric(x) && isscalar(x) && isfinite(x) && x >= 0);
 parser.addParameter('minForwardDoseWorkerMemoryBytes', 16 * 1024^3, ...
                     @(x) isnumeric(x) && isscalar(x) && isfinite(x) && x >= 0);
 parser.parse(varargin{:});
@@ -401,30 +409,42 @@ calibration.elapsedSeconds = elapsedSeconds;
 calibration.beforeProcessMemoryBytes = beforeBytes;
 calibration.afterProcessMemoryBytes = afterBytes;
 calibration.reusedScenario = true;
+calibration.staticWorkerBytes = samplingMemoryEstimate.rawWorkerBytes;
+calibration.allowReduction = samplingResourceConfig.allowCalibrationToReduceWorkerMemory;
+calibration.calibratedMinWorkerBytes = ...
+    samplingResourceConfig.calibratedMinForwardDoseWorkerMemoryBytes;
 
-if ~isempty(beforeBytes) && ~isempty(afterBytes) && isfinite(beforeBytes) && ...
-        isfinite(afterBytes)
-    measuredBytes = max(0, afterBytes - beforeBytes) + ...
+measurementReliable = ~isempty(beforeBytes) && ~isempty(afterBytes) && ...
+    isfinite(beforeBytes) && isfinite(afterBytes) && afterBytes >= beforeBytes;
+calibration.measurementReliable = measurementReliable;
+
+if measurementReliable
+    measuredBytes = max(afterBytes - beforeBytes, 0) + ...
         samplingMemoryEstimate.resultBytesPerTask;
     calibration.measuredWorkerBytes = measuredBytes;
-    if measuredBytes > samplingMemoryEstimate.rawWorkerBytes
-        samplingMemoryEstimate.rawWorkerBytes = measuredBytes;
+    calibratedWorkerBytes = max(measuredBytes, ...
+        samplingResourceConfig.calibratedMinForwardDoseWorkerMemoryBytes);
+    calibration.calibratedWorkerBytes = calibratedWorkerBytes;
+    calibration.action = 'kept';
+
+    if calibratedWorkerBytes > samplingMemoryEstimate.rawWorkerBytes
+        samplingMemoryEstimate.rawWorkerBytes = calibratedWorkerBytes;
         samplingMemoryEstimate.estimateBasis = 'samplingForwardDoseCalibrated';
         calibration.usedForPlanning = true;
+        calibration.action = 'raised';
+    elseif samplingResourceConfig.allowCalibrationToReduceWorkerMemory && ...
+            calibratedWorkerBytes < samplingMemoryEstimate.rawWorkerBytes
+        samplingMemoryEstimate.rawWorkerBytes = calibratedWorkerBytes;
+        samplingMemoryEstimate.estimateBasis = 'samplingForwardDoseCalibrated';
+        calibration.usedForPlanning = true;
+        calibration.action = 'lowered';
     end
+else
+    calibration.action = 'unreliable';
 end
 samplingMemoryEstimate.calibration = calibration;
 
-if calibration.usedForPlanning
-    matRadCfg.dispInfo(['matRad: Sampling worker memory calibration raised ', ...
-                        'the worker estimate to %s from scenario %s.\n'], ...
-                       matRad_formatSamplingBytes(samplingMemoryEstimate.rawWorkerBytes), ...
-                       matRad_formatScenarioId(calibration.scenarioId));
-else
-    matRadCfg.dispInfo(['matRad: Sampling worker memory calibration reused ', ...
-                        'scenario %s and kept the static worker estimate.\n'], ...
-                       matRad_formatScenarioId(calibration.scenarioId));
-end
+matRad_logSamplingCalibration(calibration, samplingMemoryEstimate, matRadCfg);
 matRad_logSamplingProgress(1, numel(scenarioIds), matRadCfg);
 end
 
@@ -437,8 +457,45 @@ calibration.elapsedSeconds = [];
 calibration.beforeProcessMemoryBytes = [];
 calibration.afterProcessMemoryBytes = [];
 calibration.measuredWorkerBytes = [];
+calibration.staticWorkerBytes = [];
+calibration.calibratedWorkerBytes = [];
+calibration.calibratedMinWorkerBytes = [];
+calibration.measurementReliable = false;
+calibration.allowReduction = false;
 calibration.usedForPlanning = false;
 calibration.reusedScenario = false;
+calibration.action = 'disabled';
+end
+
+function matRad_logSamplingCalibration(calibration, samplingMemoryEstimate, matRadCfg)
+scenarioText = matRad_formatScenarioId(calibration.scenarioId);
+switch char(calibration.action)
+    case 'raised'
+        matRadCfg.dispInfo(['matRad: Sampling worker memory calibration raised ', ...
+                            'the worker estimate from %s to %s using scenario %s.\n'], ...
+                           matRad_formatSamplingBytes(calibration.staticWorkerBytes), ...
+                           matRad_formatSamplingBytes(samplingMemoryEstimate.rawWorkerBytes), ...
+                           scenarioText);
+    case 'lowered'
+        matRadCfg.dispInfo(['matRad: Sampling worker memory calibration lowered ', ...
+                            'the worker estimate from %s to %s using scenario %s ', ...
+                            '(measured %s, calibrated floor %s).\n'], ...
+                           matRad_formatSamplingBytes(calibration.staticWorkerBytes), ...
+                           matRad_formatSamplingBytes(samplingMemoryEstimate.rawWorkerBytes), ...
+                           scenarioText, ...
+                           matRad_formatSamplingBytes(calibration.measuredWorkerBytes), ...
+                           matRad_formatSamplingBytes(calibration.calibratedMinWorkerBytes));
+    case 'unreliable'
+        matRadCfg.dispInfo(['matRad: Sampling worker memory calibration reused ', ...
+                            'scenario %s but kept the static worker estimate because ', ...
+                            'process memory measurement was unavailable or non-monotonic.\n'], ...
+                           scenarioText);
+    otherwise
+        matRadCfg.dispInfo(['matRad: Sampling worker memory calibration reused ', ...
+                            'scenario %s and kept the static worker estimate %s.\n'], ...
+                           scenarioText, ...
+                           matRad_formatSamplingBytes(samplingMemoryEstimate.rawWorkerBytes));
+end
 end
 
 function scenarioIndices = matRad_remainingSamplingScenarioIndices(sampleResults)
@@ -570,6 +627,10 @@ samplingResourceConfig.memoryReserveFraction = parserResults.memoryReserveFracti
 samplingResourceConfig.minWorkerMemoryBytes = parserResults.minWorkerMemoryBytes;
 samplingResourceConfig.workerUpperBound = parserResults.workerUpperBound;
 samplingResourceConfig.calibrateWorkerMemory = logical(parserResults.calibrateWorkerMemory);
+samplingResourceConfig.allowCalibrationToReduceWorkerMemory = ...
+    logical(parserResults.allowCalibrationToReduceWorkerMemory);
+samplingResourceConfig.calibratedMinForwardDoseWorkerMemoryBytes = ...
+    parserResults.calibratedMinForwardDoseWorkerMemoryBytes;
 samplingResourceConfig.minForwardDoseWorkerMemoryBytes = ...
     parserResults.minForwardDoseWorkerMemoryBytes;
 end
