@@ -42,58 +42,22 @@ accumulatorBytes = matRad_validateNonnegativeFiniteScalar(accumulatorBytes, ...
 
 [safetyFactor, minWorkerMemoryBytes, configuredWorkerUpperBound] = ...
     matRad_parsePlannerParallelOptions(cfg, matRadCfg);
-effectiveWorkerBytes = max(workerBytes, minWorkerMemoryBytes) * safetyFactor;
 memoryBudgetBytes = double(cfg.MemoryLimitMB) * 1e6;
-taskBytes = effectiveWorkerBytes + resultBytesPerScenario;
-availableForTasksBytes = memoryBudgetBytes - accumulatorBytes;
 
-if taskBytes <= 0
-    maxConcurrentByMemory = numScenarios;
-elseif availableForTasksBytes <= 0
-    maxConcurrentByMemory = 0;
-else
-    maxConcurrentByMemory = floor(availableForTasksBytes / taskBytes);
-end
-maxConcurrentByMemory = max(0, min(numScenarios, maxConcurrentByMemory));
-
-[allocatedCpuCount, allocatedCpuSource] = matRad_getAllocatedCpuCount();
-workerUpperBound = maxConcurrentByMemory;
-if ~isempty(configuredWorkerUpperBound)
-    workerUpperBound = min(workerUpperBound, configuredWorkerUpperBound);
-end
-if ~isempty(allocatedCpuCount)
-    workerUpperBound = min(workerUpperBound, allocatedCpuCount);
-end
-workerUpperBound = min(workerUpperBound, numScenarios);
-
-parallelPlan = struct();
-parallelPlan.stageName = stageName;
-parallelPlan.numScenarios = numScenarios;
-parallelPlan.useParallel = workerUpperBound >= 2;
-parallelPlan.chunkSize = max(1, min(numScenarios, workerUpperBound));
-parallelPlan.workerUpperBound = max(1, workerUpperBound);
-parallelPlan.fallbackReason = '';
-parallelPlan.memoryBudgetBytes = memoryBudgetBytes;
-parallelPlan.availableForTasksBytes = availableForTasksBytes;
-parallelPlan.rawWorkerBytes = workerBytes;
-parallelPlan.workerBytes = effectiveWorkerBytes;
+parallelPlan = matRad_planMemoryLimitedParallelTasks( ...
+    numScenarios, workerBytes, ...
+    'stageName', stageName, ...
+    'resultBytesPerTask', resultBytesPerScenario, ...
+    'accumulatorBytes', accumulatorBytes, ...
+    'memoryBudgetBytes', memoryBudgetBytes, ...
+    'safetyFactor', safetyFactor, ...
+    'minWorkerMemoryBytes', minWorkerMemoryBytes, ...
+    'workerUpperBound', configuredWorkerUpperBound, ...
+    'matRadCfg', matRadCfg);
+parallelPlan.numScenarios = parallelPlan.numTasks;
 parallelPlan.resultBytesPerScenario = resultBytesPerScenario;
-parallelPlan.accumulatorBytes = accumulatorBytes;
-parallelPlan.maxConcurrentByMemory = maxConcurrentByMemory;
-parallelPlan.configuredWorkerUpperBound = configuredWorkerUpperBound;
-parallelPlan.allocatedCpuCount = allocatedCpuCount;
-parallelPlan.allocatedCpuSource = allocatedCpuSource;
 
 if ~parallelPlan.useParallel
-    if maxConcurrentByMemory < 2
-        parallelPlan.fallbackReason = 'memoryBudget';
-    elseif ~isempty(configuredWorkerUpperBound) && configuredWorkerUpperBound < 2
-        parallelPlan.fallbackReason = 'workerUpperBound';
-    elseif ~isempty(allocatedCpuCount) && allocatedCpuCount < 2
-        parallelPlan.fallbackReason = allocatedCpuSource;
-    else
-        parallelPlan.fallbackReason = 'workerLimit';
-    end
     return
 end
 
@@ -103,7 +67,7 @@ matRadCfg.dispInfo(['matRad: %s scenario parallel plan uses chunks of ', ...
                    parallelPlan.workerUpperBound, memoryBudgetBytes / 1e6);
 matRadCfg.dispInfo(['matRad: %s scenario parallel memory model: worker %.2f MB, ', ...
                     'result %.2f MB/scenario, accumulator %.2f MB.\n'], ...
-                   stageName, effectiveWorkerBytes / 1e6, ...
+                   stageName, parallelPlan.workerBytes / 1e6, ...
                    resultBytesPerScenario / 1e6, accumulatorBytes / 1e6);
 end
 
