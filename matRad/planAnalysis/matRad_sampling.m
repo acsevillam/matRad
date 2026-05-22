@@ -29,6 +29,10 @@ function [caSampRes, mSampDose, pln, resultGUInomScen] = matRad_sampling(ct, stf
 %               calibration to lower the static worker estimate
 %   calibratedMinForwardDoseWorkerMemoryBytes: (optional) lower bound for a
 %               calibrated transient forward dose worker memory estimate
+%   calibrationMinReliableMeasuredBytes: (optional) minimum reliable
+%               measured memory delta for lowering the worker estimate
+%   calibrationMinReliableReductionRatio: (optional) minimum ratio between
+%               calibrated and static estimates for lowering the estimate
 %   minForwardDoseWorkerMemoryBytes: (optional) lower bound for transient
 %               forward dose worker memory during sampling
 %
@@ -76,6 +80,10 @@ parser.addParameter('allowCalibrationToReduceWorkerMemory', true, ...
                     @(x) (islogical(x) || isnumeric(x)) && isscalar(x));
 parser.addParameter('calibratedMinForwardDoseWorkerMemoryBytes', 4 * 1024^3, ...
                     @(x) isnumeric(x) && isscalar(x) && isfinite(x) && x >= 0);
+parser.addParameter('calibrationMinReliableMeasuredBytes', 1 * 1024^3, ...
+                    @(x) isnumeric(x) && isscalar(x) && isfinite(x) && x >= 0);
+parser.addParameter('calibrationMinReliableReductionRatio', 0.50, ...
+                    @(x) isnumeric(x) && isscalar(x) && isfinite(x) && x >= 0 && x <= 1);
 parser.addParameter('minForwardDoseWorkerMemoryBytes', 16 * 1024^3, ...
                     @(x) isnumeric(x) && isscalar(x) && isfinite(x) && x >= 0);
 parser.parse(varargin{:});
@@ -322,7 +330,6 @@ matRadCfg.dispInfo(['matRad: Sampling parallel plan uses chunks of %d ', ...
                     'scenario(s) with %d worker(s).\n'], ...
                    parallelPlan.chunkSize, poolSize);
 
-progressEnabled = matRad_startSamplingProgress(numScenarios, logLevel, matRadCfg);
 [progressQueue, progressListener] = ...
     matRad_createSamplingProgressQueue(numScenarios, logLevel, matRadCfg); %#ok<ASGLU>
 
@@ -342,9 +349,6 @@ for chunkIx = 1:numel(chunks)
         [chunkDoseColumns(:, localIx), chunkResults{localIx}] = ...
             matRad_calculateSamplingScenario(samplingContext, chunkScenarioIds(localIx));
 
-        if progressEnabled && logLevel > 2
-            parfor_progress;
-        end
         if ~isempty(progressQueue)
             send(progressQueue, 1);
         end
@@ -354,9 +358,6 @@ for chunkIx = 1:numel(chunks)
     clear chunkDoseColumns chunkResults;
 end
 
-if progressEnabled && logLevel > 2
-    parfor_progress(0);
-end
 caSampRes = sampleResults;
 
 end
@@ -422,26 +423,12 @@ if measurementReliable
     measuredBytes = max(afterBytes - beforeBytes, 0) + ...
         samplingMemoryEstimate.resultBytesPerTask;
     calibration.measuredWorkerBytes = measuredBytes;
-    calibratedWorkerBytes = max(measuredBytes, ...
-        samplingResourceConfig.calibratedMinForwardDoseWorkerMemoryBytes);
-    calibration.calibratedWorkerBytes = calibratedWorkerBytes;
-    calibration.action = 'kept';
-
-    if calibratedWorkerBytes > samplingMemoryEstimate.rawWorkerBytes
-        samplingMemoryEstimate.rawWorkerBytes = calibratedWorkerBytes;
-        samplingMemoryEstimate.estimateBasis = 'samplingForwardDoseCalibrated';
-        calibration.usedForPlanning = true;
-        calibration.action = 'raised';
-    elseif samplingResourceConfig.allowCalibrationToReduceWorkerMemory && ...
-            calibratedWorkerBytes < samplingMemoryEstimate.rawWorkerBytes
-        samplingMemoryEstimate.rawWorkerBytes = calibratedWorkerBytes;
-        samplingMemoryEstimate.estimateBasis = 'samplingForwardDoseCalibrated';
-        calibration.usedForPlanning = true;
-        calibration.action = 'lowered';
-    end
 else
     calibration.action = 'unreliable';
 end
+[samplingMemoryEstimate, calibration] = ...
+    matRad_applySamplingMemoryCalibration(samplingMemoryEstimate, calibration, ...
+                                          samplingResourceConfig);
 samplingMemoryEstimate.calibration = calibration;
 
 matRad_logSamplingCalibration(calibration, samplingMemoryEstimate, matRadCfg);
@@ -460,11 +447,14 @@ calibration.measuredWorkerBytes = [];
 calibration.staticWorkerBytes = [];
 calibration.calibratedWorkerBytes = [];
 calibration.calibratedMinWorkerBytes = [];
+calibration.minReliableMeasuredBytes = [];
+calibration.minReliableReductionRatio = [];
 calibration.measurementReliable = false;
 calibration.allowReduction = false;
 calibration.usedForPlanning = false;
 calibration.reusedScenario = false;
 calibration.action = 'disabled';
+calibration.undermeasurementReason = '';
 end
 
 function matRad_logSamplingCalibration(calibration, samplingMemoryEstimate, matRadCfg)
@@ -490,6 +480,18 @@ switch char(calibration.action)
                             'scenario %s but kept the static worker estimate because ', ...
                             'process memory measurement was unavailable or non-monotonic.\n'], ...
                            scenarioText);
+    case 'undermeasured'
+        matRadCfg.dispInfo(['matRad: Sampling worker memory calibration kept ', ...
+                            'the static worker estimate %s for scenario %s because ', ...
+                            'the measured delta %s was not reliable enough to lower ', ...
+                            'the estimate to %s (minimum reliable delta %s, ', ...
+                            'minimum reduction ratio %.2f).\n'], ...
+                           matRad_formatSamplingBytes(calibration.staticWorkerBytes), ...
+                           scenarioText, ...
+                           matRad_formatSamplingBytes(calibration.measuredWorkerBytes), ...
+                           matRad_formatSamplingBytes(calibration.calibratedWorkerBytes), ...
+                           matRad_formatSamplingBytes(calibration.minReliableMeasuredBytes), ...
+                           calibration.minReliableReductionRatio);
     otherwise
         matRadCfg.dispInfo(['matRad: Sampling worker memory calibration reused ', ...
                             'scenario %s and kept the static worker estimate %s.\n'], ...
@@ -564,18 +566,6 @@ end
 matRadCfg.dispInfo(msg);
 end
 
-function progressEnabled = matRad_startSamplingProgress(numScenarios, logLevel, matRadCfg)
-if exist('parfor_progress', 'file') == 2 && logLevel > 2
-    progressEnabled = true;
-    parfor_progress(numScenarios);
-else
-    msg = ['matRad: Consider downloading parfor_progress function from the matlab central fileexchange ', ...
-           'to get feedback from parfor loop.\n'];
-    matRadCfg.dispInfo(msg);
-    progressEnabled = false;
-end
-end
-
 function [progressQueue, progressListener] = matRad_createSamplingProgressQueue(numScenarios, logLevel, matRadCfg)
 progressQueue = [];
 progressListener = [];
@@ -631,6 +621,10 @@ samplingResourceConfig.allowCalibrationToReduceWorkerMemory = ...
     logical(parserResults.allowCalibrationToReduceWorkerMemory);
 samplingResourceConfig.calibratedMinForwardDoseWorkerMemoryBytes = ...
     parserResults.calibratedMinForwardDoseWorkerMemoryBytes;
+samplingResourceConfig.calibrationMinReliableMeasuredBytes = ...
+    parserResults.calibrationMinReliableMeasuredBytes;
+samplingResourceConfig.calibrationMinReliableReductionRatio = ...
+    parserResults.calibrationMinReliableReductionRatio;
 samplingResourceConfig.minForwardDoseWorkerMemoryBytes = ...
     parserResults.minForwardDoseWorkerMemoryBytes;
 end
